@@ -46,6 +46,15 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
             return;
         }
 
+        // Nohi chats before (and after) doing business — advance any dialogue first
+        if (GameEx.IsAddonVisible("Talk"))
+        {
+            Status = "skipping dialogue";
+            if (Throttle.Try("moirai.buy.talk", 400))
+                GameEx.ClickTalk();
+            return;
+        }
+
         // already learned (e.g. bought manually mid-run)
         if (GameEx.IsCompanionUnlocked(_minionId) && _step != Step.Learn && GameEx.ItemCount(_itemId) == 0)
         {

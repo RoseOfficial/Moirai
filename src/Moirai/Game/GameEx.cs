@@ -112,6 +112,29 @@ public static unsafe class GameEx
         return true;
     }
 
+    // Advance a Talk dialogue box by synthesizing the click the game expects.
+    public static bool ClickTalk()
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName("Talk").Address;
+        if (addon == null || !addon->IsVisible) return false;
+
+        var evt = stackalloc AtkEvent[1];
+        evt[0] = new AtkEvent
+        {
+            Listener = (AtkEventListener*)addon,
+            Target = &AtkStage.Instance()->AtkEventTarget,
+            State = new() { StateFlags = (AtkEventStateFlags)132 },
+        };
+        var data = stackalloc AtkEventData[1];
+        for (var i = 0; i < sizeof(AtkEventData); i++)
+            ((byte*)data)[i] = 0;
+
+        addon->ReceiveEvent(AtkEventType.MouseDown, 0, evt, data);
+        addon->ReceiveEvent(AtkEventType.MouseClick, 0, evt, data);
+        addon->ReceiveEvent(AtkEventType.MouseUp, 0, evt, data);
+        return true;
+    }
+
     public static bool IsCompanionUnlocked(uint companionId)
     {
         try
