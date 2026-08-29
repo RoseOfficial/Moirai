@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Moirai.Core/Moirai.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Moirai.Tests/Moirai.Tests.csproj" />
+  </Folder>
+</Solution>
