@@ -196,13 +196,6 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         return fm != null && fm->SyncedFateId != 0;
     }
 
-    private static uint? CurrentMinionId(IGameObject lp)
-    {
-        foreach (var obj in Svc.Objects)
-        {
-            if (obj is { ObjectKind: ObjectKind.Companion } && obj.OwnerId == lp.GameObjectId)
-                return obj.BaseId;
-        }
-        return null;
-    }
+    private static uint? CurrentMinionId(Dalamud.Game.ClientState.Objects.Types.ICharacter lp)
+        => lp.CurrentMinion is { RowId: > 0 } minion ? minion.RowId : null;
 }
