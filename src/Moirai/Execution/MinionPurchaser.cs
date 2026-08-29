@@ -44,6 +44,7 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
         if (_minionId == minionId) return;
         _minionId = minionId;
         _itemId = minionItemId;
+        _menuMisses = 0;
         Enter(Step.GoToZone);
     }
 
@@ -151,6 +152,8 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
     private static string? VisibleShop()
         => ShopAddons.FirstOrDefault(GameEx.IsAddonVisible);
 
+    private int _menuMisses;
+
     // Nohi fronts the shop with a "purchase minions" style menu; pick by text, never by index.
     private bool TrySelectMenuEntry()
     {
@@ -160,12 +163,16 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
             Status = "choosing the exchange";
             if (!Throttle.Try("moirai.buy.menu", 800)) return true;
             var index = GameEx.FindMenuEntry(menu, "minion", out var entries);
-            if (index < 0)
+            if (index >= 0)
             {
-                Fail($"no minion option in the menu ({entries})");
+                _menuMisses = 0;
+                GameEx.FireAddonCallback(menu, index);
                 return true;
             }
-            GameEx.FireAddonCallback(menu, index);
+            if (entries.Length == 0)
+                return true; // the menu opens a frame before its entries populate — wait, don't fail
+            if (++_menuMisses >= 5)
+                Fail($"no minion option in the menu ({entries})");
             return true;
         }
         return false;
