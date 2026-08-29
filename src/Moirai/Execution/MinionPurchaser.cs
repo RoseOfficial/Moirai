@@ -26,6 +26,7 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
 
     public bool HasFailed => _step == Step.Failed;
     public string Status { get; private set; } = "";
+    public string DebugState => $"step={_step} minion={_minionId} item={_itemId}";
 
     public bool IsActive => _step is not (Step.Idle or Step.Failed);
 

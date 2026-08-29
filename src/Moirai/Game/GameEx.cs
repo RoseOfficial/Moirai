@@ -112,6 +112,21 @@ public static unsafe class GameEx
         return true;
     }
 
+    // Names of every currently visible addon — ground truth for UI debugging.
+    public static List<string> VisibleAddonNames()
+    {
+        var names = new List<string>();
+        var manager = &AtkStage.Instance()->RaptureAtkUnitManager->AtkUnitManager;
+        var list = &manager->AllLoadedUnitsList;
+        for (var i = 0; i < list->Count; i++)
+        {
+            var addon = list->Entries[i].Value;
+            if (addon != null && addon->IsVisible)
+                names.Add(addon->NameString);
+        }
+        return names;
+    }
+
     // Find the index of a menu entry containing the given text (case-insensitive)
     // in a SelectString / SelectIconString popup. Returns -1 when absent.
     public static int FindMenuEntry(string addonName, string contains, out string allEntries)

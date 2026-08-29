@@ -175,10 +175,19 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnCommand(string command, string args)
     {
-        if (args.Trim().Equals("config", StringComparison.OrdinalIgnoreCase))
-            _configWindow.IsOpen = !_configWindow.IsOpen;
-        else
-            _overlay.IsOpen = !_overlay.IsOpen;
+        switch (args.Trim().ToLowerInvariant())
+        {
+            case "config":
+                _configWindow.IsOpen = !_configWindow.IsOpen;
+                break;
+            case "debug":
+                Svc.Chat.Print($"[Moirai] {_purchaser.DebugState}; status='{LastStatus}'");
+                Svc.Chat.Print($"[Moirai] visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
+                break;
+            default:
+                _overlay.IsOpen = !_overlay.IsOpen;
+                break;
+        }
     }
 
     public void Dispose()
