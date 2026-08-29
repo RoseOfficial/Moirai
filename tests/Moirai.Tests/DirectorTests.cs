@@ -1,0 +1,129 @@
+using Moirai.Core;
+using Moirai.Core.Behaviors;
+using Moirai.Core.Intents;
+using Moirai.Core.Model;
+using Moirai.Core.Modules;
+using Moirai.Core.Planning;
+
+namespace Moirai.Tests;
+
+public sealed class QueueModule(params ModuleDirective[] directives) : IFarmModule
+{
+    private int _i;
+    public ModuleDirective Next(WorldSnapshot w)
+        => _i < directives.Length ? directives[_i++] : new FarmHere();
+}
+
+public class DirectorTests
+{
+    private static Director Sut(IFarmModule? module = null, DirectorConfig? cfg = null, TravelBehavior? travel = null)
+    {
+        var engage = () => new EngageBehavior(new EngageConfig());
+        return new Director(
+            module ?? new SingleZoneModule(),
+            new SelectionConfig(),
+            cfg ?? new DirectorConfig(),
+            travel ?? new TravelBehavior(new MovementConfig()),
+            kind => kind switch
+            {
+                FateKind.Collect => new CollectBehavior(engage()),
+                FateKind.NpcStart => new NpcStartBehavior(),
+                FateKind.Escort => new EscortBehavior(engage()),
+                _ => engage(),
+            },
+            w => new BehaviorContext(null, true, new FixedRandom(0.5, 0.5), new FlatGround()));
+    }
+
+    [Fact]
+    public void Idle_until_started()
+    {
+        var d = Sut();
+        Assert.IsType<NoAction>(d.Tick(TestData.World()).Intent);
+        d.Start();
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+    }
+
+    [Fact] // happy path: select -> travel -> arrive -> fight -> complete
+    public void Full_fate_lifecycle_completes_and_arms_reward_latch()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
+
+        d.Tick(TestData.World(fates: [fate]));                       // selects
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+
+        d.Tick(TestData.World(fates: [fate]));                       // first travel tick establishes the dropoff
+        var drop = travel.CurrentDropoff!.Value;
+
+        var arrived = TestData.World(player: TestData.Player(x: drop.X, z: drop.Z), fates: [fate]);
+        d.Tick(arrived);                                             // on foot at the dropoff: arrival
+        Assert.Equal(RunPhase.InFate, d.Phase);
+
+        var ended = TestData.World(now: 20_000, fates: [fate with { Phase = FatePhase.Ended, Progress = 100 }]);
+        d.Tick(ended);
+        Assert.Equal(1, d.Ledger.Completed);
+        Assert.True(d.RewardLatch.IsPending);
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+    }
+
+    [Fact] // D1/D2: death abandons the fate, counts once, resumes
+    public void Death_abandons_counts_once_and_resumes()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 10, z: 0);
+        d.Tick(TestData.World(fates: [fate]));
+
+        var dead = TestData.World(player: TestData.Player(dead: true), fates: [fate]);
+        Assert.IsType<AcceptReturn>(d.Tick(dead).Intent);
+        Assert.IsType<AcceptReturn>(d.Tick(dead).Intent); // still dead: no double count
+        Assert.Equal(1, d.Ledger.Deaths);
+        Assert.Equal(1, d.Ledger.Abandoned);
+
+        d.Tick(TestData.World(fates: [fate]));
+        Assert.Equal(RunPhase.Traveling, d.Phase); // reselected and moving again
+    }
+
+    [Fact] // D1: death cap stops the run
+    public void Death_cap_stops_run()
+    {
+        var d = Sut(cfg: new DirectorConfig { DeathCap = 1 });
+        d.Start();
+        var dead = TestData.World(player: TestData.Player(dead: true));
+        d.Tick(dead);
+        Assert.Equal(RunPhase.Stopped, d.Phase);
+        Assert.Equal(StopReason.DeathCapReached, d.StoppedBecause);
+    }
+
+    [Fact] // D6: zone change waits for the reward latch
+    public void D6_zone_change_held_while_reward_pending()
+    {
+        var d = Sut(module: new QueueModule(new MoveToTerritory(150)));
+        d.Start();
+        d.RewardLatch.Arm(9);
+        var w = TestData.World(fates: [TestData.Fate(id: 9, phase: FatePhase.Ended)]);
+        Assert.IsType<Hold>(d.Tick(w).Intent); // latch still pending: fate 9 is in the table
+    }
+
+    [Fact] // module stop propagates
+    public void Module_stop_stops_the_run()
+    {
+        var d = Sut(module: new QueueModule(new StopSession(StopReason.AllYokaiCapped, "done")));
+        d.Start();
+        var output = d.Tick(TestData.World());
+        Assert.IsType<StopRun>(output.Intent);
+        Assert.Equal(RunPhase.Stopped, d.Phase);
+    }
+
+    [Fact] // D3: unexpected combat pauses farming defensively
+    public void D3_unexpected_combat_goes_defensive()
+    {
+        var d = Sut();
+        d.Start();
+        var w = TestData.World(player: TestData.Player(inCombat: true));
+        var set = Assert.IsType<SetCombat>(d.Tick(w).Intent);
+        Assert.Equal(CombatMode.Defensive, set.Mode);
+    }
+}
