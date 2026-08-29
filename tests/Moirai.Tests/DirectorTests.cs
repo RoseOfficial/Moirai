@@ -107,6 +107,27 @@ public class DirectorTests
         Assert.IsType<Hold>(d.Tick(w).Intent); // latch still pending: fate 9 is in the table
     }
 
+    [Fact] // BuyMinion directive becomes an AcquireMinion intent
+    public void BuyMinion_directive_becomes_acquire_intent()
+    {
+        var d = Sut(module: new QueueModule(new BuyMinion(101, 9101, 1)));
+        d.Start();
+        var acquire = Assert.IsType<AcquireMinion>(d.Tick(TestData.World()).Intent);
+        Assert.Equal(101u, acquire.MinionId);
+        Assert.Equal(9101u, acquire.MinionItemId);
+        Assert.Equal(1, acquire.MedalCost);
+    }
+
+    [Fact] // D6: buying (a teleport away) also waits for the reward latch
+    public void BuyMinion_held_while_reward_pending()
+    {
+        var d = Sut(module: new QueueModule(new BuyMinion(101, 9101, 1)));
+        d.Start();
+        d.RewardLatch.Arm(9);
+        var w = TestData.World(fates: [TestData.Fate(id: 9, phase: FatePhase.Ended)]);
+        Assert.IsType<Hold>(d.Tick(w).Intent);
+    }
+
     [Fact] // module stop propagates
     public void Module_stop_stops_the_run()
     {

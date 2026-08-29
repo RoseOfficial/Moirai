@@ -10,6 +10,7 @@ using Moirai.Core.Modules;
 using Moirai.Core.Planning;
 using Moirai.Data;
 using Moirai.Execution;
+using Moirai.Game;
 using Moirai.Ipc;
 using Moirai.UI;
 
@@ -37,8 +38,10 @@ public sealed class Plugin : IDalamudPlugin
 
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();
-        _executor = new IntentExecutor(_navmesh, _combat, Config);
-        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh, YokaiData.TrackedItemIds, YokaiData.WatchItemId);
+        _executor = new IntentExecutor(_navmesh, _combat, Config, new MinionPurchaser(_navmesh));
+        _snapshots = new Snapshot.SnapshotBuilder(
+            Config, _navmesh, YokaiData.TrackedItemIds, YokaiData.WatchItemId,
+            YokaiData.Roster.Select(y => y.MinionId).ToList());
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -70,7 +73,9 @@ public sealed class Plugin : IDalamudPlugin
         IFarmModule module = Config.Mode == FarmMode.Yokai
             ? new YokaiModule(
                 YokaiData.Roster,
-                Config.YokaiPriority.Count > 0 ? Config.YokaiPriority : YokaiData.Roster.Select(y => y.MinionId).ToList())
+                FullPriorityOrder().Where(id => !Config.YokaiDisabled.Contains(id)).ToList(),
+                medalItemId: YokaiData.MedalItemId,
+                autoBuy: Config.AutoBuyMinions)
             : new SingleZoneModule();
 
         var engage = () => new EngageBehavior(new EngageConfig());
@@ -117,6 +122,24 @@ public sealed class Plugin : IDalamudPlugin
            && _lastSnapshot is { Player.YokaiWatchOwned: true }
            && !Game.GameEx.IsItemEquipped(YokaiData.WatchItemId);
 
+    // The stored order, normalized: unknown ids dropped, missing roster ids appended
+    public List<uint> FullPriorityOrder()
+    {
+        var rosterIds = YokaiData.Roster.Select(y => y.MinionId).ToList();
+        var order = Config.YokaiPriority.Where(rosterIds.Contains).ToList();
+        order.AddRange(rosterIds.Where(id => !order.Contains(id)));
+        return order;
+    }
+
+    private void MaybeAutoEquipWatch(WorldSnapshot w)
+    {
+        if (Config.Mode != FarmMode.Yokai || !Config.AutoEquipWatch) return;
+        if (!w.Player.YokaiWatchOwned || w.Player.InCombat || w.Player.IsMounted) return;
+        if (Game.GameEx.IsItemEquipped(YokaiData.WatchItemId)) return;
+        if (Throttle.Try("moirai.autoequip", 10000))
+            Game.GameEx.EquipWristItem(YokaiData.WatchItemId);
+    }
+
     private BehaviorContext BuildContext(WorldSnapshot w)
         => new(
             Fate: null,
@@ -136,8 +159,10 @@ public sealed class Plugin : IDalamudPlugin
             return;
         _lastSnapshot = snapshot;
 
+        MaybeAutoEquipWatch(snapshot);
+
         var output = director.Tick(snapshot);
-        LastStatus = output.Status;
+        LastStatus = _executor.PurchaseStatus ?? output.Status;
         _executor.Execute(output.Intent, snapshot);
     }
 

@@ -18,8 +18,12 @@ public sealed class Configuration : IPluginConfiguration
     public int BossJoinProgress { get; set; } = 0;
     public int SpecialBossJoinProgress { get; set; } = 20;
 
-    // Empty = roster order
+    public bool AutoEquipWatch { get; set; } = true;
+    public bool AutoBuyMinions { get; set; } = true;
+
+    // Empty = roster order; UI keeps this as the full roster in the user's order
     public List<uint> YokaiPriority { get; set; } = [];
+    public HashSet<uint> YokaiDisabled { get; set; } = [];
 
     public void Save() => Svc.PluginInterface.SavePluginConfig(this);
 }

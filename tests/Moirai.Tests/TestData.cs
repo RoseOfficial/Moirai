@@ -34,10 +34,11 @@ public static class TestData
         IReadOnlyList<EnemySnapshot>? enemies = null,
         IReadOnlyList<InteractableSnapshot>? interactables = null,
         IReadOnlyDictionary<uint, int>? items = null,
-        bool navmeshReady = true, bool lifestreamBusy = false)
+        bool navmeshReady = true, bool lifestreamBusy = false,
+        IReadOnlySet<uint>? ownedMinions = null)
         => new(now, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
-               items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy);
+               items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy, ownedMinions);
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float z = 100, float hitbox = 2f,

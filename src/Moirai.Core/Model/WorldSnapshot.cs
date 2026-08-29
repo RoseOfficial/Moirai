@@ -10,7 +10,8 @@ public sealed record WorldSnapshot(
     IReadOnlyList<InteractableSnapshot> Interactables,
     IReadOnlyDictionary<uint, int> ItemCounts,
     bool NavmeshReady,
-    bool LifestreamBusy)
+    bool LifestreamBusy,
+    IReadOnlySet<uint>? OwnedMinions = null) // null = ownership unknown (treated as owned)
 {
     public int CountOf(uint itemId) => ItemCounts.TryGetValue(itemId, out var n) ? n : 0;
 

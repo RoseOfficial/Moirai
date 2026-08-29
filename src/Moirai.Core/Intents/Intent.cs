@@ -16,6 +16,7 @@ public sealed record InteractWith(ulong ObjectId) : Intent;
 public sealed record TeleportTo(uint AetheryteId) : Intent;
 public sealed record ChangeZone(ushort TerritoryId) : Intent;
 public sealed record SummonMinion(uint MinionId) : Intent;
+public sealed record AcquireMinion(uint MinionId, uint MinionItemId, int MedalCost) : Intent;
 public sealed record EquipWatch : Intent;
 public sealed record AcceptReturn : Intent;
 public sealed record SetCombat(bool Enabled, CombatMode Mode) : Intent;

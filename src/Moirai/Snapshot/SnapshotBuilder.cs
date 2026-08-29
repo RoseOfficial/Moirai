@@ -9,7 +9,9 @@ using Moirai.Ipc;
 namespace Moirai.Snapshot;
 
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
-public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IReadOnlyList<uint> trackedItems, uint watchItemId)
+public sealed class SnapshotBuilder(
+    Configuration cfg, NavmeshIpc navmesh,
+    IReadOnlyList<uint> trackedItems, uint watchItemId, IReadOnlyList<uint> minionIds)
 {
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -62,6 +64,11 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         foreach (var id in trackedItems)
             items[id] = GameEx.ItemCount(id);
 
+        var owned = new HashSet<uint>();
+        foreach (var id in minionIds)
+            if (GameEx.IsCompanionUnlocked(id))
+                owned.Add(id);
+
         return new WorldSnapshot(
             NowEpoch: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             TerritoryId: (ushort)Svc.ClientState.TerritoryType,
@@ -72,7 +79,8 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
             Interactables: interactables,
             ItemCounts: items,
             NavmeshReady: navmesh.IsReady(),
-            LifestreamBusy: false);
+            LifestreamBusy: false,
+            OwnedMinions: owned);
     }
 
     private static FateSnapshot? Project(IFate fate)

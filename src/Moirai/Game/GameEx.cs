@@ -61,6 +61,57 @@ public static unsafe class GameEx
         return false;
     }
 
+    private const ushort WristEquipSlot = 10;
+
+    // Equip a wrist item straight from the bags (the Yo-kai Watch is wrist-only).
+    public static bool EquipWristItem(uint itemId)
+    {
+        var im = InventoryManager.Instance();
+        ReadOnlySpan<InventoryType> bags =
+            [InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4];
+        foreach (var bag in bags)
+        {
+            var container = im->GetInventoryContainer(bag);
+            if (container == null) continue;
+            for (var i = 0; i < container->Size; i++)
+            {
+                var slot = container->GetInventorySlot(i);
+                if (slot == null || slot->ItemId != itemId) continue;
+                im->MoveItemSlot(bag, (ushort)i, InventoryType.EquippedItems, WristEquipSlot, true);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void UseItem(uint itemId)
+        => ActionManager.Instance()->UseAction(ActionType.Item, itemId, extraParam: 65535);
+
+    public static bool IsAddonVisible(string name)
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName(name).Address;
+        return addon != null && addon->IsVisible;
+    }
+
+    public static bool FireAddonCallback(string name, params int[] values)
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName(name).Address;
+        if (addon == null || !addon->IsVisible) return false;
+        var atkValues = stackalloc AtkValue[values.Length];
+        for (var i = 0; i < values.Length; i++)
+            atkValues[i].SetInt(values[i]);
+        addon->FireCallback((uint)values.Length, atkValues, true);
+        return true;
+    }
+
+    public static bool CloseAddon(string name)
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName(name).Address;
+        if (addon == null || !addon->IsVisible) return false;
+        addon->FireCallbackInt(-1);
+        return true;
+    }
+
     public static bool IsCompanionUnlocked(uint companionId)
     {
         try

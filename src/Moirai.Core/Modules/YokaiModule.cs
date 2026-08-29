@@ -6,7 +6,9 @@ namespace Moirai.Core.Modules;
 public sealed class YokaiModule(
     IReadOnlyList<Yokai> roster,
     IReadOnlyList<uint> priority,
-    int legendaryCap = 10) : IFarmModule
+    int legendaryCap = 10,
+    uint medalItemId = 0,
+    bool autoBuy = false) : IFarmModule
 {
     public ModuleDirective Next(WorldSnapshot w)
     {
@@ -18,22 +20,42 @@ public sealed class YokaiModule(
                 ? new EnsureWatch()
                 : new StopSession(StopReason.WatchMissing, "Yo-kai Watch not owned");
 
-        // E2/E6: fresh counts, first under-cap in priority order
-        var target = InPriorityOrder()
-            .FirstOrDefault(y => w.CountOf(y.LegendaryMedalItemId) < legendaryCap);
-        if (target is null)
-            return new StopSession(StopReason.AllYokaiCapped, Summary(w)); // E5
+        // E2/E6: fresh counts, first under-cap in priority order; unowned yokai are
+        // bought when possible, otherwise skipped so the run never stalls
+        var missing = new List<Yokai>();
+        foreach (var y in InPriorityOrder())
+        {
+            if (w.CountOf(y.LegendaryMedalItemId) >= legendaryCap) continue;
 
-        // E3
-        if (p.ActiveMinionId != target.MinionId)
-            return new EnsureMinion(target.MinionId);
+            if (Owned(w, y))
+            {
+                // E3
+                if (p.ActiveMinionId != y.MinionId)
+                    return new EnsureMinion(y.MinionId);
+                // E4: legendary medals only drop in designated zones
+                if (!y.TerritoryIds.Contains(w.TerritoryId))
+                    return new MoveToTerritory(y.TerritoryIds[0]);
+                return new FarmHere();
+            }
 
-        // E4: legendary medals only drop in designated zones
-        if (!target.TerritoryIds.Contains(w.TerritoryId))
-            return new MoveToTerritory(target.TerritoryIds[0]);
+            if (autoBuy && y.MinionItemId != 0 && medalItemId != 0 && w.CountOf(medalItemId) >= PriceFor(w))
+                return new BuyMinion(y.MinionId, y.MinionItemId, PriceFor(w));
 
-        return new FarmHere();
+            missing.Add(y);
+        }
+
+        return missing.Count > 0
+            ? new StopSession(StopReason.MinionsMissing,
+                "Minions not owned: " + string.Join(", ", missing.Select(m => m.Name)))
+            : new StopSession(StopReason.AllYokaiCapped, Summary(w)); // E5
     }
+
+    private bool Owned(WorldSnapshot w, Yokai y)
+        => w.OwnedMinions?.Contains(y.MinionId) ?? true;
+
+    // The first minion costs 1 regular medal; every later one costs 3
+    private static int PriceFor(WorldSnapshot w)
+        => w.OwnedMinions is { Count: > 0 } ? 3 : 1;
 
     private IEnumerable<Yokai> InPriorityOrder()
         => priority.Select(id => roster.First(y => y.MinionId == id));
