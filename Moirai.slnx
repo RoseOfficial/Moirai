@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Moirai.Core/Moirai.Core.csproj" />
+    <Project Path="src/Moirai/Moirai.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Moirai.Tests/Moirai.Tests.csproj" />

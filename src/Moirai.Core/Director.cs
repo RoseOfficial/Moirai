@@ -180,6 +180,13 @@ public sealed class Director(
         var step = _active!.Tick(w, contextFactory(w) with { Fate = live });
         if (step.Status == BehaviorStatus.Failed)
             return Recover(w);
+        if (step.Status == BehaviorStatus.Done)
+        {
+            // e.g. an NpcStart behavior finished opening the fate — its kind is now the real one
+            _active = behaviorFactory(live.Kind);
+            _active.Reset();
+            return new(step.Intent, "behavior complete; re-dispatching");
+        }
         return new(step.Intent, step.Note);
     }
 

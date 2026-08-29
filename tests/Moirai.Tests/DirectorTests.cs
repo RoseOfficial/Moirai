@@ -117,6 +117,36 @@ public class DirectorTests
         Assert.Equal(RunPhase.Stopped, d.Phase);
     }
 
+    [Fact] // a behavior finishing while the fate still runs re-dispatches by the fate's current kind
+    public void Behavior_done_in_running_fate_redispatches()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var dispatched = new List<FateKind>();
+        var d = new Director(
+            new SingleZoneModule(),
+            new SelectionConfig(),
+            new DirectorConfig(),
+            travel,
+            kind => { dispatched.Add(kind); return new NpcStartBehavior(); },
+            w => new BehaviorContext(null, true, new FixedRandom(0.5, 0.5), new FlatGround()));
+        d.Start();
+
+        // NpcStart fate: unopened, inside the nearby-override radius so it's picked immediately
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60, kind: FateKind.NpcStart, startTimeEpoch: 0, progress: 0);
+        d.Tick(TestData.World(fates: [fate]));                          // selects
+        d.Tick(TestData.World(fates: [fate]));                          // travel: establishes dropoff
+        var drop = travel.CurrentDropoff!.Value;
+        var arrived = TestData.World(player: TestData.Player(x: drop.X, z: drop.Z), fates: [fate]);
+        d.Tick(arrived);                                                // arrival dispatches NpcStart
+        Assert.Equal(new[] { FateKind.NpcStart }, dispatched);
+
+        // fate opened: same id, now a running battle — NpcStartBehavior reports Done
+        var opened = fate with { Kind = FateKind.Battle, StartTimeEpoch = 5_000, Progress = 1 };
+        d.Tick(TestData.World(player: TestData.Player(x: drop.X, z: drop.Z), fates: [opened]));
+        Assert.Equal(new[] { FateKind.NpcStart, FateKind.Battle }, dispatched);
+        Assert.Equal(RunPhase.InFate, d.Phase);
+    }
+
     [Fact] // D3: unexpected combat pauses farming defensively
     public void D3_unexpected_combat_goes_defensive()
     {

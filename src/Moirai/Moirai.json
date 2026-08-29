@@ -1,0 +1,11 @@
+{
+  "Name": "Moirai",
+  "Author": "RoseOfficial",
+  "Punchline": "The Fates, automated.",
+  "Description": "Automated FATE farming with a fully tested decision core. Flagship mode: the Yo-kai Watch event — minion rotation, legendary medal tracking, and zone routing until every yokai is capped.",
+  "InternalName": "Moirai",
+  "ApplicableVersion": "any",
+  "RepoUrl": "https://github.com/RoseOfficial/Moirai",
+  "Tags": [ "fate", "farming", "yokai", "automation" ],
+  "DalamudApiLevel": 15
+}
