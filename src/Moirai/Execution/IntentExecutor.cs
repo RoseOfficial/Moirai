@@ -90,7 +90,7 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                         Svc.Chat.Print("[Moirai] Auto-buy is stuck — buy the minion manually or toggle auto-buy off.");
                     break;
                 }
-                purchaser.Tick(a.MinionId, a.MinionItemId);
+                purchaser.Begin(a.MinionId, a.MinionItemId); // driven per-frame by the plugin
                 break;
 
             case EquipWatch:

@@ -25,20 +25,27 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
     public bool HasFailed => _step == Step.Failed;
     public string Status { get; private set; } = "";
 
+    public bool IsActive => _step is not (Step.Idle or Step.Failed);
+
     public void Reset()
     {
         _step = Step.Idle;
         _minionId = 0;
     }
 
-    public void Tick(uint minionId, uint minionItemId)
+    // Called from the intent stream; the actual work runs in Tick(), which the
+    // plugin drives every frame — interacting with NPCs sets "occupied" conditions
+    // that hold the planner, so the purchase must keep ticking independently.
+    public void Begin(uint minionId, uint minionItemId)
     {
-        if (_minionId != minionId)
-        {
-            _minionId = minionId;
-            _itemId = minionItemId;
-            Enter(Step.GoToZone);
-        }
+        if (_minionId == minionId) return;
+        _minionId = minionId;
+        _itemId = minionItemId;
+        Enter(Step.GoToZone);
+    }
+
+    public void Tick()
+    {
         if (_step is Step.Idle or Step.Failed) return;
         if (Environment.TickCount64 - _stepStarted > StepTimeoutMs)
         {

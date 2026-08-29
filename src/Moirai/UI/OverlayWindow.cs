@@ -10,7 +10,8 @@ public sealed class OverlayWindow : Window
     private readonly Plugin _plugin;
 
     public OverlayWindow(Plugin plugin)
-        : base("Moirai###MoiraiOverlay", ImGuiWindowFlags.AlwaysAutoResize)
+        : base($"Moirai {typeof(Plugin).Assembly.GetName().Version?.ToString(3)}###MoiraiOverlay",
+            ImGuiWindowFlags.AlwaysAutoResize)
     {
         _plugin = plugin;
     }

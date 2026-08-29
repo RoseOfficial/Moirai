@@ -23,6 +23,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly ConfigWindow _configWindow;
     private readonly NavmeshIpc _navmesh;
     private readonly CombatIpc _combat;
+    private readonly MinionPurchaser _purchaser;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
 
@@ -38,7 +39,8 @@ public sealed class Plugin : IDalamudPlugin
 
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();
-        _executor = new IntentExecutor(_navmesh, _combat, Config, new MinionPurchaser(_navmesh));
+        _purchaser = new MinionPurchaser(_navmesh);
+        _executor = new IntentExecutor(_navmesh, _combat, Config, _purchaser);
         _snapshots = new Snapshot.SnapshotBuilder(
             Config, _navmesh, YokaiData.TrackedItemIds, YokaiData.WatchItemId,
             YokaiData.Roster.Select(y => y.MinionId).ToList());
@@ -153,6 +155,11 @@ public sealed class Plugin : IDalamudPlugin
             return;
         if (!Svc.ClientState.IsLoggedIn)
             return;
+
+        // NPC dialogue and shop windows set "occupied" conditions that hold the
+        // planner, so an in-progress purchase must tick outside the intent stream
+        if (_purchaser.IsActive)
+            _purchaser.Tick();
 
         var snapshot = _snapshots.Build(director.CurrentFate?.Id);
         if (snapshot is null)
