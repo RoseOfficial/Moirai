@@ -14,7 +14,9 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
 {
     private enum Step { Idle, GoToZone, WalkToNohi, Interact, Buy, Confirm, CloseShop, Learn, Failed }
 
-    private const string ShopAddon = "ShopExchangeCurrency";
+    // Nohi's exchange may surface as either shop addon depending on event state
+    private static readonly string[] ShopAddons = ["ShopExchangeItem", "ShopExchangeCurrency"];
+    private static readonly string[] MenuAddons = ["SelectString", "SelectIconString"];
     private const long StepTimeoutMs = 90_000;
 
     private Step _step = Step.Idle;
@@ -96,13 +98,8 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
                 break;
 
             case Step.Interact:
-                if (GameEx.IsAddonVisible(ShopAddon)) { Enter(Step.Buy); break; }
-                // Nohi fronts the shop with a menu on some event states
-                if (GameEx.IsAddonVisible("SelectIconString") && Throttle.Try("moirai.buy.menu", 1000))
-                {
-                    GameEx.FireAddonCallback("SelectIconString", 0);
-                    break;
-                }
+                if (VisibleShop() is not null) { Enter(Step.Buy); break; }
+                if (TrySelectMenuEntry()) break;
                 Status = "talking to Nohi";
                 if (FindNohi() is { } npc && Throttle.Try("moirai.buy.interact", 2000))
                 {
@@ -113,17 +110,21 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
 
             case Step.Buy:
                 if (GameEx.ItemCount(_itemId) > 0) { Enter(Step.CloseShop); break; }
+                if (VisibleShop() is not { } shop) { Enter(Step.Interact); break; }
                 var index = YokaiData.ShopIndexOf(_itemId);
                 if (index < 0) { Fail("unknown shop index"); break; }
                 Status = "buying the minion";
                 if (Throttle.Try("moirai.buy.buy", 2000))
-                    GameEx.FireAddonCallback(ShopAddon, 0, index, 1);
-                Enter(Step.Confirm);
+                {
+                    GameEx.FireAddonCallback(shop, 0, index, 1);
+                    Enter(Step.Confirm);
+                }
                 break;
 
             case Step.Confirm:
                 if (GameEx.ItemCount(_itemId) > 0) { Enter(Step.CloseShop); break; }
-                if (Throttle.Try("moirai.buy.confirm", 800))
+                Status = "confirming the purchase";
+                if (Throttle.Try("moirai.buy.confirm", 600) && !GameEx.ClickExchangeConfirm())
                     GameEx.ClickYes();
                 if (Environment.TickCount64 - _stepStarted > 10_000)
                     Enter(Step.Buy); // purchase didn't land; try the exchange again
@@ -131,9 +132,9 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
 
             case Step.CloseShop:
                 Status = "closing the shop";
-                if (!GameEx.IsAddonVisible(ShopAddon)) { Enter(Step.Learn); break; }
+                if (VisibleShop() is not { } openShop) { Enter(Step.Learn); break; }
                 if (Throttle.Try("moirai.buy.close", 1000))
-                    GameEx.CloseAddon(ShopAddon);
+                    GameEx.CloseAddon(openShop);
                 break;
 
             case Step.Learn:
@@ -144,6 +145,29 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
                     GameEx.UseItem(_itemId);
                 break;
         }
+    }
+
+    private static string? VisibleShop()
+        => ShopAddons.FirstOrDefault(GameEx.IsAddonVisible);
+
+    // Nohi fronts the shop with a "purchase minions" style menu; pick by text, never by index.
+    private bool TrySelectMenuEntry()
+    {
+        foreach (var menu in MenuAddons)
+        {
+            if (!GameEx.IsAddonVisible(menu)) continue;
+            Status = "choosing the exchange";
+            if (!Throttle.Try("moirai.buy.menu", 800)) return true;
+            var index = GameEx.FindMenuEntry(menu, "minion", out var entries);
+            if (index < 0)
+            {
+                Fail($"no minion option in the menu ({entries})");
+                return true;
+            }
+            GameEx.FireAddonCallback(menu, index);
+            return true;
+        }
+        return false;
     }
 
     private void Enter(Step step)

@@ -112,6 +112,45 @@ public static unsafe class GameEx
         return true;
     }
 
+    // Find the index of a menu entry containing the given text (case-insensitive)
+    // in a SelectString / SelectIconString popup. Returns -1 when absent.
+    public static int FindMenuEntry(string addonName, string contains, out string allEntries)
+    {
+        allEntries = "";
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName(addonName).Address;
+        if (addon == null || !addon->IsVisible) return -1;
+
+        var menu = addonName == "SelectIconString"
+            ? &((FFXIVClientStructs.FFXIV.Client.UI.AddonSelectIconString*)addon)->PopupMenu.PopupMenu
+            : &((FFXIVClientStructs.FFXIV.Client.UI.AddonSelectString*)addon)->PopupMenu.PopupMenu;
+
+        var found = -1;
+        var texts = new List<string>();
+        for (var i = 0; i < menu->EntryCount; i++)
+        {
+            var text = Dalamud.Memory.MemoryHelper
+                .ReadSeStringNullTerminated((nint)menu->EntryNames[i].Value).TextValue;
+            texts.Add(text);
+            if (found < 0 && text.Contains(contains, StringComparison.OrdinalIgnoreCase))
+                found = i;
+        }
+        allEntries = string.Join(" | ", texts);
+        return found;
+    }
+
+    // Confirm a non-gil exchange dialog by clicking its Exchange button (node 18).
+    public static bool ClickExchangeConfirm()
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName("ShopExchangeItemDialog").Address;
+        if (addon == null || !addon->IsVisible) return false;
+        var button = addon->GetComponentButtonById(18);
+        if (button == null || !button->IsEnabled || !button->AtkResNode->IsVisible()) return false;
+        var node = button->AtkComponentBase.OwnerNode->AtkResNode;
+        var evt = (AtkEvent*)node.AtkEventManager.Event;
+        addon->ReceiveEvent(evt->State.EventType, (int)evt->Param, node.AtkEventManager.Event);
+        return true;
+    }
+
     // Advance a Talk dialogue box by synthesizing the click the game expects.
     public static bool ClickTalk()
     {
