@@ -1,0 +1,8 @@
+# Reference clones — all-rights-reserved, never committed
+reference/
+
+# Build output
+bin/
+obj/
+*.user
+.vs/
