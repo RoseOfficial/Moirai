@@ -207,22 +207,31 @@ Every terminal stop carries a typed `StopReason` (`UserRequested`, `AllYokaiCapp
 ```
 Moirai/
   Moirai.sln
-  src/Moirai/
+  src/Moirai.Core/            pure decision core — NO Dalamud/ECommons references (compiler-enforced)
+    Model/                    WorldSnapshot and projections
+    Intents/                  the planner's output vocabulary
+    Planning/                 selection gates/ranker, interrupts, recovery
+    Behaviors/                travel, engage, escort, collect, npc-start
+    Session/                  ledger, reward latch, continuation
+    Modules/                  IFarmModule, YokaiModule, SingleZoneModule
+    Director.cs
+  src/Moirai/                 Dalamud plugin shell
     Plugin.cs                 Dalamud entry, service wiring
     Configuration.cs
-    Core/                     Director, PlanState, intents, interrupts
-    Planning/                 FateSelector, behaviors, modules (IFarmModule, Yokai, SingleZone)
-    Snapshot/                 WorldSnapshot + builder
+    Snapshot/                 WorldSnapshot builder over game state
     Execution/                Movement/Combat/Action/Travel executors
     Ipc/                      vnavmesh, Lifestream, TextAdvance, BossMod, RSR, Wrath, Olympus adapters
     Data/                     data-file models, loader, updater; baseline JSON as embedded resources
     UI/                       overlay + config window
-  tests/Moirai.Tests/
+  tests/Moirai.Tests/         xUnit over Moirai.Core only — runs on CI with no game libraries
   Docs/
     specs/
+    plans/
   repo.json                   Dalamud custom-repo manifest
   reference/                  untracked reference clones
 ```
+
+The two-project split exists so the planner's purity rule (§2.2) is enforced by the compiler — `Moirai.Core` cannot reference game libraries even by accident — and so the test suite runs on CI without Dalamud assemblies.
 
 ---
 
