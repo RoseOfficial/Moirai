@@ -72,7 +72,15 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 break;
 
             case SummonMinion m:
-                if (!w.Player.IsMounted && Throttle.Try("moirai.minion", 3000)) GameEx.SummonCompanion(m.MinionId);
+                if (!GameEx.IsCompanionUnlocked(m.MinionId))
+                {
+                    if (Throttle.Try("moirai.minionmissing", 30000))
+                        Svc.Chat.Print("[Moirai] The next yokai's minion isn't owned yet — buy it from Nohi at the Gold Saucer.");
+                }
+                else if (!w.Player.IsMounted && Throttle.Try("moirai.minion", 3000))
+                {
+                    GameEx.SummonCompanion(m.MinionId);
+                }
                 break;
 
             case EquipWatch:

@@ -49,6 +49,30 @@ public static unsafe class GameEx
     public static int ItemCount(uint itemId)
         => InventoryManager.Instance()->GetInventoryItemCount(itemId);
 
+    public static bool IsItemEquipped(uint itemId)
+    {
+        var container = InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems);
+        if (container == null) return false;
+        for (var i = 0; i < container->Size; i++)
+        {
+            var slot = container->GetInventorySlot(i);
+            if (slot != null && slot->ItemId == itemId) return true;
+        }
+        return false;
+    }
+
+    public static bool IsCompanionUnlocked(uint companionId)
+    {
+        try
+        {
+            return FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance()->IsCompanionUnlocked(companionId);
+        }
+        catch
+        {
+            return true; // fail open: the summon call itself is a no-op when locked
+        }
+    }
+
     // Confirms the topmost SelectYesno with "yes". Used only for the death return prompt.
     public static bool ClickYes()
     {

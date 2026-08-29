@@ -48,5 +48,9 @@ public sealed class OverlayWindow : Window
 
         foreach (var line in _plugin.YokaiProgressLines())
             ImGui.TextUnformatted(line);
+
+        // Legendary medals don't need the watch, but regular medals only accrue while it's worn
+        if (_plugin.WatchOwnedButUnequipped())
+            ImGui.TextColored(new Vector4(0.95f, 0.85f, 0.4f, 1f), "Watch not equipped: regular medals paused");
     }
 }

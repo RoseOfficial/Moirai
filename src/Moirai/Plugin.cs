@@ -104,12 +104,18 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (Config.Mode != FarmMode.Yokai || _lastSnapshot is not { } w)
             yield break;
+        yield return $"Yo-kai Medals: {w.CountOf(YokaiData.MedalItemId)}";
         foreach (var yokai in YokaiData.Roster)
         {
             var count = w.CountOf(yokai.LegendaryMedalItemId);
             yield return $"{yokai.Name}: {count}/10";
         }
     }
+
+    public bool WatchOwnedButUnequipped()
+        => Config.Mode == FarmMode.Yokai
+           && _lastSnapshot is { Player.YokaiWatchOwned: true }
+           && !Game.GameEx.IsItemEquipped(YokaiData.WatchItemId);
 
     private BehaviorContext BuildContext(WorldSnapshot w)
         => new(
