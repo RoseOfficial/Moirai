@@ -100,7 +100,15 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
                 break;
 
             case Step.Interact:
+                if (GameEx.ItemCount(_itemId) > 0) { Enter(Step.CloseShop); break; }
                 if (VisibleShop() is not null) { Enter(Step.Buy); break; }
+                if (GameEx.IsAddonVisible("SelectYesno"))
+                {
+                    Status = "confirming the purchase";
+                    if (Throttle.Try("moirai.buy.confirm", 600))
+                        GameEx.ClickYes();
+                    break;
+                }
                 if (TrySelectMenuEntry()) break;
                 Status = "talking to Nohi";
                 if (FindNohi() is { } npc && Throttle.Try("moirai.buy.interact", 2000))
@@ -154,7 +162,12 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
 
     private int _menuMisses;
 
-    // Nohi fronts the shop with a "purchase minions" style menu; pick by text, never by index.
+    private string TargetName
+        => YokaiData.Roster.FirstOrDefault(y => y.MinionId == _minionId)?.Name ?? "";
+
+    // Nohi chains two menus: an outer "Purchase minions" menu, then a list of the
+    // unowned yokai BY NAME (owned ones are omitted, so position is meaningless).
+    // Match our target's name first, the outer menu's wording second.
     private bool TrySelectMenuEntry()
     {
         foreach (var menu in MenuAddons)
@@ -162,7 +175,14 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
             if (!GameEx.IsAddonVisible(menu)) continue;
             Status = "choosing the exchange";
             if (!Throttle.Try("moirai.buy.menu", 800)) return true;
-            var index = GameEx.FindMenuEntry(menu, "minion", out var entries);
+
+            var index = TargetName.Length > 0
+                ? GameEx.FindMenuEntry(menu, TargetName, out _)
+                : -1;
+            var entries = "";
+            if (index < 0)
+                index = GameEx.FindMenuEntry(menu, "minion", out entries);
+
             if (index >= 0)
             {
                 _menuMisses = 0;
@@ -172,7 +192,7 @@ public sealed class MinionPurchaser(NavmeshIpc navmesh)
             if (entries.Length == 0)
                 return true; // the menu opens a frame before its entries populate — wait, don't fail
             if (++_menuMisses >= 5)
-                Fail($"no minion option in the menu ({entries})");
+                Fail($"no usable option in the menu ({entries})");
             return true;
         }
         return false;
