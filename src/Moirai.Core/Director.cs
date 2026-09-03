@@ -69,22 +69,12 @@ public sealed class Director(
 
         switch (module.Next(w))
         {
-            case EnsureWatch:
-                return new(new EquipWatch(), "equipping watch");
-            case EnsureMinion m:
-                return new(new SummonMinion(m.MinionId), "summoning minion");
             case MoveToTerritory t:
                 if (RewardLatch.IsPending)
                     return new(new Hold(1000), "waiting for fate rewards"); // D6
                 CurrentFate = null;
                 Phase = RunPhase.SelectingFate;
                 return new(new ChangeZone(t.TerritoryId), "changing zone");
-            case BuyMinion b:
-                if (RewardLatch.IsPending)
-                    return new(new Hold(1000), "waiting for fate rewards"); // D6
-                CurrentFate = null;
-                Phase = RunPhase.SelectingFate;
-                return new(new AcquireMinion(b.MinionId, b.MinionItemId, b.MedalCost), "buying minion");
             case StopSession s:
                 Stop(s.Reason);
                 return new(new StopRun(s.Reason), s.Summary);

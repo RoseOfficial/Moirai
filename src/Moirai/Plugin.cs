@@ -23,14 +23,12 @@ public sealed class Plugin : IDalamudPlugin
     private readonly ConfigWindow _configWindow;
     private readonly NavmeshIpc _navmesh;
     private readonly CombatIpc _combat;
-    private readonly MinionPurchaser _purchaser;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
 
     public Configuration Config { get; }
     public Director? Director { get; private set; }
     public string LastStatus { get; private set; } = "idle";
-    private WorldSnapshot? _lastSnapshot;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -39,11 +37,8 @@ public sealed class Plugin : IDalamudPlugin
 
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();
-        _purchaser = new MinionPurchaser(_navmesh);
-        _executor = new IntentExecutor(_navmesh, _combat, Config, _purchaser);
-        _snapshots = new Snapshot.SnapshotBuilder(
-            Config, _navmesh, YokaiData.TrackedItemIds, YokaiData.WatchItemId,
-            YokaiData.Roster.Select(y => y.MinionId).ToList());
+        _executor = new IntentExecutor(_navmesh, _combat, Config);
+        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -72,17 +67,9 @@ public sealed class Plugin : IDalamudPlugin
             SpecialBossJoinProgress = Config.SpecialBossJoinProgress,
         };
 
-        IFarmModule module = Config.Mode == FarmMode.Yokai
-            ? new YokaiModule(
-                YokaiData.Roster,
-                FullPriorityOrder().Where(id => !Config.YokaiDisabled.Contains(id)).ToList(),
-                medalItemId: YokaiData.MedalItemId,
-                autoBuy: Config.AutoBuyMinions)
-            : new SingleZoneModule();
-
         var engage = () => new EngageBehavior(new EngageConfig());
         Director = new Director(
-            module,
+            new SingleZoneModule(),
             selection,
             new DirectorConfig { DeathCap = Config.DeathCap },
             new TravelBehavior(new MovementConfig()),
@@ -107,45 +94,10 @@ public sealed class Plugin : IDalamudPlugin
         _combat.ResetCache();
     }
 
-    public IEnumerable<string> YokaiProgressLines()
-    {
-        if (Config.Mode != FarmMode.Yokai || _lastSnapshot is not { } w)
-            yield break;
-        yield return $"Yo-kai Medals: {w.CountOf(YokaiData.MedalItemId)}";
-        foreach (var yokai in YokaiData.Roster)
-        {
-            var count = w.CountOf(yokai.LegendaryMedalItemId);
-            yield return $"{yokai.Name}: {count}/10";
-        }
-    }
-
-    public bool WatchOwnedButUnequipped()
-        => Config.Mode == FarmMode.Yokai
-           && _lastSnapshot is { Player.YokaiWatchOwned: true }
-           && !Game.GameEx.IsItemEquipped(YokaiData.WatchItemId);
-
-    // The stored order, normalized: unknown ids dropped, missing roster ids appended
-    public List<uint> FullPriorityOrder()
-    {
-        var rosterIds = YokaiData.Roster.Select(y => y.MinionId).ToList();
-        var order = Config.YokaiPriority.Where(rosterIds.Contains).ToList();
-        order.AddRange(rosterIds.Where(id => !order.Contains(id)));
-        return order;
-    }
-
-    private void MaybeAutoEquipWatch(WorldSnapshot w)
-    {
-        if (Config.Mode != FarmMode.Yokai || !Config.AutoEquipWatch) return;
-        if (!w.Player.YokaiWatchOwned || w.Player.InCombat || w.Player.IsMounted) return;
-        if (Game.GameEx.IsItemEquipped(YokaiData.WatchItemId)) return;
-        if (Throttle.Try("moirai.autoequip", 10000))
-            Game.GameEx.EquipWristItem(YokaiData.WatchItemId);
-    }
-
     private BehaviorContext BuildContext(WorldSnapshot w)
         => new(
             Fate: null,
-            ZoneFlightAllowed: !YokaiData.NoFlyTerritories.Contains(w.TerritoryId),
+            ZoneFlightAllowed: !ZoneData.NoFlyTerritories.Contains(w.TerritoryId),
             Random: SystemRandom.Instance,
             Landing: new NavmeshLanding(_navmesh));
 
@@ -156,20 +108,12 @@ public sealed class Plugin : IDalamudPlugin
         if (!Svc.ClientState.IsLoggedIn)
             return;
 
-        // NPC dialogue and shop windows set "occupied" conditions that hold the
-        // planner, so an in-progress purchase must tick outside the intent stream
-        if (_purchaser.IsActive)
-            _purchaser.Tick();
-
         var snapshot = _snapshots.Build(director.CurrentFate?.Id);
         if (snapshot is null)
             return;
-        _lastSnapshot = snapshot;
-
-        MaybeAutoEquipWatch(snapshot);
 
         var output = director.Tick(snapshot);
-        LastStatus = _executor.PurchaseStatus ?? output.Status;
+        LastStatus = output.Status;
         _executor.Execute(output.Intent, snapshot);
     }
 
@@ -181,7 +125,7 @@ public sealed class Plugin : IDalamudPlugin
                 _configWindow.IsOpen = !_configWindow.IsOpen;
                 break;
             case "debug":
-                Svc.Chat.Print($"[Moirai] {_purchaser.DebugState}; status='{LastStatus}'");
+                Svc.Chat.Print($"[Moirai] status='{LastStatus}'");
                 Svc.Chat.Print($"[Moirai] visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
                 break;
             default:

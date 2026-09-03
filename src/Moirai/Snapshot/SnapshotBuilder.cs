@@ -9,9 +9,7 @@ using Moirai.Ipc;
 namespace Moirai.Snapshot;
 
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
-public sealed class SnapshotBuilder(
-    Configuration cfg, NavmeshIpc navmesh,
-    IReadOnlyList<uint> trackedItems, uint watchItemId, IReadOnlyList<uint> minionIds)
+public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh)
 {
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -19,7 +17,6 @@ public sealed class SnapshotBuilder(
         if (lp is null) return null;
         var cond = Svc.Condition;
 
-        var watchCount = watchItemId == 0 ? 0 : GameEx.ItemCount(watchItemId);
         var player = new PlayerSnapshot(
             Position: lp.Position,
             Level: lp.Level,
@@ -38,12 +35,9 @@ public sealed class SnapshotBuilder(
                         || cond[ConditionFlag.OccupiedInQuestEvent] || cond[ConditionFlag.OccupiedSummoningBell]
                         || cond[ConditionFlag.OccupiedInCutSceneEvent],
             IsLevelSynced: IsLevelSynced(),
-            CanMount: true,  // executor's mount call is a safe no-op where mounting is illegal
+            CanMount: true,  // the executor's mount call is a safe no-op where mounting is illegal
             CanFly: true,    // per-zone no-fly overrides gate flight; vnavmesh grounds the rest
-            TargetId: Svc.Targets.Target?.GameObjectId,
-            ActiveMinionId: CurrentMinionId(lp),
-            YokaiWatchActive: watchCount > 0,
-            YokaiWatchOwned: watchCount > 0);
+            TargetId: Svc.Targets.Target?.GameObjectId);
 
         var fates = new List<FateSnapshot>();
         foreach (var fate in Svc.Fates)
@@ -60,14 +54,11 @@ public sealed class SnapshotBuilder(
         if (currentFateId is { } fid)
             ScanObjects(lp, fid, enemies, interactables);
 
+        // Collect fates hand in by item count (B1), so every visible event item is counted
         var items = new Dictionary<uint, int>();
-        foreach (var id in trackedItems)
-            items[id] = GameEx.ItemCount(id);
-
-        var owned = new HashSet<uint>();
-        foreach (var id in minionIds)
-            if (GameEx.IsCompanionUnlocked(id))
-                owned.Add(id);
+        foreach (var f in fates)
+            if (f.EventItemId != 0 && !items.ContainsKey(f.EventItemId))
+                items[f.EventItemId] = GameEx.ItemCount(f.EventItemId);
 
         return new WorldSnapshot(
             NowEpoch: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
@@ -79,8 +70,7 @@ public sealed class SnapshotBuilder(
             Interactables: interactables,
             ItemCounts: items,
             NavmeshReady: navmesh.IsReady(),
-            LifestreamBusy: false,
-            OwnedMinions: owned);
+            LifestreamBusy: false);
     }
 
     private static FateSnapshot? Project(IFate fate)
@@ -203,7 +193,4 @@ public sealed class SnapshotBuilder(
         var fm = FFXIVClientStructs.FFXIV.Client.Game.Fate.FateManager.Instance();
         return fm != null && fm->SyncedFateId != 0;
     }
-
-    private static uint? CurrentMinionId(Dalamud.Game.ClientState.Objects.Types.ICharacter lp)
-        => lp.CurrentMinion is { RowId: > 0 } minion ? minion.RowId : null;
 }

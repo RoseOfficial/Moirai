@@ -8,7 +8,7 @@ namespace Moirai.Execution;
 
 // Turns planner intents into game and IPC calls. Idempotent per tick: re-issuing
 // an in-flight intent is a no-op, and every game call is throttled.
-public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configuration cfg, MinionPurchaser purchaser)
+public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configuration cfg)
 {
     private Vector3? _lastDest;
 
@@ -71,40 +71,6 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 }
                 break;
 
-            case SummonMinion m:
-                if (!GameEx.IsCompanionUnlocked(m.MinionId))
-                {
-                    if (Throttle.Try("moirai.minionmissing", 30000))
-                        Svc.Chat.Print("[Moirai] The next yokai's minion isn't owned yet — buy it from Nohi at the Gold Saucer.");
-                }
-                else if (!w.Player.IsMounted && Throttle.Try("moirai.minion", 3000))
-                {
-                    GameEx.SummonCompanion(m.MinionId);
-                }
-                break;
-
-            case AcquireMinion a:
-                if (purchaser.HasFailed)
-                {
-                    if (Throttle.Try("moirai.buy.failed", 60000))
-                        Svc.Chat.Print("[Moirai] Auto-buy is stuck — buy the minion manually or toggle auto-buy off.");
-                    break;
-                }
-                purchaser.Begin(a.MinionId, a.MinionItemId); // driven per-frame by the plugin
-                break;
-
-            case EquipWatch:
-                if (cfg.AutoEquipWatch)
-                {
-                    if (Throttle.Try("moirai.equipwatch", 3000))
-                        Game.GameEx.EquipWristItem(Data.YokaiData.WatchItemId);
-                }
-                else if (Throttle.Try("moirai.watchmsg", 30000))
-                {
-                    Svc.Chat.Print("[Moirai] Equip your Yo-kai Watch to start earning medals.");
-                }
-                break;
-
             case AcceptReturn:
                 if (Throttle.Try("moirai.return", 2000)) GameEx.ClickYes();
                 break;
@@ -129,8 +95,5 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
     {
         _lastDest = null;
         combat.ResetCache();
-        purchaser.Reset();
     }
-
-    public string? PurchaseStatus => purchaser.HasFailed || purchaser.Status.Length == 0 ? null : purchaser.Status;
 }

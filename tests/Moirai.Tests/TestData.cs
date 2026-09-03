@@ -20,11 +20,10 @@ public static class TestData
         bool casting = false, bool betweenAreas = false, bool jumping = false,
         bool beingMoved = false, bool occupied = false, bool synced = false,
         bool canMount = true, bool canFly = true,
-        ulong? targetId = null, uint? minionId = null,
-        bool watchActive = false, bool watchOwned = false)
+        ulong? targetId = null)
         => new(new Vector3(x, 0, z), level, melee, dead, inCombat, mounted, flying,
                casting, betweenAreas, jumping, beingMoved, occupied, synced,
-               canMount, canFly, targetId, minionId, watchActive, watchOwned);
+               canMount, canFly, targetId);
 
     public static WorldSnapshot World(
         long now = 10_000, ushort territory = 0,
@@ -34,11 +33,10 @@ public static class TestData
         IReadOnlyList<EnemySnapshot>? enemies = null,
         IReadOnlyList<InteractableSnapshot>? interactables = null,
         IReadOnlyDictionary<uint, int>? items = null,
-        bool navmeshReady = true, bool lifestreamBusy = false,
-        IReadOnlySet<uint>? ownedMinions = null)
+        bool navmeshReady = true, bool lifestreamBusy = false)
         => new(now, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
-               items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy, ownedMinions);
+               items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy);
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float z = 100, float hitbox = 2f,

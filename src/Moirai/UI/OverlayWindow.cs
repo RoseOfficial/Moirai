@@ -46,12 +46,5 @@ public sealed class OverlayWindow : Window
             if (d.StoppedBecause is { } why)
                 ImGui.TextColored(new Vector4(0.9f, 0.6f, 0.6f, 1f), $"stopped: {why}");
         }
-
-        foreach (var line in _plugin.YokaiProgressLines())
-            ImGui.TextUnformatted(line);
-
-        // Legendary medals don't need the watch, but regular medals only accrue while it's worn
-        if (_plugin.WatchOwnedButUnequipped())
-            ImGui.TextColored(new Vector4(0.95f, 0.85f, 0.4f, 1f), "Watch not equipped: regular medals paused");
     }
 }

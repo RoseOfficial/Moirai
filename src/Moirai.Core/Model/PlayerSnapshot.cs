@@ -18,7 +18,4 @@ public sealed record PlayerSnapshot(
     bool IsLevelSynced,
     bool CanMount,
     bool CanFly,
-    ulong? TargetId,
-    uint? ActiveMinionId,
-    bool YokaiWatchActive,
-    bool YokaiWatchOwned);
+    ulong? TargetId);
