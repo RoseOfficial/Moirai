@@ -6,3 +6,7 @@ bin/
 obj/
 *.user
 .vs/
+
+
+# Local working notes
+Docs/plans/
