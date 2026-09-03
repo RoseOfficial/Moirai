@@ -1,0 +1,67 @@
+# Moirai
+
+![Downloads](https://img.shields.io/github/downloads/RoseOfficial/Moirai/total)
+
+Automated FATE farming for FFXIV, built on a pure, unit-tested decision core.
+
+Moirai picks the best FATE in your zone, travels there, syncs, fights it to
+completion, and repeats, recovering from deaths and stuck states along the way.
+It is named for the three Fates of Greek myth and ships under RoseOfficial
+alongside Olympus and Komos.
+
+## What it does
+
+- Ranks FATEs by a ladder you can reorder: progress, bonus, time left, and
+  distance. Hard gates skip FATEs that are nearly over, too far along, above
+  your level, or on your blacklist.
+- Handles battle, boss, defend, escort, and collect FATEs, and can open
+  NPC-started FATEs.
+- Joins boss FATEs only once their progress passes a threshold, so you never
+  solo-tank from zero.
+- Mounts and flies when the leg is worth it, and walks in zones whose geometry
+  breaks flight pathing.
+- Recovers from stuck states through a bounded ladder (re-path, new landing
+  point, vertical escape, back to the aetheryte) and stops with a stated reason
+  when the ladder runs out.
+- Accepts the return prompt on death, counts it, and resumes; stops at a death
+  cap you choose.
+- `/moirai` opens the overlay; `/moirai help` lists chat commands.
+
+## What it does not do (yet)
+
+- Farms only the zone you are standing in. Zone rotation and event modes are
+  planned for a later release.
+- No chocobo companion, food, gear repair, or gemstone shopping.
+- Bonus (Twist of Fate) detection and continuation chains are not wired yet, so
+  those rungs of the ladder have no effect for now.
+
+## Requirements
+
+- [vnavmesh](https://github.com/awgil/ffxiv_navmesh) for all movement.
+- [RotationSolver Reborn](https://github.com/FFXIV-CombatReborn/RotationSolverReborn)
+  for combat, driven through its `/rotation` commands.
+
+The overlay warns when either is missing.
+
+## Installation
+
+Moirai ships through the Olympus plugin repository. In Dalamud, open Settings →
+Experimental → Custom Plugin Repositories, add
+
+    https://raw.githubusercontent.com/RoseOfficial/Olympus/main/repo.json
+
+save, then install Moirai from the plugin installer. If you already use Olympus
+or Komos, the repository is already there and Moirai simply appears in the list.
+
+To build a sideload copy instead, run a Release build of `src/Moirai/Moirai.csproj`;
+the ready-to-install zip lands at `src/Moirai/bin/Release/Moirai/latest.zip`.
+
+## Safety notes
+
+Moirai automates movement, targeting, and FATE participation on your behalf.
+Every stop carries a reason in the overlay, every retry is bounded, and the
+death cap ends a run that keeps going wrong. Watch the first few runs in a new
+zone before leaving it alone.
+
+As with any third-party tool, use Moirai at your own discretion and avoid
+discussing plugins in-game.
