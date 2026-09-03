@@ -1,4 +1,4 @@
-# Reference clones — all-rights-reserved, never committed
+# Reference clones: all-rights-reserved, never committed
 reference/
 
 # Build output
@@ -6,7 +6,6 @@ bin/
 obj/
 *.user
 .vs/
-
 
 # Local working notes
 Docs/plans/
