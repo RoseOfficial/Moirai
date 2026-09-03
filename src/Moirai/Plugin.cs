@@ -18,6 +18,10 @@ namespace Moirai;
 
 public sealed class Plugin : IDalamudPlugin
 {
+    public const string RepoUrl = "https://github.com/RoseOfficial/Moirai";
+    public const string InstallRepoUrl = "https://raw.githubusercontent.com/RoseOfficial/Olympus/main/repo.json";
+    public static string Version { get; } = typeof(Plugin).Assembly.GetName().Version?.ToString(3) ?? "dev";
+
     private readonly WindowSystem _windows = new("Moirai");
     private readonly OverlayWindow _overlay;
     private readonly ConfigWindow _configWindow;
@@ -29,6 +33,10 @@ public sealed class Plugin : IDalamudPlugin
     public Configuration Config { get; }
     public Director? Director { get; private set; }
     public string LastStatus { get; private set; } = "idle";
+
+    public bool IsRunning => Director is { } d && d.Phase is not (RunPhase.Idle or RunPhase.Stopped);
+    public bool NavmeshReady => _navmesh.IsReady();
+    public bool CombatBackendLoaded => _combat.RotationSolverInstalled;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -51,28 +59,46 @@ public sealed class Plugin : IDalamudPlugin
 
         Svc.Commands.AddHandler("/moirai", new CommandInfo(OnCommand)
         {
-            HelpMessage = "Toggle the Moirai window. '/moirai config' opens settings.",
+            HelpMessage = "FATE farming. Opens the window; try /moirai help for the full command list.",
         });
 
         Svc.Framework.Update += OnUpdate;
+        Svc.Log.Information("[Moirai] Loaded.");
     }
+
+    public void OpenSettings() => _configWindow.IsOpen = true;
 
     public void StartRun()
     {
+        if (IsRunning) return;
+
         var selection = new SelectionConfig
         {
             MinTimeLeftSeconds = Config.MinTimeLeftSeconds,
             MaxProgressPercent = Config.MaxProgressPercent,
+            LevelMargin = Config.LevelMargin,
             BossJoinProgress = Config.BossJoinProgress,
             SpecialBossJoinProgress = Config.SpecialBossJoinProgress,
+            Priority = Config.NormalizedPriority(),
+            Blacklist = Config.BlacklistedFates, // live reference: edits apply at the next selection
+        };
+        var movement = new MovementConfig
+        {
+            MountLegThreshold = Config.MountLegThreshold,
+            ArriveTolerance = Config.ArriveTolerance,
+        };
+        var engageConfig = new EngageConfig
+        {
+            MeleeRange = Config.MeleeRange,
+            RangedRange = Config.RangedRange,
         };
 
-        var engage = () => new EngageBehavior(new EngageConfig());
+        var engage = () => new EngageBehavior(engageConfig);
         Director = new Director(
             new SingleZoneModule(),
             selection,
             new DirectorConfig { DeathCap = Config.DeathCap },
-            new TravelBehavior(new MovementConfig()),
+            new TravelBehavior(movement),
             kind => kind switch
             {
                 FateKind.Collect => new CollectBehavior(engage()),
@@ -92,6 +118,29 @@ public sealed class Plugin : IDalamudPlugin
         _navmesh.Stop();
         _combat.Set(false, CombatMode.Auto);
         _combat.ResetCache();
+    }
+
+    // Display only: the planner keys everything by fate id
+    public static string? FateName(uint fateId)
+    {
+        foreach (var fate in Svc.Fates)
+            if (fate is not null && fate.FateId == fateId)
+                return fate.Name.TextValue;
+        return null;
+    }
+
+    public static string? FateNameFromSheet(uint fateId)
+    {
+        try
+        {
+            var row = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Fate>()?.GetRowOrDefault(fateId);
+            var name = row?.Name.ExtractText();
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private BehaviorContext BuildContext(WorldSnapshot w)
@@ -117,19 +166,33 @@ public sealed class Plugin : IDalamudPlugin
         _executor.Execute(output.Intent, snapshot);
     }
 
+    private const string Usage = "Usage: /moirai [start|stop|config|help]";
+
     private void OnCommand(string command, string args)
     {
         switch (args.Trim().ToLowerInvariant())
         {
+            case "":
+                _overlay.IsOpen = !_overlay.IsOpen;
+                break;
+            case "start":
+                StartRun();
+                Svc.Chat.Print("[Moirai] Started.");
+                break;
+            case "stop":
+                StopRun();
+                Svc.Chat.Print("[Moirai] Stopped.");
+                break;
             case "config":
+            case "settings":
                 _configWindow.IsOpen = !_configWindow.IsOpen;
                 break;
             case "debug":
-                Svc.Chat.Print($"[Moirai] status='{LastStatus}'");
+                Svc.Chat.Print($"[Moirai] phase={Director?.Phase.ToString() ?? "none"} status='{LastStatus}' navmesh={NavmeshReady} combat={CombatBackendLoaded}");
                 Svc.Chat.Print($"[Moirai] visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
                 break;
             default:
-                _overlay.IsOpen = !_overlay.IsOpen;
+                Svc.Chat.Print($"[Moirai] {Usage}");
                 break;
         }
     }
