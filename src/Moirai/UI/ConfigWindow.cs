@@ -120,6 +120,7 @@ public sealed class ConfigWindow : Window
             c.Priority = [.. Configuration.DefaultPriority];
             dirty = true;
         }
+        Hint("Bonus detection is not wired in this release, so the Bonus rung has no effect yet.");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Blacklist (by fate id)");
