@@ -95,6 +95,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
 
         uint eventItem = 0;
         uint rule = 0;
+        uint icon = fate.IconId; // the fate carries its sheet icon too, for when the row is unavailable
         try
         {
             if (fate.GameData.ValueNullable is { } row)
@@ -103,13 +104,14 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
                 else if (row.TurnInEventItem.RowId != 0) eventItem = row.TurnInEventItem.RowId;
                 else if (row.ReqEventItem.RowId != 0) eventItem = row.ReqEventItem.RowId;
                 rule = row.Rule;
+                icon = row.Icon;
             }
         }
-        catch { /* sheet row unavailable: treat as battle */ }
+        catch { /* sheet row unavailable: classify by the fate's own icon */ }
 
         // B11: unopened fates of every sheet kind are NPC-start until they open
-        var kind = FateClassifier.Classify(eventItem, rule, phase.Value, fate.StartTimeEpoch, fate.Progress);
-        var specialBoss = FateClassifier.FromSheet(eventItem, rule) == FateKind.Boss && fate.Level >= 60; // curated special-boss data refines this later
+        var kind = FateClassifier.Classify(eventItem, rule, icon, phase.Value, fate.StartTimeEpoch, fate.Progress);
+        var specialBoss = FateClassifier.FromSheet(eventItem, rule, icon) == FateKind.Boss && fate.Level >= 60; // curated special-boss data refines this later
 
         return new FateSnapshot(
             Id: fate.FateId,

@@ -3,6 +3,13 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.6 — 2026-09-04
+
+### Fixed
+- Escort, defend, and boss FATEs are now recognized as what they are. The FATE sheet's rule column was read as a kind, but rule 2 is collect, 3 is escort, 4 is defend, and rule 1 covers both plain kill FATEs and bosses, which only the map icon tells apart. Until now escort FATEs were fought as plain battles with no following, defend FATEs were run as bosses (no walking while in combat, and the boss join threshold gated them), and bosses were never recognized at all. A collect FATE is also collect by its rule now, so the moment before its event item populates no longer reads as a battle
+- The debug report shows the sheet icon next to the rule
+<!-- LATEST-END -->
+
 ## v0.3.5 — 2026-09-04
 
 ### Fixed
@@ -11,7 +18,6 @@ All notable changes to Moirai will be documented in this file.
 - Standing still for a stray fight no longer reads as a stuck leg afterwards
 - Collect FATEs fought their second wave with the rotation off after a pickup had turned it off
 - The debug report now lists the enemies Moirai sees, whether each is on the character, and whether RotationSolver reports itself on
-<!-- LATEST-END -->
 
 ## v0.3.4 — 2026-09-04
 

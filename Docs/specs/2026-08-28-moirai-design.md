@@ -92,7 +92,7 @@ Selection is a **configurable priority ladder** compared criterion by criterion;
 
 Hard gates applied before ranking: time remaining below threshold (default 180 s) → skip; progress above threshold (default 80 %) → skip; zero-coordinate FATEs (not yet registered) → skip; blacklisted → skip; level above player + configured margin → skip; boss FATEs below their join threshold (§5) → skip. A nearby override (inside or within ~50 y of a ring) takes the nearest eligible FATE immediately.
 
-Classification is ID-based from the Lumina `Fate` sheet (`Rule`, event-item columns) with map-icon fallback — never by localized name.
+Classification is ID-based from the Lumina `Fate` sheet — never by localized name. An event item (`EventItem`, `TurnInEventItem` or `ReqEventItem`) marks a collect FATE; otherwise the `Rule` column names collect (2), escort (3) and defend (4), and the plain kill rule (1) splits into battle and boss by the sheet's `Icon` column alone (60722 = boss). Higher rules are special content and fall back to the icon (B12).
 
 ---
 
@@ -265,6 +265,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B9. Boss fights: no navigation while in combat; dodge layer owns movement.
 - B10. Never target the FATE's own friendly NPC in combat (hostility comes from the game's own can-attack test, never from NPC sub-kind). A held target that is not one of the FATE's enemies — another FATE's mob, the friendly, a corpse — is replaced with a FATE enemy while one exists and cleared only when none does; a FATE enemy the combat backend switched to is accepted as the sticky target, so the two never trade the target back and forth.
 - B11. NPC-start: a FATE still in its preparation phase, or with neither a start time nor progress, is unopened and therefore an NPC-start FATE whatever its sheet kind; the start-time field alone is not trusted because it can be set while a FATE still waits at its NPC. An unopened collect FATE opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC, and the Director re-dispatches when the current FATE's classification changes.
+- B12. Classification: the sheet's `Rule` column is not a kind enum. Rule 2 = collect, 3 = escort, 4 = defend; rule 1 covers both plain kill FATEs and bosses, and only the sheet `Icon` column (60722) tells a boss apart. Rules above 4 are special content (Diadem, Eureka, Bozja, Occult) and fall back to the icon. An event item marks collect whatever the rule, and a collect rule without an event item is still collect (B3).
 
 **Movement**
 - C1. Per-zone no-fly override honored even when flight is unlocked.
