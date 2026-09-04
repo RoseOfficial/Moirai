@@ -8,6 +8,8 @@ All notable changes to Moirai will be documented in this file.
 ### Fixed
 - Escort, defend, and boss FATEs are now recognized as what they are. The FATE sheet's rule column was read as a kind, but rule 2 is collect, 3 is escort, 4 is defend, and rule 1 covers both plain kill FATEs and bosses, which only the map icon tells apart. Until now escort FATEs were fought as plain battles with no following, defend FATEs were run as bosses (no walking while in combat, and the boss join threshold gated them), and bosses were never recognized at all. A collect FATE is also collect by its rule now, so the moment before its event item populates no longer reads as a battle
 - The debug report shows the sheet icon next to the rule
+- A boss is fought over its adds. In Revenge of the Worms the sandworms were targeted while Ulhuadshi stood there: RotationSolver's default targeting picks the lowest-HP enemy, and Moirai accepted whatever it held. The FATE sheet does not name the objective, so an enemy with at least twice the max HP of the smallest in the FATE now counts as its boss. Moirai engages it first, and RotationSolver is switched on through its AutoDuty entry point with a highest-max-HP targeting order so the two agree. That entry point also stops RotationSolver switching itself off out of combat. A RotationSolver build without it gets the old chat command
+- The debug report shows each enemy's max HP
 <!-- LATEST-END -->
 
 ## v0.3.5 — 2026-09-04

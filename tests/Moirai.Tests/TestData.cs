@@ -41,8 +41,8 @@ public static class TestData
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float y = 0, float z = 100, float hitbox = 2f,
-        uint fateId = 1, bool alive = true, bool peels = false, bool attacksMe = false)
-        => new(id, new Vector3(x, y, z), hitbox, fateId, alive, peels, attacksMe);
+        uint fateId = 1, bool alive = true, bool peels = false, bool attacksMe = false, uint maxHp = 1_000)
+        => new(id, new Vector3(x, y, z), hitbox, fateId, alive, peels, attacksMe, maxHp);
 
     public static InteractableSnapshot Thing(
         ulong id = 2000, float x = 100, float y = 0, float z = 100,

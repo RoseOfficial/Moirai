@@ -163,7 +163,8 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
                         FateId: objFate,
                         IsAlive: true,
                         TargetsProtectedFriendly: ours && TargetsFateFriendly(bnpc, objFate),
-                        IsAttackingPlayer: onUs));
+                        IsAttackingPlayer: onUs,
+                        MaxHp: bnpc.MaxHp));
                 }
                 else if (ours)
                 {

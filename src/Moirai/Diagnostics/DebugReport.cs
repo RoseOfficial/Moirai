@@ -73,7 +73,7 @@ public static class DebugReport
             sb.AppendLine();
             sb.AppendLine($"objects seen (fate #{currentId?.ToString() ?? "none"}): {snap.Enemies.Count} enemies, {snap.Interactables.Count} interactables");
             foreach (var e in snap.Enemies)
-                sb.AppendLine($"  enemy id={e.Id} fate={e.FateId} onUs={e.IsAttackingPlayer} peel={e.TargetsProtectedFriendly} dist={Vector3.Distance(e.Position, snap.Player.Position):0.0}");
+                sb.AppendLine($"  enemy id={e.Id} fate={e.FateId} maxHp={e.MaxHp} onUs={e.IsAttackingPlayer} peel={e.TargetsProtectedFriendly} dist={Vector3.Distance(e.Position, snap.Player.Position):0.0}");
             foreach (var i in snap.Interactables)
                 sb.AppendLine($"  {i.Kind} id={i.Id} fate={i.FateId} dist={Vector3.Distance(i.Position, snap.Player.Position):0.0}");
         }

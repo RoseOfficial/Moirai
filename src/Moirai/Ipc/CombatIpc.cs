@@ -8,13 +8,21 @@ namespace Moirai.Ipc;
 // Olympus IPC and Wrath's lease model plug in behind the same three calls later.
 public sealed class CombatIpc
 {
+    // RSR's StateCommandType and TargetingType, mirrored by value: Dalamud's IPC converts a foreign
+    // enum through JSON, so only the numbers cross the boundary and they must follow RSR's order.
+    private enum RsrState : byte { Off, Auto, TargetOnly, Manual, AutoDuty }
+    private enum RsrTargeting : byte { Big, Small, HighHP, LowHP, HighHPPercent, LowHPPercent, HighMaxHP }
+
     private readonly ICallGateSubscriber<bool> _active;
+    private readonly ICallGateSubscriber<RsrState, RsrTargeting, object> _autoWithTargeting;
     private RotationMode? _last;
     private bool _fateFilterSuspended;
 
     public CombatIpc()
     {
-        _active = Svc.PluginInterface.GetIpcSubscriber<bool>("RotationSolverReborn.AutorotationActive");
+        var pi = Svc.PluginInterface;
+        _active = pi.GetIpcSubscriber<bool>("RotationSolverReborn.AutorotationActive");
+        _autoWithTargeting = pi.GetIpcSubscriber<RsrState, RsrTargeting, object>("RotationSolverReborn.AutodutyChangeOperatingMode");
     }
 
     public bool RotationSolverInstalled
@@ -40,17 +48,37 @@ public sealed class CombatIpc
         var defensive = want == RotationMode.Manual;
         if (defensive) SuspendFateFilter(true);
         foreach (var step in RotationSwitch.Plan(_last, IsActive(), want))
-            Svc.Commands.ProcessCommand(step switch
-            {
-                RotationMode.Auto => "/rotation auto",
-                RotationMode.Manual => "/rotation manual",
-                _ => "/rotation off",
-            });
+            Send(step);
         _last = want;
         if (!defensive) SuspendFateFilter(false);
     }
 
     public void ResetCache() => _last = null;
+
+    // B13: auto enters through RSR's AutoDuty entry point, which carries a targeting order with it.
+    // RSR's own default sorts the fate's enemies by lowest HP, which in a boss fight is always an
+    // add; sorted by highest max HP the boss wins whenever it can be targeted, so the backend and
+    // the planner agree on it. The override is transient (off clears it), and the same entry point
+    // spares us RSR's out-of-combat auto-off. A build without the gate gets the chat command and
+    // RSR's own targeting order.
+    private void Send(RotationMode step)
+    {
+        if (step == RotationMode.Auto)
+        {
+            try
+            {
+                _autoWithTargeting.InvokeAction(RsrState.AutoDuty, RsrTargeting.HighMaxHP);
+                return;
+            }
+            catch { /* gate missing on this build */ }
+        }
+        Svc.Commands.ProcessCommand(step switch
+        {
+            RotationMode.Auto => "/rotation auto",
+            RotationMode.Manual => "/rotation manual",
+            _ => "/rotation off",
+        });
+    }
 
     // RSR's "Ignore Non-Fate targets while in a Fate" option, set in memory only (RSR does not save
     // it from this command) and put back to its default afterwards.

@@ -9,4 +9,5 @@ public sealed record EnemySnapshot(
     uint FateId,
     bool IsAlive,
     bool TargetsProtectedFriendly,
-    bool IsAttackingPlayer);
+    bool IsAttackingPlayer,
+    uint MaxHp);

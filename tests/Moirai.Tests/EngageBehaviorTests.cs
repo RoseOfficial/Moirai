@@ -31,6 +31,43 @@ public class EngageBehaviorTests
         Assert.Equal(2uL, TargetPicker.Choose([aDead, b], 1, sticky: 1, Vector3.Zero)!.Id);
     }
 
+    [Fact] // B13: a boss with adds — the enemy whose max HP dwarfs the rest is the objective, however near the adds
+    public void B13_boss_with_adds_prefers_the_high_max_hp_enemy()
+    {
+        var add = TestData.Enemy(id: 1, x: 2, maxHp: 1_500, attacksMe: true);
+        var boss = TestData.Enemy(id: 2, x: 20, maxHp: 40_000);
+        Assert.Equal(2uL, TargetPicker.Choose([add, boss], fateId: 1, sticky: null, playerPos: Vector3.Zero)!.Id);
+    }
+
+    [Fact] // B13: a pool with only a level spread between its mobs is no boss fight; nearest still wins
+    public void B13_similar_max_hp_pool_keeps_nearest()
+    {
+        var near = TestData.Enemy(id: 1, x: 2, maxHp: 1_500);
+        var far = TestData.Enemy(id: 2, x: 20, maxHp: 1_900);
+        Assert.Equal(1uL, TargetPicker.Choose([near, far], fateId: 1, sticky: null, playerPos: Vector3.Zero)!.Id);
+    }
+
+    [Fact] // B7 over B13: an add on a protected friendly is peeled before the boss is engaged
+    public void B7_peel_outranks_the_boss_preference()
+    {
+        var peeler = TestData.Enemy(id: 1, x: 10, maxHp: 1_500, peels: true);
+        var boss = TestData.Enemy(id: 2, x: 20, maxHp: 40_000);
+        Assert.Equal(1uL, TargetPicker.Choose([peeler, boss], fateId: 1, sticky: null, playerPos: Vector3.Zero)!.Id);
+    }
+
+    [Fact] // B13: the first engaging tick asserts the boss, not the nearer add
+    public void B13_engages_the_boss_over_nearer_adds()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var add = TestData.Enemy(id: 1, x: 2, maxHp: 1_500);
+        var boss = TestData.Enemy(id: 2, x: 20, maxHp: 40_000);
+        var w = TestData.World(player: TestData.Player(synced: true), fates: [fate], enemies: [add, boss]);
+        var sut = Sut();
+        Assert.IsType<SetCombat>(sut.Tick(w, Ctx(fate)).Intent);
+        var engage = Assert.IsType<Engage>(sut.Tick(w, Ctx(fate)).Intent);
+        Assert.Equal(2uL, engage.TargetId);
+    }
+
     [Fact] // C11: sync only once actually inside the ring
     public void C11_syncs_inside_ring_before_fighting()
     {
