@@ -138,7 +138,7 @@ Bounded and escalating; every rung has a retry cap, and exhausting the ladder st
 4. Return to the nearest aetheryte and re-approach.
 5. Stop with `StuckExhausted`, position and state logged.
 
-Stuck detection: no meaningful movement over a sampling window while a path is running, with the sampler suppressed during legitimate slow phases (vertical descent near arrival).
+Stuck detection: no meaningful movement over a sampling window while a path is running, with the sampler suppressed during the mount cast. A stall while mounted inside the ring is treated as a landing attempt before it counts as stuck, so the final descent never reads as a false positive.
 
 ### 7.3 Death
 
@@ -275,7 +275,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - C6. Do not issue movement while casting (never cancel a cast).
 - C7. Mounted + stationary inside ring beyond window → re-roll dropoff.
 - C8. Grounded stuck → jump + sideways nudge, then escalate the ladder.
-- C9. Stuck sampler suppressed near arrival (vertical descent false positive).
+- C9. A stall while mounted inside the ring is a landing attempt, never a stuck failure (vertical-descent false positive).
 - C10. Melee stop distance ≈ 2.5 y (larger breaks auto-attack range); ranged ≈ 8 y.
 - C11. Sync only once actually inside the ring.
 - C12. Mount only when leg length exceeds threshold and mounting is legal (not in combat/housing).

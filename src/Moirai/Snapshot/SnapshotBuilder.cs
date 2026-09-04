@@ -69,6 +69,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
 
         return new WorldSnapshot(
             NowEpoch: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            NowMs: Environment.TickCount64,
             TerritoryId: (ushort)Svc.ClientState.TerritoryType,
             Player: player,
             Fates: fates,

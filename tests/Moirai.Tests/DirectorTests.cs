@@ -211,4 +211,31 @@ public class DirectorTests
         var set = Assert.IsType<SetCombat>(d.Tick(w).Intent);
         Assert.Equal(CombatMode.Defensive, set.Mode);
     }
+
+    [Fact] // spec 7.2: a travel standstill climbs the ladder until a new dropoff is rolled
+    public void Travel_standstill_climbs_ladder_to_a_new_dropoff()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var random = new FixedRandom(0.5, 0.5, 0.1, 0.9); // one instance: the re-roll must draw the next values
+        var d = new Director(new SingleZoneModule(), new SelectionConfig(), new DirectorConfig(), travel,
+            _ => new EngageBehavior(new EngageConfig()),
+            w => new BehaviorContext(null, true, random, new FlatGround()));
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 100, z: 0, radius: 60);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        d.Tick(TestData.World(fates: [fate])); // establishes the dropoff
+        var drop = travel.CurrentDropoff!.Value;
+
+        WorldSnapshot Hover(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: drop.X, y: drop.Y + 10, z: drop.Z, mounted: true), fates: [fate]);
+
+        var statuses = new List<string>();
+        for (long ms = 0; ms <= 9000; ms += 300)
+            statuses.Add(d.Tick(Hover(ms)).Status);
+
+        Assert.Contains("recovery: re-path", statuses);
+        Assert.Contains("recovery: new dropoff", statuses);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.NotEqual(drop, travel.CurrentDropoff!.Value);
+    }
 }

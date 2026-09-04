@@ -43,4 +43,12 @@ public class InterruptTests
 
     private static InterruptKind Eval(Moirai.Core.Model.WorldSnapshot w)
         => InterruptEvaluator.Evaluate(w, null);
+
+    [Fact] // D3: the ring is horizontal, so combat on a rise inside it is the fate's own combat
+    public void D3_combat_inside_ring_on_a_rise_is_not_unexpected()
+    {
+        var f = TestData.Fate(id: 5, x: 0, z: 0, radius: 40);
+        var w = TestData.World(player: TestData.Player(x: 10, y: 45, z: 0, inCombat: true), fates: [f]);
+        Assert.Equal(InterruptKind.None, InterruptEvaluator.Evaluate(w, currentFateId: 5));
+    }
 }

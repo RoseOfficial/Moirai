@@ -119,4 +119,13 @@ public class EngageBehaviorTests
         var calm = TestData.World(player: TestData.Player(synced: true), fates: [fate], interactables: [npc]);
         Assert.IsType<GoTo>(sut.Tick(calm, Ctx(fate)).Intent);
     }
+
+    [Fact] // C5: elevation alone never reads as a knockback out of the ring
+    public void C5_elevation_inside_ring_is_not_a_knockback()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 20);
+        var w = TestData.World(player: TestData.Player(x: 5, y: 30, z: 0, synced: true), fates: [fate],
+            enemies: [TestData.Enemy(x: 5, y: 30, fateId: 1)]);
+        Assert.IsType<SetCombat>(Sut().Tick(w, Ctx(fate)).Intent);
+    }
 }

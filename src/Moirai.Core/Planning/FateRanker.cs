@@ -25,7 +25,7 @@ public static class FateRanker
     private static bool IsNearby(FateSnapshot f, WorldSnapshot w, SelectionConfig c)
     {
         var d = Vector3.Distance(w.Player.Position, f.Position);
-        return d <= c.NearbyOverrideDistance || d <= f.Radius;
+        return d <= c.NearbyOverrideDistance || f.Contains(w.Player.Position);
     }
 
     // negative when x outranks y; final tie-break lowest id (A11, determinism)

@@ -27,6 +27,6 @@ public static class InterruptEvaluator
         if (currentFateId is not { } id) return false;
         var f = w.FateById(id);
         return f is { Phase: FatePhase.Running }
-            && Vector3.Distance(w.Player.Position, f.Position) <= f.Radius;
+            && f.Contains(w.Player.Position);
     }
 }

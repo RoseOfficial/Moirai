@@ -15,19 +15,19 @@ public static class TestData
                bonus, specialBoss, continuation, startTimeEpoch, timeRemaining, eventItemId);
 
     public static PlayerSnapshot Player(
-        float x = 0, float z = 0, int level = 100, bool melee = true,
+        float x = 0, float y = 0, float z = 0, int level = 100, bool melee = true,
         bool dead = false, bool inCombat = false, bool mounted = false, bool flying = false,
         bool casting = false, bool betweenAreas = false, bool jumping = false,
         bool beingMoved = false, bool occupied = false, bool synced = false,
         bool canMount = true, bool canFly = true,
         ulong? targetId = null,
         bool companionSummoned = false, int companionTimeLeft = 0, uint companionStance = 0)
-        => new(new Vector3(x, 0, z), level, melee, dead, inCombat, mounted, flying,
+        => new(new Vector3(x, y, z), level, melee, dead, inCombat, mounted, flying,
                casting, betweenAreas, jumping, beingMoved, occupied, synced,
                canMount, canFly, targetId, companionSummoned, companionTimeLeft, companionStance);
 
     public static WorldSnapshot World(
-        long now = 10_000, ushort territory = 0,
+        long now = 10_000, long nowMs = 0, ushort territory = 0,
         PlayerSnapshot? player = null,
         IReadOnlyList<FateSnapshot>? fates = null,
         IReadOnlyList<Aetheryte>? aetherytes = null,
@@ -35,17 +35,17 @@ public static class TestData
         IReadOnlyList<InteractableSnapshot>? interactables = null,
         IReadOnlyDictionary<uint, int>? items = null,
         bool navmeshReady = true, bool lifestreamBusy = false)
-        => new(now, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
+        => new(now, nowMs, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
                items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy);
 
     public static EnemySnapshot Enemy(
-        ulong id = 1000, float x = 100, float z = 100, float hitbox = 2f,
+        ulong id = 1000, float x = 100, float y = 0, float z = 100, float hitbox = 2f,
         uint fateId = 1, bool alive = true, bool peels = false, bool attacksMe = false)
-        => new(id, new Vector3(x, 0, z), hitbox, fateId, alive, peels, attacksMe);
+        => new(id, new Vector3(x, y, z), hitbox, fateId, alive, peels, attacksMe);
 
     public static InteractableSnapshot Thing(
-        ulong id = 2000, float x = 100, float z = 100,
+        ulong id = 2000, float x = 100, float y = 0, float z = 100,
         uint fateId = 1, InteractableKind kind = InteractableKind.Collectable)
-        => new(id, new Vector3(x, 0, z), fateId, kind);
+        => new(id, new Vector3(x, y, z), fateId, kind);
 }

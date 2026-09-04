@@ -108,4 +108,14 @@ public class CollectAndNpcStartTests
         var w = TestData.World(player: TestData.Player(x: 0, z: 0), fates: [fate], interactables: [npc]);
         Assert.IsType<InteractWith>(new NpcStartBehavior().Tick(w, Ctx(fate)).Intent);
     }
+
+    [Fact] // B5: the ring-proximity fallback is horizontal, so a starter on a rise still matches
+    public void B5_ring_fallback_matches_starter_on_a_rise()
+    {
+        var fate = TestData.Fate(id: 1, kind: FateKind.NpcStart, x: 0, z: 0, radius: 20,
+            startTimeEpoch: 0, progress: 0);
+        var starter = TestData.Thing(id: 60, x: 10, y: 25, z: 0, fateId: 0, kind: InteractableKind.StarterNpc);
+        var w = TestData.World(player: TestData.Player(x: 10, y: 25, z: 0), fates: [fate], interactables: [starter]);
+        Assert.IsType<InteractWith>(new NpcStartBehavior().Tick(w, Ctx(fate)).Intent);
+    }
 }

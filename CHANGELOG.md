@@ -3,12 +3,19 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.2 — 2026-09-04
+
+### Fixed
+- The mount no longer hovers over a FATE forever: a standstill while mounted inside the ring now dismounts, and a dismount that never takes re-rolls the landing point through the recovery ladder
+- Ring membership is measured on the ground plane, so FATEs on hills and ridges register as entered on arrival, in combat, and for the nearby override
+- A standstill on the way to a FATE now feeds the recovery ladder instead of re-issuing the same path indefinitely
+<!-- LATEST-END -->
+
 ## v0.3.1 — 2026-09-04
 
 ### Fixed
 - "Skip NPC-started fates" now also skips unopened collect FATEs such as Hide and Seek; they were classified as collect FATEs before the skip could see them
 - With the skip off, an unopened collect FATE is started at its hand-in NPC before the collect loop takes over
-<!-- LATEST-END -->
 
 ## v0.3.0 — 2026-09-03
 

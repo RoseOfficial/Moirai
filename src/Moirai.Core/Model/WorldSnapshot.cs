@@ -2,6 +2,7 @@ namespace Moirai.Core.Model;
 
 public sealed record WorldSnapshot(
     long NowEpoch,
+    long NowMs, // monotonic milliseconds for windows the planner measures
     ushort TerritoryId,
     PlayerSnapshot Player,
     IReadOnlyList<FateSnapshot> Fates,

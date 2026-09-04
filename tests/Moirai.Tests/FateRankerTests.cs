@@ -69,4 +69,13 @@ public class FateRankerTests
     [Fact]
     public void Returns_null_when_nothing_eligible()
         => Assert.Null(FateRanker.PickBest(TestData.World(), Cfg));
+
+    [Fact] // A9: standing over a ring on a rise still counts as inside it
+    public void A9_inside_ring_on_a_rise_overrides_ladder()
+    {
+        var under = TestData.Fate(id: 1, x: 100, z: 100, progress: 0, radius: 30);
+        var better = TestData.Fate(id: 2, x: 800, z: 800, progress: 70);
+        var w = TestData.World(player: TestData.Player(x: 120, y: 60, z: 100), fates: [under, better]);
+        Assert.Equal(1u, FateRanker.PickBest(w, Cfg)!.Id);
+    }
 }

@@ -31,7 +31,7 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
         }
 
         var p = w.Player;
-        var inside = Vector3.Distance(p.Position, live.Position) <= live.Radius;
+        var inside = live.Contains(p.Position);
 
         // C11: sync only once actually inside the ring
         if (inside && !p.IsLevelSynced)

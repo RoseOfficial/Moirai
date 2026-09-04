@@ -26,7 +26,7 @@ public sealed class NpcStartBehavior : IBehavior
                 i => i.Kind == InteractableKind.ObjectiveNpc && i.FateId == live.Id)
             ?? w.Interactables.FirstOrDefault(
                 i => i.Kind == InteractableKind.StarterNpc
-                     && Vector3.Distance(i.Position, live.Position) <= live.Radius);
+                     && live.Contains(i.Position));
         if (npc is null)
             return new(new Hold(500), BehaviorStatus.Running, "waiting for starter npc");
 
