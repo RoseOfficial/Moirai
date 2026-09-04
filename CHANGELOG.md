@@ -3,13 +3,22 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.3 — 2026-09-04
+
+### Fixed
+- Rescue FATEs no longer target the captives: a FATE's friendly NPCs, such as the Abducted Ala Mhigans, are told apart from its enemies by the game's own attack check instead of by NPC kind
+- Targeting no longer fights RotationSolver Reborn for the target: any FATE enemy it switches to is accepted, and a foreign or friendly target is replaced with a FATE enemy rather than cleared, so the two never trade the target back and forth
+- Being pulled or knocked past the ring edge mid-fight no longer freezes the run; it walks back into the ring and keeps fighting
+- Stray aggro on the way to a FATE is now fought off: the defensive combat switch was dropped whenever the rotation was already on, and RotationSolver's manual mode attacks nothing without a held target
+- A character at or below a FATE's level cap no longer waits for a level sync the game never offers
+<!-- LATEST-END -->
+
 ## v0.3.2 — 2026-09-04
 
 ### Fixed
 - The mount no longer hovers over a FATE forever: a standstill while mounted inside the ring now dismounts, and a dismount that never takes re-rolls the landing point through the recovery ladder
 - Ring membership is measured on the ground plane, so FATEs on hills and ridges register as entered on arrival, in combat, and for the nearby override
 - A standstill on the way to a FATE now feeds the recovery ladder instead of re-issuing the same path indefinitely
-<!-- LATEST-END -->
 
 ## v0.3.1 — 2026-09-04
 

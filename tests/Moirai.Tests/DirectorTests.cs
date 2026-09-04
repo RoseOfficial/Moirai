@@ -212,6 +212,26 @@ public class DirectorTests
         Assert.Equal(CombatMode.Defensive, set.Mode);
     }
 
+    [Fact] // D3: in-fate combat past the ring edge hands control to the engage behavior, which walks back in
+    public void D3_in_fate_combat_outside_ring_reenters_instead_of_pausing()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
+        d.Tick(TestData.World(fates: [fate]));                          // selects
+        d.Tick(TestData.World(fates: [fate]));                          // travel: establishes dropoff
+        var drop = travel.CurrentDropoff!.Value;
+        d.Tick(TestData.World(player: TestData.Player(x: drop.X, z: drop.Z), fates: [fate]));
+        Assert.Equal(RunPhase.InFate, d.Phase);
+
+        var knockedOut = TestData.World(player: TestData.Player(x: 100, z: 0, inCombat: true, synced: true), fates: [fate]);
+        var output = d.Tick(knockedOut);
+        var go = Assert.IsType<GoTo>(output.Intent);
+        Assert.Equal(fate.Position, go.Destination);
+    }
+
     [Fact] // spec 7.2: a travel standstill climbs the ladder until a new dropoff is rolled
     public void Travel_standstill_climbs_ladder_to_a_new_dropoff()
     {

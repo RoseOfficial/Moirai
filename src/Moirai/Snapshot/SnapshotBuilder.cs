@@ -18,6 +18,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         var cond = Svc.Condition;
 
         var companionTimeLeft = GameEx.CompanionTimeLeftSeconds();
+        var currentFate = currentFateId is { } wanted ? Svc.Fates.FirstOrDefault(f => f?.FateId == wanted) : null;
         var player = new PlayerSnapshot(
             Position: lp.Position,
             Level: lp.Level,
@@ -35,7 +36,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
                         || cond[ConditionFlag.Occupied39] || cond[ConditionFlag.OccupiedInEvent]
                         || cond[ConditionFlag.OccupiedInQuestEvent] || cond[ConditionFlag.OccupiedSummoningBell]
                         || cond[ConditionFlag.OccupiedInCutSceneEvent],
-            IsLevelSynced: IsLevelSynced(),
+            IsLevelSynced: IsLevelSynced(lp, currentFate),
             CanMount: true,  // the executor's mount call is a safe no-op where mounting is illegal
             CanFly: true,    // per-zone no-fly overrides gate flight; vnavmesh grounds the rest
             TargetId: Svc.Targets.Target?.GameObjectId,
@@ -137,14 +138,17 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
             if (obj is IBattleNpc bnpc)
             {
                 if (objFate != fateId) continue;
-                if (bnpc.BattleNpcKind == BattleNpcSubKind.Combatant)
+                // a corpse or an untargetable spawn is neither an enemy nor an objective
+                if (bnpc.IsDead || bnpc.CurrentHp == 0 || !obj.IsTargetable) continue;
+                // B10: hostility, not sub-kind, splits the fate's enemies from its captives and escortees
+                if (GameEx.IsHostile(obj))
                 {
                     enemies.Add(new EnemySnapshot(
                         Id: obj.GameObjectId,
                         Position: obj.Position,
                         HitboxRadius: obj.HitboxRadius,
                         FateId: objFate,
-                        IsAlive: !bnpc.IsDead && bnpc.CurrentHp > 0,
+                        IsAlive: true,
                         TargetsProtectedFriendly: TargetsFateFriendly(bnpc, fateId),
                         IsAttackingPlayer: bnpc.TargetObjectId == player.GameObjectId));
                 }
@@ -175,7 +179,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
     {
         var target = Svc.Objects.SearchById(enemy.TargetObjectId);
         return target is IBattleNpc friendly
-            && friendly.BattleNpcKind != BattleNpcSubKind.Combatant
+            && !GameEx.IsHostile(friendly)
             && GameEx.GetFateId(target) == fateId;
     }
 
@@ -192,9 +196,11 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         }
     }
 
-    private static unsafe bool IsLevelSynced()
+    // C11: at or below the fate's cap the game offers no sync, so there is none to wait for
+    private static unsafe bool IsLevelSynced(IGameObject lp, IFate? currentFate)
     {
         var fm = FFXIVClientStructs.FFXIV.Client.Game.Fate.FateManager.Instance();
-        return fm != null && fm->SyncedFateId != 0;
+        if (fm != null && fm->SyncedFateId != 0) return true;
+        return currentFate is not null && lp is ICharacter c && c.Level <= currentFate.MaxLevel;
     }
 }

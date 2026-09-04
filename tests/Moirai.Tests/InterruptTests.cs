@@ -1,3 +1,4 @@
+using Moirai.Core.Model;
 using Moirai.Core.Planning;
 
 namespace Moirai.Tests;
@@ -35,6 +36,22 @@ public class InterruptTests
         var f = TestData.Fate(id: 5, x: 0, z: 0, radius: 60);
         var w = TestData.World(player: TestData.Player(inCombat: true), fates: [f]);
         Assert.Equal(InterruptKind.None, InterruptEvaluator.Evaluate(w, currentFateId: 5));
+    }
+
+    [Fact] // D3: once we are fighting the fate, combat past the ring edge is the fate's own combat
+    public void D3_combat_outside_ring_while_fighting_fate_is_not_unexpected()
+    {
+        var f = TestData.Fate(id: 5, x: 0, z: 0, radius: 40);
+        var w = TestData.World(player: TestData.Player(x: 55, z: 0, inCombat: true), fates: [f]);
+        Assert.Equal(InterruptKind.None, InterruptEvaluator.Evaluate(w, currentFateId: 5, inFatePhase: true));
+    }
+
+    [Fact] // D3: a fate we are fighting that has ended no longer excuses combat
+    public void D3_combat_after_fate_end_is_unexpected_again()
+    {
+        var f = TestData.Fate(id: 5, x: 0, z: 0, radius: 40, phase: FatePhase.Ended);
+        var w = TestData.World(player: TestData.Player(x: 55, z: 0, inCombat: true), fates: [f]);
+        Assert.Equal(InterruptKind.UnexpectedCombat, InterruptEvaluator.Evaluate(w, currentFateId: 5, inFatePhase: true));
     }
 
     [Fact] // D5

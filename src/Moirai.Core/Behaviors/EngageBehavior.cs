@@ -41,17 +41,21 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
         if (!inside && !p.IsMounted)
             return new(new GoTo(live.Position, false, 2f), BehaviorStatus.Running, "re-entering ring");
 
-        // B10: clear a target that isn't ours
-        if (p.TargetId is { } tid)
-        {
-            var held = w.Enemies.FirstOrDefault(e => e.Id == tid);
-            if (held is null || held.FateId != live.Id || !held.IsAlive)
-                return new(new ClearTarget(), BehaviorStatus.Running, "clearing stray target");
-        }
+        // Single-owner rule (§2.3): the combat backend may switch among the fate's enemies as it
+        // likes, and whichever one it holds becomes our sticky target. We step in only when the
+        // held target is not one of them (B10: another fate's mob, the fate's own friendly NPC,
+        // a corpse), and then we replace it rather than clear it, so the backend never re-targets
+        // into the gap and the two never trade the target back and forth.
+        if (p.TargetId is { } tid
+            && w.Enemies.FirstOrDefault(e => e.Id == tid) is { IsAlive: true } held
+            && held.FateId == live.Id)
+            _sticky = held.Id;
 
         var chosen = TargetPicker.Choose(w.Enemies, live.Id, _sticky, p.Position);
         if (chosen is null)
-            return new(new Hold(500), BehaviorStatus.Running, "no enemies yet");
+            return p.TargetId is null
+                ? new(new Hold(500), BehaviorStatus.Running, "no enemies yet")
+                : new(new ClearTarget(), BehaviorStatus.Running, "clearing stray target");
         _sticky = chosen.Id;
 
         if (!_combatOn)
@@ -60,6 +64,11 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
             return new(new SetCombat(true, CombatMode.Auto), BehaviorStatus.Running, "combat on");
         }
 
+        // Assert the target before closing distance: while we walk, the backend keeps hitting
+        // whatever is held, and a foreign mob must not be it.
+        if (p.TargetId != chosen.Id)
+            return new(new Engage(chosen.Id), BehaviorStatus.Running, "engaging");
+
         var range = (p.IsMelee ? cfg.MeleeRange : cfg.RangedRange) + chosen.HitboxRadius;
         var dist = Vector3.Distance(p.Position, chosen.Position);
 
@@ -67,9 +76,6 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
         var bossInCombat = live.Kind == FateKind.Boss && p.InCombat;
         if (dist > range && !bossInCombat)
             return new(new GoTo(chosen.Position, false, range), BehaviorStatus.Running, "closing");
-
-        if (p.TargetId != chosen.Id)
-            return new(new Engage(chosen.Id), BehaviorStatus.Running, "engaging");
 
         return new(new NoAction(), BehaviorStatus.Running, "fighting");
     }

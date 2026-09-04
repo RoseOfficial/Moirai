@@ -56,7 +56,7 @@ public sealed class Director(
 
         RewardLatch.Observe(w);
 
-        switch (InterruptEvaluator.Evaluate(w, CurrentFate?.Id))
+        switch (InterruptEvaluator.Evaluate(w, CurrentFate?.Id, inFatePhase: Phase == RunPhase.InFate))
         {
             case InterruptKind.Busy:
                 return new(new Hold(250), "busy");

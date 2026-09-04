@@ -12,9 +12,16 @@ public static unsafe class GameEx
 {
     private const uint MountRouletteGeneralAction = 9;
     private const uint JumpGeneralAction = 2;
+    private const uint BlizzardAction = 142; // a hostile-only spell: castable on exactly the things the game calls enemies
 
     public static ushort GetFateId(IGameObject obj)
         => obj.Address == nint.Zero ? (ushort)0 : ((CSGameObject*)obj.Address)->FateId;
+
+    // The game's own hostility test. Sub-kind cannot tell a fate's captors from its captives:
+    // both are battle NPCs of the same kind, and only one of them may be attacked.
+    public static bool IsHostile(IGameObject obj)
+        => obj.Address != nint.Zero
+           && ActionManager.CanUseActionOnTarget(BlizzardAction, (CSGameObject*)obj.Address);
 
     public static uint GetNameplateIcon(IGameObject obj)
         => obj.Address == nint.Zero ? 0u : ((CSGameObject*)obj.Address)->NamePlateIconId;

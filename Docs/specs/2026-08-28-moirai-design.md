@@ -263,7 +263,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B7. Defend: prefer enemies targeting protected friendlies.
 - B8. Continuation: wait at site, adopt successor by new id at same location, give up after 30 s.
 - B9. Boss fights: no navigation while in combat; dodge layer owns movement.
-- B10. Never target the FATE's own friendly NPC in combat; clear stray targets belonging to other FATEs.
+- B10. Never target the FATE's own friendly NPC in combat (hostility comes from the game's own can-attack test, never from NPC sub-kind). A held target that is not one of the FATE's enemies — another FATE's mob, the friendly, a corpse — is replaced with a FATE enemy while one exists and cleared only when none does; a FATE enemy the combat backend switched to is accepted as the sticky target, so the two never trade the target back and forth.
 - B11. NPC-start: an unopened collect FATE is an NPC-start FATE until it opens; it opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC.
 
 **Movement**
@@ -283,7 +283,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 **Interrupts & lifecycle**
 - D1. Death overrides all states; accept return; teleport back if displaced; resume fresh.
 - D2. Death never counts as completion; failed FATE never counts as completion.
-- D3. Unexpected combat outside the FATE → defensive clear, then resume; mounted variant gains altitude first.
+- D3. Unexpected combat outside the FATE → defensive clear, then resume; mounted variant gains altitude first. Never while we are fighting a running FATE: combat past the ring edge (pulled mobs, knockbacks) is that FATE's own, and the engage behavior walks back in (C5) rather than pausing with nobody to do so.
 - D4. Busy guard: no intents while casting/between-areas/jumping/being-moved/occupied/Lifestream-busy.
 - D5. Navmesh not ready → hold movement, keep observing.
 - D6. Reward latch: no zone change/teleport until FATE payout registers.
@@ -310,7 +310,7 @@ Gate names verified against current plugin versions (2026-08).
 
 **BossMod / Reborn**: `BossMod.Presets.SetActive/ClearActive/GetActive/Create/Get`, `BossMod.Presets.AddTransientStrategy(preset, module, option, value)`; Reborn-only: `BossMod.Hints.ForbiddenZonesCount`, `BossMod.Hints.ForbiddenZonesNextActivation`, `BossMod.AI.IsNavigating`; AI toggles via `/bmrai` (Reborn) or `/vbm` (vanilla) command families.
 
-**RotationSolver Reborn**: mode via `/rotation auto|manual|off`; `RotationSolverReborn.AddPriorityNameID(uint)` / `RemovePriorityNameID(uint)`.
+**RotationSolver Reborn**: mode via `/rotation auto|manual|off`; `RotationSolverReborn.AddPriorityNameID(uint)` / `RemovePriorityNameID(uint)`. Both planner combat modes map to `auto`: `manual` attacks only the held target, and the planner holds none during a defensive clear. RSR sets the hard target itself in auto and, by default, refuses FATE mobs whenever the game does not consider the player inside a FATE (outside the ring, or above the cap without sync), which is why sync and ring re-entry precede targeting.
 
 **Wrath Combo**: lease model — `RegisterForLeaseWithCallback(internalName, pluginName, callbackPrefix) → Guid`, `SetAutoRotationState(Guid, bool)`, `SetCurrentJobAutoRotationReady(Guid)`, `SetAutoRotationConfigState(Guid, option, value)` (incl. `FATEPriority`), `ReleaseControl(Guid)`, revocation callback handling.
 

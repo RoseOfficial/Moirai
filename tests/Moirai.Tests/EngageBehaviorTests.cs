@@ -49,13 +49,65 @@ public class EngageBehaviorTests
         Assert.Equal(fate.Position, go.Destination);
     }
 
-    [Fact] // B10: stray target belonging to another fate is cleared
+    [Fact] // B10: stray target belonging to another fate is cleared when nothing of ours is up
     public void B10_clears_stray_target()
     {
         var fate = TestData.Fate(id: 1, x: 0, z: 0, radius: 60);
         var stray = TestData.Enemy(id: 9, fateId: 2, x: 5);
         var w = TestData.World(player: TestData.Player(synced: true, targetId: 9), fates: [fate], enemies: [stray]);
         Assert.IsType<ClearTarget>(Sut().Tick(w, Ctx(fate)).Intent);
+    }
+
+    [Fact] // B10: a stray target is replaced, never cleared, while a fate enemy exists
+    public void B10_replaces_stray_target_when_fate_enemy_exists()
+    {
+        var fate = TestData.Fate(id: 1, x: 0, z: 0, radius: 60);
+        var stray = TestData.Enemy(id: 9, fateId: 2, x: 5);
+        var ours = TestData.Enemy(id: 7, fateId: 1, x: 3);
+        var w = TestData.World(player: TestData.Player(synced: true, targetId: 9), fates: [fate], enemies: [stray, ours]);
+        var sut = Sut();
+        Assert.IsType<SetCombat>(sut.Tick(w, Ctx(fate)).Intent);
+        Assert.Equal(7uL, Assert.IsType<Engage>(sut.Tick(w, Ctx(fate)).Intent).TargetId);
+    }
+
+    [Fact] // B10: the fate's own friendly NPC is never held as the target while enemies are up
+    public void B10_friendly_fate_npc_target_replaced_with_enemy()
+    {
+        var fate = TestData.Fate(id: 1, x: 0, z: 0, radius: 60);
+        var hostage = TestData.Thing(id: 42, fateId: 1, x: 2, kind: InteractableKind.ObjectiveNpc);
+        var captor = TestData.Enemy(id: 7, fateId: 1, x: 4);
+        var w = TestData.World(player: TestData.Player(synced: true, targetId: 42), fates: [fate],
+            enemies: [captor], interactables: [hostage]);
+        var sut = Sut();
+        Assert.IsType<SetCombat>(sut.Tick(w, Ctx(fate)).Intent);
+        Assert.Equal(7uL, Assert.IsType<Engage>(sut.Tick(w, Ctx(fate)).Intent).TargetId);
+    }
+
+    [Fact] // single-owner rule: a valid fate enemy the backend switched to is accepted, not fought over
+    public void Backend_target_switch_to_fate_enemy_is_accepted()
+    {
+        var fate = TestData.Fate(id: 1, x: 0, z: 0, radius: 60);
+        var first = TestData.Enemy(id: 1, x: 2, z: 0);
+        var second = TestData.Enemy(id: 2, x: 3, z: 0);
+        var sut = Sut();
+        var untargeted = TestData.World(player: TestData.Player(synced: true), fates: [fate], enemies: [first, second]);
+        sut.Tick(untargeted, Ctx(fate)); // SetCombat
+        Assert.Equal(1uL, Assert.IsType<Engage>(sut.Tick(untargeted, Ctx(fate)).Intent).TargetId);
+
+        var switched = TestData.World(player: TestData.Player(synced: true, targetId: 2), fates: [fate], enemies: [first, second]);
+        Assert.IsType<NoAction>(sut.Tick(switched, Ctx(fate)).Intent);
+    }
+
+    [Fact] // a foreign target is replaced before we start closing distance, so the backend stops hitting it
+    public void Target_is_asserted_before_closing_distance()
+    {
+        var fate = TestData.Fate(id: 1, x: 0, z: 0, radius: 60);
+        var stray = TestData.Enemy(id: 9, fateId: 2, x: 5);
+        var far = TestData.Enemy(id: 7, fateId: 1, x: 40);
+        var w = TestData.World(player: TestData.Player(synced: true, targetId: 9), fates: [fate], enemies: [stray, far]);
+        var sut = Sut();
+        sut.Tick(w, Ctx(fate)); // SetCombat
+        Assert.IsType<Engage>(sut.Tick(w, Ctx(fate)).Intent);
     }
 
     [Fact] // combat backend enabled once, then target engaged
@@ -77,7 +129,7 @@ public class EngageBehaviorTests
     {
         var fate = TestData.Fate(x: 0, z: 0, radius: 60);
         var enemy = TestData.Enemy(id: 7, x: 30, hitbox: 2f);
-        var w = TestData.World(player: TestData.Player(melee: false, synced: true), fates: [fate], enemies: [enemy]);
+        var w = TestData.World(player: TestData.Player(melee: false, synced: true, targetId: 7), fates: [fate], enemies: [enemy]);
         var sut = Sut();
         sut.Tick(w, Ctx(fate)); // SetCombat
         var go = Assert.IsType<GoTo>(sut.Tick(w, Ctx(fate)).Intent);
