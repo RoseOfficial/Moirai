@@ -98,4 +98,14 @@ public class CollectAndNpcStartTests
         var w = TestData.World(fates: [fate]);
         Assert.Equal(BehaviorStatus.Done, new NpcStartBehavior().Tick(w, Ctx(fate)).Status);
     }
+
+    [Fact] // B11: a collect fate opens at the same NPC it hands in to — use it when no starter is tagged
+    public void B11_starts_collect_fate_at_its_objective_npc()
+    {
+        var fate = TestData.Fate(id: 1, kind: FateKind.NpcStart, x: 0, z: 0, radius: 60,
+            startTimeEpoch: 0, progress: 0, eventItemId: 900);
+        var npc = TestData.Thing(id: 42, x: 1, z: 0, fateId: 1, kind: InteractableKind.ObjectiveNpc);
+        var w = TestData.World(player: TestData.Player(x: 0, z: 0), fates: [fate], interactables: [npc]);
+        Assert.IsType<InteractWith>(new NpcStartBehavior().Tick(w, Ctx(fate)).Intent);
+    }
 }

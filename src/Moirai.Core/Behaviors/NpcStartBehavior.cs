@@ -18,9 +18,12 @@ public sealed class NpcStartBehavior : IBehavior
         if (live.Phase is FatePhase.Ended or FatePhase.Failed)
             return new(new NoAction(), BehaviorStatus.Failed, "fate gone");
 
+        // B11: a collect fate opens at its hand-in NPC, which the scan tags as the fate's objective
         // B5: starter may report fate id 0 before opening — accept any starter inside the ring
         var npc = w.Interactables.FirstOrDefault(
                 i => i.Kind == InteractableKind.StarterNpc && i.FateId == live.Id)
+            ?? w.Interactables.FirstOrDefault(
+                i => i.Kind == InteractableKind.ObjectiveNpc && i.FateId == live.Id)
             ?? w.Interactables.FirstOrDefault(
                 i => i.Kind == InteractableKind.StarterNpc
                      && Vector3.Distance(i.Position, live.Position) <= live.Radius);

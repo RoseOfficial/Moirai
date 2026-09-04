@@ -264,6 +264,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B8. Continuation: wait at site, adopt successor by new id at same location, give up after 30 s.
 - B9. Boss fights: no navigation while in combat; dodge layer owns movement.
 - B10. Never target the FATE's own friendly NPC in combat; clear stray targets belonging to other FATEs.
+- B11. NPC-start: an unopened collect FATE is an NPC-start FATE until it opens; it opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC.
 
 **Movement**
 - C1. Per-zone no-fly override honored even when flight is unlocked.

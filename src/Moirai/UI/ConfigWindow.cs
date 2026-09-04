@@ -72,7 +72,7 @@ public sealed class ConfigWindow : Window
 
         var skipNpc = c.SkipNpcStartFates;
         if (ImGui.Checkbox("Skip NPC-started fates", ref skipNpc)) { c.SkipNpcStartFates = skipNpc; dirty = true; }
-        Hint("Unopened fates that need a starter NPC are left alone when checked.");
+        Hint("Unopened fates that need a starter NPC, collect fates included, are left alone when checked.");
 
         ImGui.Separator();
         ImGui.TextColored(Muted, "Threshold and ladder changes apply on the next Start. Blacklist changes apply at the next selection.");

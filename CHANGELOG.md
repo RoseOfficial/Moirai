@@ -3,6 +3,13 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.1 — 2026-09-04
+
+### Fixed
+- "Skip NPC-started fates" now also skips unopened collect FATEs such as Hide and Seek; they were classified as collect FATEs before the skip could see them
+- With the skip off, an unopened collect FATE is started at its hand-in NPC before the collect loop takes over
+<!-- LATEST-END -->
+
 ## v0.3.0 — 2026-09-03
 
 ### New — First Public Release
@@ -13,4 +20,3 @@ All notable changes to Moirai will be documented in this file.
 - Settings window with General, Selection, Movement, Combat, and About tabs, including a fate-id blacklist and a reorderable ranking ladder
 - `/moirai start`, `/moirai stop`, and `/moirai config` for macro-driven control
 - Requires vnavmesh for movement and RotationSolver Reborn for combat; the overlay says so when either is missing
-<!-- LATEST-END -->

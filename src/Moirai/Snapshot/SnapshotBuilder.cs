@@ -92,9 +92,8 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         };
         if (phase is null) return null;
 
-        var kind = FateKind.Battle;
         uint eventItem = 0;
-        var specialBoss = false;
+        uint rule = 0;
         try
         {
             if (fate.GameData.ValueNullable is { } row)
@@ -102,17 +101,14 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
                 if (row.EventItem.RowId != 0) eventItem = row.EventItem.RowId;
                 else if (row.TurnInEventItem.RowId != 0) eventItem = row.TurnInEventItem.RowId;
                 else if (row.ReqEventItem.RowId != 0) eventItem = row.ReqEventItem.RowId;
-
-                if (eventItem != 0) kind = FateKind.Collect;
-                else kind = row.Rule switch { 4 => FateKind.Boss, 5 => FateKind.Defend, 6 => FateKind.Escort, _ => FateKind.Battle };
-                specialBoss = kind == FateKind.Boss && fate.Level >= 60; // curated special-boss data refines this later
+                rule = row.Rule;
             }
         }
         catch { /* sheet row unavailable: treat as battle */ }
 
-        // An unopened fate must be started at its NPC regardless of its sheet type
-        if (fate.StartTimeEpoch == 0 && fate.Progress == 0 && kind != FateKind.Collect)
-            kind = FateKind.NpcStart;
+        // B11: unopened fates of every sheet kind are NPC-start until they open
+        var kind = FateClassifier.Classify(eventItem, rule, fate.StartTimeEpoch, fate.Progress);
+        var specialBoss = FateClassifier.FromSheet(eventItem, rule) == FateKind.Boss && fate.Level >= 60; // curated special-boss data refines this later
 
         return new FateSnapshot(
             Id: fate.FateId,
