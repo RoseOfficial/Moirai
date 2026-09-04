@@ -13,7 +13,7 @@ public sealed class NpcStartBehavior : IBehavior
         var fate = ctx.Fate ?? throw new InvalidOperationException("NpcStartBehavior requires a fate");
         var live = w.FateById(fate.Id) ?? fate;
 
-        if (live.StartTimeEpoch > 0 || live.Progress > 0)
+        if (!live.IsUnopened)
             return new(new NoAction(), BehaviorStatus.Done, "fate started");
         if (live.Phase is FatePhase.Ended or FatePhase.Failed)
             return new(new NoAction(), BehaviorStatus.Failed, "fate gone");

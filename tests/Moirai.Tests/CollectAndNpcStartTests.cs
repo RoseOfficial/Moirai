@@ -118,4 +118,14 @@ public class CollectAndNpcStartTests
         var w = TestData.World(player: TestData.Player(x: 10, y: 25, z: 0), fates: [fate], interactables: [starter]);
         Assert.IsType<InteractWith>(new NpcStartBehavior().Tick(w, Ctx(fate)).Intent);
     }
+
+    [Fact] // B11: a fate still preparing has not opened, whatever its start-time field says
+    public void NpcStart_keeps_starting_while_fate_is_preparing()
+    {
+        var fate = TestData.Fate(id: 1, kind: FateKind.NpcStart, x: 0, z: 0, radius: 60,
+            phase: FatePhase.Preparing, startTimeEpoch: 5_000, progress: 0);
+        var starter = TestData.Thing(id: 60, x: 1, z: 0, fateId: 1, kind: InteractableKind.StarterNpc);
+        var w = TestData.World(player: TestData.Player(x: 0, z: 0), fates: [fate], interactables: [starter]);
+        Assert.IsType<InteractWith>(new NpcStartBehavior().Tick(w, Ctx(fate)).Intent);
+    }
 }

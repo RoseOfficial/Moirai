@@ -19,8 +19,11 @@ public sealed record FateSnapshot(
 {
     public const long UnopenedDefaultSeconds = 900;
 
+    // A8/B11: nobody has opened this fate yet; FateClassifier.IsUnopened holds the signal
+    public bool IsUnopened => FateClassifier.IsUnopened(Phase, StartTimeEpoch, Progress);
+
     // A8: a FATE that hasn't been opened by its starter NPC reports no timer
-    public long EffectiveTimeLeft => StartTimeEpoch == 0 ? UnopenedDefaultSeconds : TimeRemainingSeconds;
+    public long EffectiveTimeLeft => IsUnopened ? UnopenedDefaultSeconds : TimeRemainingSeconds;
 
     // The ring is a horizontal circle: the floor inside it can sit well above or below the center
     public bool Contains(Vector3 pos) => Geometry.HorizontalDistance(pos, Position) <= Radius;

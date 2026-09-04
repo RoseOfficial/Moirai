@@ -1,3 +1,4 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
@@ -9,6 +10,7 @@ using Moirai.Core.Model;
 using Moirai.Core.Modules;
 using Moirai.Core.Planning;
 using Moirai.Data;
+using Moirai.Diagnostics;
 using Moirai.Execution;
 using Moirai.Game;
 using Moirai.Ipc;
@@ -176,7 +178,7 @@ public sealed class Plugin : IDalamudPlugin
         _executor.Execute(output.Intent, snapshot);
     }
 
-    private const string Usage = "Usage: /moirai [start|stop|config|help]";
+    private const string Usage = "Usage: /moirai [start|stop|config|debug|help]";
 
     private void OnCommand(string command, string args)
     {
@@ -198,13 +200,31 @@ public sealed class Plugin : IDalamudPlugin
                 _configWindow.IsOpen = !_configWindow.IsOpen;
                 break;
             case "debug":
-                Svc.Chat.Print($"[Moirai] phase={Director?.Phase.ToString() ?? "none"} status='{LastStatus}' navmesh={NavmeshReady} combat={CombatBackendLoaded}");
-                Svc.Chat.Print($"[Moirai] visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
+                CopyDebugReport();
                 break;
             default:
                 Svc.Chat.Print($"[Moirai] {Usage}");
                 break;
         }
+    }
+
+    // Copies a plain-text dump of the zone's fates and Moirai's view of them for bug reports
+    public void CopyDebugReport()
+    {
+        string report;
+        try { report = DebugReport.Build(this, _snapshots); }
+        catch (Exception e)
+        {
+            Svc.Log.Error(e, "debug report failed");
+            Svc.Chat.Print("[Moirai] Debug report failed; see /xllog.");
+            return;
+        }
+        var path = Path.Combine(Svc.PluginInterface.GetPluginConfigDirectory(), "debug-report.txt");
+        try { File.WriteAllText(path, report); }
+        catch (Exception e) { Svc.Log.Warning(e, "could not save debug report"); path = "(not saved)"; }
+        try { ImGui.SetClipboardText(report); }
+        catch (Exception e) { Svc.Log.Warning(e, "clipboard unavailable"); }
+        Svc.Chat.Print($"[Moirai] Debug report copied to the clipboard and saved to {path}");
     }
 
     public void Dispose()

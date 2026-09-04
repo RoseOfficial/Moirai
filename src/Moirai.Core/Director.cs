@@ -24,6 +24,7 @@ public sealed class Director(
     private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
     private IBehavior? _active;
+    private FateKind _activeKind;
     private long? _lastFateEnd;
     private bool _deathCounted;
 
@@ -151,8 +152,7 @@ public sealed class Director(
         var step = travel.Tick(w, contextFactory(w) with { Fate = live });
         if (step.Status == BehaviorStatus.Done)
         {
-            _active = behaviorFactory(live.Kind);
-            _active.Reset();
+            Dispatch(live.Kind);
             Phase = RunPhase.InFate;
             return new(new NoAction(), "arrived at fate");
         }
@@ -187,17 +187,30 @@ public sealed class Director(
         }
         CurrentFate = live;
 
+        // B11: the snapshot re-classified the fate under us (e.g. collect -> npc-start): run what it is now
+        if (live.Kind != _activeKind)
+        {
+            Dispatch(live.Kind);
+            return new(new NoAction(), $"fate is now {live.Kind}; re-dispatching");
+        }
+
         var step = _active!.Tick(w, contextFactory(w) with { Fate = live });
         if (step.Status == BehaviorStatus.Failed)
             return Recover(w);
         if (step.Status == BehaviorStatus.Done)
         {
             // e.g. an NpcStart behavior finished opening the fate — its kind is now the real one
-            _active = behaviorFactory(live.Kind);
-            _active.Reset();
+            Dispatch(live.Kind);
             return new(step.Intent, "behavior complete; re-dispatching");
         }
         return new(step.Intent, step.Note);
+    }
+
+    private void Dispatch(FateKind kind)
+    {
+        _active = behaviorFactory(kind);
+        _activeKind = kind;
+        _active.Reset();
     }
 
     private DirectorOutput AwaitContinuation(WorldSnapshot w)

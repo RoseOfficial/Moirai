@@ -29,6 +29,8 @@ alongside Olympus and Komos.
   pick, and tops up its timer before it lapses. Greens are never spent while
   mounted or in combat.
 - `/moirai` opens the overlay; `/moirai help` lists chat commands.
+- `/moirai debug` copies a plain-text report of every FATE in the zone and how
+  Moirai reads it. Paste it into a bug report.
 
 ## What it does not do (yet)
 

@@ -3,6 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.4 — 2026-09-04
+
+### Fixed
+- Collect FATEs waiting at their NPC are no longer treated as open: the game can report a start time while a FATE is still in preparation, so Moirai now goes by the FATE's phase and starts it at the NPC instead of trying to pick up its items first
+- If a FATE's classification changes while Moirai is inside it, the matching behavior takes over immediately
+
+### Added
+- `/moirai debug` and a matching button on the About tab copy a plain-text report of every FATE in the zone and how Moirai reads it, for bug reports
+<!-- LATEST-END -->
+
 ## v0.3.3 — 2026-09-04
 
 ### Fixed
@@ -11,7 +21,6 @@ All notable changes to Moirai will be documented in this file.
 - Being pulled or knocked past the ring edge mid-fight no longer freezes the run; it walks back into the ring and keeps fighting
 - Stray aggro on the way to a FATE is now fought off: the defensive combat switch was dropped whenever the rotation was already on, and RotationSolver's manual mode attacks nothing without a held target
 - A character at or below a FATE's level cap no longer waits for a level sync the game never offers
-<!-- LATEST-END -->
 
 ## v0.3.2 — 2026-09-04
 

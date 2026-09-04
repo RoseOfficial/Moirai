@@ -264,7 +264,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B8. Continuation: wait at site, adopt successor by new id at same location, give up after 30 s.
 - B9. Boss fights: no navigation while in combat; dodge layer owns movement.
 - B10. Never target the FATE's own friendly NPC in combat (hostility comes from the game's own can-attack test, never from NPC sub-kind). A held target that is not one of the FATE's enemies — another FATE's mob, the friendly, a corpse — is replaced with a FATE enemy while one exists and cleared only when none does; a FATE enemy the combat backend switched to is accepted as the sticky target, so the two never trade the target back and forth.
-- B11. NPC-start: an unopened collect FATE is an NPC-start FATE until it opens; it opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC.
+- B11. NPC-start: a FATE still in its preparation phase, or with neither a start time nor progress, is unopened and therefore an NPC-start FATE whatever its sheet kind; the start-time field alone is not trusted because it can be set while a FATE still waits at its NPC. An unopened collect FATE opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC, and the Director re-dispatches when the current FATE's classification changes.
 
 **Movement**
 - C1. Per-zone no-fly override honored even when flight is unlocked.

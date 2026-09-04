@@ -109,7 +109,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         catch { /* sheet row unavailable: treat as battle */ }
 
         // B11: unopened fates of every sheet kind are NPC-start until they open
-        var kind = FateClassifier.Classify(eventItem, rule, fate.StartTimeEpoch, fate.Progress);
+        var kind = FateClassifier.Classify(eventItem, rule, phase.Value, fate.StartTimeEpoch, fate.Progress);
         var specialBoss = FateClassifier.FromSheet(eventItem, rule) == FateKind.Boss && fate.Level >= 60; // curated special-boss data refines this later
 
         return new FateSnapshot(

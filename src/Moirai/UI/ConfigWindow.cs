@@ -234,6 +234,7 @@ public sealed class ConfigWindow : Window
         ImGui.TextColored(Muted, "/moirai start      start farming here");
         ImGui.TextColored(Muted, "/moirai stop       stop the run");
         ImGui.TextColored(Muted, "/moirai config     open settings");
+        ImGui.TextColored(Muted, "/moirai debug      copy a debug report for bug reports");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Source and issues");
@@ -241,6 +242,9 @@ public sealed class ConfigWindow : Window
         ImGui.SameLine();
         ImGui.TextColored(Muted, Plugin.RepoUrl);
         ImGui.TextColored(Muted, "Ships through the Olympus plugin repository.");
+        if (ImGui.SmallButton("Copy debug report")) _plugin.CopyDebugReport();
+        ImGui.SameLine();
+        ImGui.TextColored(Muted, "Paste it into a bug report: every fate in the zone and how Moirai reads it.");
     }
 
     private static void Dependency(string name, bool ok, string okText, string badText)

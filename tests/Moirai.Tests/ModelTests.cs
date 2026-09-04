@@ -24,4 +24,12 @@ public class ModelTests
         var w = TestData.World();
         Assert.Equal(0, w.CountOf(12345));
     }
+
+    [Fact] // A8: a fate still preparing is unopened even when its start-time field is set
+    public void A8_preparing_fate_counts_as_unopened()
+    {
+        var f = TestData.Fate(phase: FatePhase.Preparing, startTimeEpoch: 5_000, timeRemaining: 0);
+        Assert.True(f.IsUnopened);
+        Assert.Equal(900, f.EffectiveTimeLeft);
+    }
 }

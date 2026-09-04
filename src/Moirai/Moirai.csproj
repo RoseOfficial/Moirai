@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.3.3</Version>
+    <Version>0.3.4</Version>
     <InformationalVersion>0.3.0+$([System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))</InformationalVersion>
     <TargetFramework>net10.0-windows</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
