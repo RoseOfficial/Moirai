@@ -20,10 +20,11 @@ public static class TestData
         bool casting = false, bool betweenAreas = false, bool jumping = false,
         bool beingMoved = false, bool occupied = false, bool synced = false,
         bool canMount = true, bool canFly = true,
-        ulong? targetId = null)
+        ulong? targetId = null,
+        bool companionSummoned = false, int companionTimeLeft = 0, uint companionStance = 0)
         => new(new Vector3(x, 0, z), level, melee, dead, inCombat, mounted, flying,
                casting, betweenAreas, jumping, beingMoved, occupied, synced,
-               canMount, canFly, targetId);
+               canMount, canFly, targetId, companionSummoned, companionTimeLeft, companionStance);
 
     public static WorldSnapshot World(
         long now = 10_000, ushort territory = 0,

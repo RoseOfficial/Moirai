@@ -25,13 +25,16 @@ alongside Olympus and Komos.
   when the ladder runs out.
 - Accepts the return prompt on death, counts it, and resumes; stops at a death
   cap you choose.
+- Keeps your chocobo companion summoned with Gysahl Greens, in the stance you
+  pick, and tops up its timer before it lapses. Greens are never spent while
+  mounted or in combat.
 - `/moirai` opens the overlay; `/moirai help` lists chat commands.
 
 ## What it does not do (yet)
 
 - Farms only the zone you are standing in. Zone rotation and event modes are
   planned for a later release.
-- No chocobo companion, food, gear repair, or gemstone shopping.
+- No food, gear repair, or gemstone shopping.
 - Bonus (Twist of Fate) detection and continuation chains are not wired yet, so
   those rungs of the ladder have no effect for now.
 
@@ -41,7 +44,8 @@ alongside Olympus and Komos.
 - [RotationSolver Reborn](https://github.com/FFXIV-CombatReborn/RotationSolverReborn)
   for combat, driven through its `/rotation` commands.
 
-The overlay warns when either is missing.
+The overlay warns when either is missing. Keep Gysahl Greens in your inventory
+if you want the companion kept out; that part is optional and switchable.
 
 ## Installation
 

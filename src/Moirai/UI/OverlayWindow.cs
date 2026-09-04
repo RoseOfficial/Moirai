@@ -62,6 +62,9 @@ public sealed class OverlayWindow : Window
         ImGui.TextColored(Good,
             $"done {d.Ledger.Completed}   failed {d.Ledger.Failed}   abandoned {d.Ledger.Abandoned}   deaths {d.Ledger.Deaths}");
 
+        if (d.Companion?.Note is { } companionNote)
+            ImGui.TextColored(Warn, $"Companion: {companionNote}");
+
         if (d.StoppedBecause is { } why)
             ImGui.TextColored(Bad, $"Stopped: {Reason(why)}");
     }
@@ -81,6 +84,7 @@ public sealed class OverlayWindow : Window
         Core.Intents.StopReason.UserRequested => "stopped by you",
         Core.Intents.StopReason.StuckExhausted => "stuck and out of recovery options",
         Core.Intents.StopReason.DeathCapReached => "death cap reached",
+        Core.Intents.StopReason.OutOfGreens => "out of Gysahl Greens",
         Core.Intents.StopReason.DependencyLost => "a required plugin went away",
         Core.Intents.StopReason.DataMissing => "missing data",
         Core.Intents.StopReason.SessionComplete => "session complete",

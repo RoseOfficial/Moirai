@@ -46,6 +46,27 @@ public static unsafe class GameEx
     public static int ItemCount(uint itemId)
         => InventoryManager.Instance()->GetInventoryItemCount(itemId);
 
+    public static void UseItem(uint itemId)
+        => ActionManager.Instance()->UseAction(ActionType.Item, itemId, extraParam: 65535);
+
+    // Companion commands are BuddyAction rows (stances, follow, withdraw).
+    public static void SetBuddyAction(uint buddyActionId)
+        => ActionManager.Instance()->UseAction(ActionType.BuddyAction, buddyActionId);
+
+    // Seconds left on the summoned chocobo companion; 0 when it is not out.
+    public static int CompanionTimeLeftSeconds()
+    {
+        var ui = FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance();
+        return ui == null ? 0 : (int)MathF.Max(0f, ui->Buddy.CompanionInfo.TimeLeft);
+    }
+
+    // BuddyAction row id of the companion's active stance; 0 when unknown.
+    public static uint CompanionStanceId()
+    {
+        var ui = FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance();
+        return ui == null ? 0u : ui->Buddy.CompanionInfo.ActiveCommand;
+    }
+
     // Names of every currently visible addon: ground truth for UI debugging.
     public static List<string> VisibleAddonNames()
     {

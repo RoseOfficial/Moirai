@@ -46,7 +46,7 @@ public sealed class Plugin : IDalamudPlugin
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();
         _executor = new IntentExecutor(_navmesh, _combat, Config);
-        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh);
+        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh, [CompanionData.GysahlGreensItemId]);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -93,6 +93,15 @@ public sealed class Plugin : IDalamudPlugin
             RangedRange = Config.RangedRange,
         };
 
+        var companion = new CompanionUpkeep(new CompanionConfig
+        {
+            Enabled = Config.CompanionEnabled,
+            GreensItemId = CompanionData.GysahlGreensItemId,
+            StanceActionId = Config.CompanionStanceId,
+            ResummonBelowSeconds = Config.CompanionResummonBelowSeconds,
+            StopWhenOutOfGreens = Config.CompanionStopWhenOutOfGreens,
+        });
+
         var engage = () => new EngageBehavior(engageConfig);
         Director = new Director(
             new SingleZoneModule(),
@@ -106,7 +115,8 @@ public sealed class Plugin : IDalamudPlugin
                 FateKind.Escort => new EscortBehavior(engage()),
                 _ => engage(),
             },
-            BuildContext);
+            BuildContext,
+            companion);
         _executor.Reset();
         Director.Start();
         _overlay.IsOpen = true;

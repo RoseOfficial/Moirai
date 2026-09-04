@@ -8,7 +8,7 @@
 
 Moirai ships its core FATE loop first. The Yo-kai Watch event module described in §8 of the core design is deferred to a later release: its code leaves `main` so the shipped plugin contains only what it advertises, and is preserved on the `yokai` branch for that release. Publishing follows the model Komos established on 2026-09-02: a plugin repository of its own for source, CI, and GitHub Releases, and a tag-triggered workflow that writes the Moirai entry into the Olympus aggregator manifest so the manifest never drifts from what shipped.
 
-One robustness fix rides along because it changes what a stranger experiences on first use. No other behavior changes.
+One robustness fix rides along because it changes what a stranger experiences on first use, and one small feature the core design deferred, chocobo companion upkeep (§6), was pulled forward on 2026-09-04 because solo farming without it is slower and riskier than it needs to be. No other behavior changes.
 
 ## 1. Deferring the Yo-kai module
 
@@ -28,7 +28,7 @@ Spec §10 asks for a tabbed settings window and an overlay whose status line alw
 - **General**: death cap, skip NPC-started FATEs.
 - **Selection**: the gates (min time left, max progress, level margin, boss and special-boss join thresholds), the ranking ladder as a reorderable list with a reset, and a fate-id blacklist with an "add current" shortcut. Names are looked up from the `Fate` sheet for display only; the blacklist is keyed by id. The Bonus rung is labeled inert until bonus detection lands with the data layer.
 - **Movement**: flight toggle, mount leg threshold, arrival tolerance.
-- **Combat**: melee and ranged stop distances, and whether RotationSolver Reborn is loaded.
+- **Combat**: melee and ranged stop distances, whether RotationSolver Reborn is loaded, and the chocobo companion section (§6): enable, stance, top-up threshold, stop-when-out-of-greens.
 - **About**: version, required plugins with live status, commands, repository link.
 - **Overlay**: Start/Stop, a Settings button, the phase in plain words, warnings when vnavmesh is not ready or the combat backend is missing, the current FATE by name with kind, progress, and time left, the session ledger, and the stop reason in plain words.
 - **Commands**: `/moirai` toggles the overlay; `start`, `stop`, `config`, and `help` verbs; `debug` prints the planner status and visible UI for support.
@@ -54,14 +54,35 @@ Identical to Komos with the names changed:
 - `LICENSE`: MIT, copyright RoseOfficial. `Moirai.json` names the same author, so no personal name appears in the repository, the packaged manifest, or the installer. Git author identity is the RoseOfficial account with its noreply email.
 - `Docs/plans/` becomes untracked local working notes, as in Komos.
 
-## 6. Owner steps
+## 6. Chocobo companion
+
+Snapshot: three player facts read once per tick, whether the companion is out (its timer is above zero), seconds left on that timer, and the BuddyAction row id of its active stance; plus the Gysahl Greens count in the item table, keyed by item id like every other consumable.
+
+Planner: `CompanionUpkeep` in `Planning/`, a pure class the Director consults after the interrupt ladder and before the module, in every phase except Traveling (a summon mid-leg only stalls the leg). It emits `SummonCompanion(greensItemId)` when the companion is missing or its timer is under the configured threshold, and `SetCompanionStance(actionId)` when the active stance differs from the configured one. Stance 0 means leave the player's choice alone. Bounds: one greens use per six-second cooldown, at most three summon attempts and three stance attempts before it gives up with a note, and a zone change or a companion that shows up resets the budget. Never acts while mounted, in combat, or casting. With "stop when out of greens" on, the Director stops with the typed reason `OutOfGreens` once the companion is gone and no greens remain; otherwise the run continues and the overlay carries the note.
+
+Executor: greens through the item action with the navmesh path stopped first, stance through the buddy action type. Both throttled.
+
+Catalog (tests in `CompanionUpkeepTests` and `DirectorTests`):
+
+- F1. No companion out and greens held: summon.
+- F2. Companion out, timer healthy, stance matches: nothing.
+- F3. Timer under the threshold: greens again to extend.
+- F4. Never while mounted or in combat.
+- F5. No greens: nothing issued, reason surfaced; a companion still out is not yet "out of greens".
+- F6. Stance set when it differs, before any top-up; stance 0 never changes it.
+- F7. One greens use per cooldown window.
+- F8. Bounded attempts; a zone change or a successful summon restores the budget.
+- F9. Director consults upkeep while selecting or in a fate, never while traveling.
+- F10. Out of greens stops the run only when configured; otherwise it carries on.
+
+## 7. Owner steps
 
 1. Update the Dalamud dev-plugin location to `src\Moirai\bin\Debug\Moirai.dll` under the repository's current path.
 2. Create the empty public repository `RoseOfficial/Moirai`; `origin` is already set; push `main` and the `yokai` branch.
 3. Add the Actions secrets `OLYMPUS_REPO_TOKEN` and `DISCORD_WEBHOOK` to `RoseOfficial/Moirai`.
 4. Confirm the CI run on `main` is green.
 5. Tag `v0.3.0` and push the tag. Confirm the Release carries `Moirai.zip` and the Olympus manifest gained the Moirai entry.
-6. In-game verification on the released zip installed through the Olympus repository: a battle FATE end to end, a collect FATE through hand-in, a boss FATE respecting the join threshold, a death with the return prompt, and a Stop from the overlay and from `/moirai stop`.
+6. In-game verification on the released zip installed through the Olympus repository: a battle FATE end to end, a collect FATE through hand-in, a boss FATE respecting the join threshold, a death with the return prompt, the companion summoned and put in the chosen stance at the first settled moment, and a Stop from the overlay and from `/moirai stop`.
 
 ## Out of scope
 
@@ -72,6 +93,6 @@ Identical to Komos with the names changed:
 
 ## Testing
 
-- Core: the existing suite (70 tests) passes after the removal; no planner logic changed.
+- Core: the existing suite passes after the removal (70 tests); the companion upkeep adds eighteen more (88), written before the code.
 - Plugin shell: clean Debug and Release builds; the packaged zip inspected for both assemblies and the stamped manifest.
 - Workflows: YAML parsed locally; the manifest-merge command exercised against a copy of the live Olympus manifest; the changelog extraction and the tag/version check run locally against the committed files.

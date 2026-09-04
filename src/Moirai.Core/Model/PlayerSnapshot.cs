@@ -18,4 +18,7 @@ public sealed record PlayerSnapshot(
     bool IsLevelSynced,
     bool CanMount,
     bool CanFly,
-    ulong? TargetId);
+    ulong? TargetId,
+    bool CompanionSummoned = false,
+    int CompanionTimeLeftSeconds = 0,
+    uint CompanionStanceId = 0); // BuddyAction row id of the active stance

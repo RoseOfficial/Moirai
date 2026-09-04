@@ -15,6 +15,8 @@ public sealed record SyncLevel : Intent;
 public sealed record InteractWith(ulong ObjectId) : Intent;
 public sealed record TeleportTo(uint AetheryteId) : Intent;
 public sealed record ChangeZone(ushort TerritoryId) : Intent;
+public sealed record SummonCompanion(uint GreensItemId) : Intent;
+public sealed record SetCompanionStance(uint StanceActionId) : Intent;
 public sealed record AcceptReturn : Intent;
 public sealed record SetCombat(bool Enabled, CombatMode Mode) : Intent;
 public sealed record StopRun(StopReason Reason) : Intent;

@@ -2,6 +2,7 @@ using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 using Moirai.Core.Planning;
+using Moirai.Data;
 
 namespace Moirai.UI;
 
@@ -187,6 +188,34 @@ public sealed class ConfigWindow : Window
         Hint("Distance from the target hitbox where a tank or melee job stops. Larger values break auto-attack range.");
         var ranged = c.RangedRange;
         if (ImGui.SliderFloat("Ranged stop distance (y)", ref ranged, 5f, 20f, "%.1f")) { c.RangedRange = ranged; dirty = true; }
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Chocobo companion");
+        var companion = c.CompanionEnabled;
+        if (ImGui.Checkbox("Keep the companion summoned", ref companion)) { c.CompanionEnabled = companion; dirty = true; }
+        Hint("Uses Gysahl Greens when the companion is missing or its timer runs low, never while mounted or in combat.");
+        if (!c.CompanionEnabled) return;
+
+        ImGui.SetNextItemWidth(160);
+        if (ImGui.BeginCombo("Stance", CompanionData.StanceName(c.CompanionStanceId)))
+        {
+            foreach (var stance in CompanionData.Stances)
+                if (ImGui.Selectable(stance.Name, stance.ActionId == c.CompanionStanceId))
+                {
+                    c.CompanionStanceId = stance.ActionId;
+                    dirty = true;
+                }
+            ImGui.EndCombo();
+        }
+        Hint("Healer keeps you alive at any rank; Defender lets a low-rank chocobo hold aggro for squishy jobs.");
+
+        var minutes = Math.Max(1, c.CompanionResummonBelowSeconds / 60);
+        if (ImGui.SliderInt("Top up when under (min)", ref minutes, 1, 15)) { c.CompanionResummonBelowSeconds = minutes * 60; dirty = true; }
+        Hint("Another green is used once the remaining time drops below this.");
+
+        var stopOut = c.CompanionStopWhenOutOfGreens;
+        if (ImGui.Checkbox("Stop the run when out of greens", ref stopOut)) { c.CompanionStopWhenOutOfGreens = stopOut; dirty = true; }
+        Hint("Off: the run carries on without a companion and the overlay says why.");
     }
 
     private void DrawAbout()

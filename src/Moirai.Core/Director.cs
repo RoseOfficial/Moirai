@@ -18,7 +18,8 @@ public sealed class Director(
     DirectorConfig cfg,
     TravelBehavior travel,
     Func<FateKind, IBehavior> behaviorFactory,
-    Func<WorldSnapshot, BehaviorContext> contextFactory)
+    Func<WorldSnapshot, BehaviorContext> contextFactory,
+    CompanionUpkeep? companion = null)
 {
     private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
@@ -26,6 +27,7 @@ public sealed class Director(
     private long? _lastFateEnd;
     private bool _deathCounted;
 
+    public CompanionUpkeep? Companion => companion;
     public SessionLedger Ledger { get; } = new();
     public RewardLatch RewardLatch { get; } = new();
     public RunPhase Phase { get; private set; } = RunPhase.Idle;
@@ -66,6 +68,18 @@ public sealed class Director(
                 return new(new Hold(1000), "waiting for navmesh");
         }
         _deathCounted = false;
+
+        // F9/F10: companion upkeep in settled moments only, never mid-leg
+        if (companion is not null)
+        {
+            if (companion.StopWhenOutOfGreens && companion.OutOfGreens(w))
+            {
+                Stop(StopReason.OutOfGreens);
+                return new(new StopRun(StopReason.OutOfGreens), "out of Gysahl Greens");
+            }
+            if (Phase != RunPhase.Traveling && companion.Tick(w) is { } upkeep)
+                return new(upkeep, upkeep is SetCompanionStance ? "setting companion stance" : "summoning companion");
+        }
 
         switch (module.Next(w))
         {

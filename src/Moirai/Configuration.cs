@@ -29,6 +29,12 @@ public sealed class Configuration : IPluginConfiguration
     public float MeleeRange { get; set; } = 2.5f;
     public float RangedRange { get; set; } = 8f;
 
+    // Chocobo companion (release spec §6, F1–F10)
+    public bool CompanionEnabled { get; set; } = true;
+    public uint CompanionStanceId { get; set; } = 7; // Healer
+    public int CompanionResummonBelowSeconds { get; set; } = 300;
+    public bool CompanionStopWhenOutOfGreens { get; set; }
+
     public static readonly IReadOnlyList<SelectionCriterion> DefaultPriority =
         [SelectionCriterion.Progress, SelectionCriterion.Bonus, SelectionCriterion.TimeLeft, SelectionCriterion.DistanceTeleport];
 

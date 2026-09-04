@@ -16,7 +16,9 @@ public sealed class QueueModule(params ModuleDirective[] directives) : IFarmModu
 
 public class DirectorTests
 {
-    private static Director Sut(IFarmModule? module = null, DirectorConfig? cfg = null, TravelBehavior? travel = null)
+    private static Director Sut(
+        IFarmModule? module = null, DirectorConfig? cfg = null, TravelBehavior? travel = null,
+        CompanionUpkeep? companion = null)
     {
         var engage = () => new EngageBehavior(new EngageConfig());
         return new Director(
@@ -31,7 +33,60 @@ public class DirectorTests
                 FateKind.Escort => new EscortBehavior(engage()),
                 _ => engage(),
             },
-            w => new BehaviorContext(null, true, new FixedRandom(0.5, 0.5), new FlatGround()));
+            w => new BehaviorContext(null, true, new FixedRandom(0.5, 0.5), new FlatGround()),
+            companion);
+    }
+
+    private const uint Greens = 4868;
+
+    private static CompanionUpkeep Companion(bool stopWhenOut = false)
+        => new(new CompanionConfig { Enabled = true, GreensItemId = Greens, StanceActionId = 7, StopWhenOutOfGreens = stopWhenOut });
+
+    private static Dictionary<uint, int> GreensHeld(int n) => new() { [Greens] = n };
+
+    [Fact] // F9: the companion is summoned in a settled moment (nothing to farm yet)
+    public void F9_summons_companion_while_selecting()
+    {
+        var d = Sut(companion: Companion());
+        d.Start();
+        var output = d.Tick(TestData.World(items: GreensHeld(3)));
+        Assert.IsType<SummonCompanion>(output.Intent);
+        Assert.Contains("companion", output.Status);
+    }
+
+    [Fact] // F9: never mid-travel, where a summon would only stall the leg
+    public void F9_does_not_summon_while_traveling()
+    {
+        var d = Sut(companion: Companion());
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 200, z: 0, radius: 20);
+        var withCompanion = TestData.Player(companionSummoned: true, companionTimeLeft: 1800, companionStance: 7);
+        d.Tick(TestData.World(player: withCompanion, fates: [fate], items: GreensHeld(3))); // selects
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+
+        // the companion drops mid-leg (dismissed on a transition); still no summon until we arrive
+        var step = d.Tick(TestData.World(fates: [fate], items: GreensHeld(3)));
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.IsNotType<SummonCompanion>(step.Intent);
+    }
+
+    [Fact] // F10: out of greens with the stop option -> typed stop
+    public void F10_stops_when_out_of_greens_if_configured()
+    {
+        var d = Sut(companion: Companion(stopWhenOut: true));
+        d.Start();
+        var output = d.Tick(TestData.World(items: GreensHeld(0)));
+        Assert.IsType<StopRun>(output.Intent);
+        Assert.Equal(StopReason.OutOfGreens, d.StoppedBecause);
+    }
+
+    [Fact] // F10: without the stop option the run carries on without a companion
+    public void F10_continues_without_greens_by_default()
+    {
+        var d = Sut(companion: Companion());
+        d.Start();
+        d.Tick(TestData.World(items: GreensHeld(0)));
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
     }
 
     [Fact]

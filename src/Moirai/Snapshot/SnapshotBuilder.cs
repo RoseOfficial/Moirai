@@ -9,7 +9,7 @@ using Moirai.Ipc;
 namespace Moirai.Snapshot;
 
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
-public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh)
+public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IReadOnlyList<uint> trackedItems)
 {
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -17,6 +17,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh)
         if (lp is null) return null;
         var cond = Svc.Condition;
 
+        var companionTimeLeft = GameEx.CompanionTimeLeftSeconds();
         var player = new PlayerSnapshot(
             Position: lp.Position,
             Level: lp.Level,
@@ -37,7 +38,10 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh)
             IsLevelSynced: IsLevelSynced(),
             CanMount: true,  // the executor's mount call is a safe no-op where mounting is illegal
             CanFly: true,    // per-zone no-fly overrides gate flight; vnavmesh grounds the rest
-            TargetId: Svc.Targets.Target?.GameObjectId);
+            TargetId: Svc.Targets.Target?.GameObjectId,
+            CompanionSummoned: companionTimeLeft > 0,
+            CompanionTimeLeftSeconds: companionTimeLeft,
+            CompanionStanceId: GameEx.CompanionStanceId());
 
         var fates = new List<FateSnapshot>();
         foreach (var fate in Svc.Fates)
@@ -54,8 +58,11 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh)
         if (currentFateId is { } fid)
             ScanObjects(lp, fid, enemies, interactables);
 
-        // Collect fates hand in by item count (B1), so every visible event item is counted
+        // Consumables the planner budgets (greens), plus every visible collect fate's
+        // event item, since collect fates hand in by item count (B1)
         var items = new Dictionary<uint, int>();
+        foreach (var id in trackedItems)
+            items[id] = GameEx.ItemCount(id);
         foreach (var f in fates)
             if (f.EventItemId != 0 && !items.ContainsKey(f.EventItemId))
                 items[f.EventItemId] = GameEx.ItemCount(f.EventItemId);

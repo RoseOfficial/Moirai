@@ -71,6 +71,18 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 }
                 break;
 
+            case SummonCompanion g:
+                if (Throttle.Try("moirai.companion", 3000))
+                {
+                    navmesh.Stop(); // an item use mid-path is interrupted, and the green is wasted
+                    GameEx.UseItem(g.GreensItemId);
+                }
+                break;
+
+            case SetCompanionStance s:
+                if (Throttle.Try("moirai.stance", 2000)) GameEx.SetBuddyAction(s.StanceActionId);
+                break;
+
             case AcceptReturn:
                 if (Throttle.Try("moirai.return", 2000)) GameEx.ClickYes();
                 break;
