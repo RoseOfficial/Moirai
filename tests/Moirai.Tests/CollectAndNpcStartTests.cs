@@ -27,6 +27,22 @@ public class CollectAndNpcStartTests
         Assert.IsType<InteractWith>(sut.Tick(w, Ctx(fate)).Intent);
     }
 
+    [Fact] // B2: combat comes back for the next fight goal after a pickup turned it off
+    public void B2_combat_reengaged_for_the_next_fight_goal()
+    {
+        var fate = CollectFate();
+        var enemy = TestData.Enemy(id: 7, fateId: 1, x: 3, z: 0);
+        var fighting = TestData.World(player: TestData.Player(synced: true), fates: [fate], enemies: [enemy]);
+        var sut = Collect();
+        Assert.True(Assert.IsType<SetCombat>(sut.Tick(fighting, Ctx(fate)).Intent).Enabled);
+
+        var item = TestData.Thing(id: 50, x: 1, z: 0, kind: InteractableKind.Collectable);
+        var pickup = TestData.World(player: TestData.Player(synced: true), fates: [fate], enemies: [enemy], interactables: [item]);
+        Assert.False(Assert.IsType<SetCombat>(sut.Tick(pickup, Ctx(fate)).Intent).Enabled);
+
+        Assert.True(Assert.IsType<SetCombat>(sut.Tick(fighting, Ctx(fate)).Intent).Enabled);
+    }
+
     [Fact] // B1: partial hand-in when the fate hits 100 with items short of 7
     public void B1_partial_hand_in_at_completion()
     {

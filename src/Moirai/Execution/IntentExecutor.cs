@@ -88,6 +88,8 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 break;
 
             case SetCombat s:
+                if (s is { Enabled: true, Mode: CombatMode.Defensive })
+                    navmesh.Stop(); // D3: a stray is fought where we stand
                 combat.Set(s.Enabled, s.Mode);
                 break;
 

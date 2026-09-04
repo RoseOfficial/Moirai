@@ -39,6 +39,7 @@ public sealed class Plugin : IDalamudPlugin
     public bool IsRunning => Director is { } d && d.Phase is not (RunPhase.Idle or RunPhase.Stopped);
     public bool NavmeshReady => _navmesh.IsReady();
     public bool CombatBackendLoaded => _combat.RotationSolverInstalled;
+    public bool? CombatBackendActive => _combat.IsActive();
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -118,7 +119,8 @@ public sealed class Plugin : IDalamudPlugin
                 _ => engage(),
             },
             BuildContext,
-            companion);
+            companion,
+            new StrayAggroClear(engageConfig));
         _executor.Reset();
         Director.Start();
         _overlay.IsOpen = true;

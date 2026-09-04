@@ -74,6 +74,9 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         _stuck.Reset();
     }
 
+    // After a pause elsewhere (a stray fight) the sampler must not read the standstill as a stall
+    public void Resume() => _stuck.Reset();
+
     public void Reset()
     {
         CurrentDropoff = null;

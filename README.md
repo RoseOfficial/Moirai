@@ -23,6 +23,10 @@ alongside Olympus and Komos.
 - Recovers from stuck states through a bounded ladder (re-path, new landing
   point, vertical escape, back to the aetheryte) and stops with a stated reason
   when the ladder runs out.
+- Fights off stray aggro: anything that jumps you or your chocobo on the way to
+  a FATE, or inside one between its waves, is targeted and killed where you
+  stand before the run carries on. Mounted, it keeps riding and lets the mobs
+  leash.
 - Accepts the return prompt on death, counts it, and resumes; stops at a death
   cap you choose.
 - Keeps your chocobo companion summoned with Gysahl Greens, in the stance you
@@ -44,7 +48,10 @@ alongside Olympus and Komos.
 
 - [vnavmesh](https://github.com/awgil/ffxiv_navmesh) for all movement.
 - [RotationSolver Reborn](https://github.com/FFXIV-CombatReborn/RotationSolverReborn)
-  for combat, driven through its `/rotation` commands.
+  for combat, driven through its `/rotation` commands. While Moirai clears
+  stray aggro it sets RotationSolver's "Ignore Non-Fate targets while in a
+  Fate" option aside and puts it back (on) afterwards; the change is never
+  saved to RotationSolver's config.
 
 The overlay warns when either is missing. Keep Gysahl Greens in your inventory
 if you want the companion kept out; that part is optional and switchable.

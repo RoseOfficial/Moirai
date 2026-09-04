@@ -77,7 +77,9 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
         if (dist > range && !bossInCombat)
             return new(new GoTo(chosen.Position, false, range), BehaviorStatus.Running, "closing");
 
-        return new(new NoAction(), BehaviorStatus.Running, "fighting");
+        // Re-asserted every tick: the backend switches itself off during a lull, and the switch
+        // is a no-op while it reports itself on
+        return new(new SetCombat(true, CombatMode.Auto), BehaviorStatus.Running, "fighting");
     }
 
     public void Reset()

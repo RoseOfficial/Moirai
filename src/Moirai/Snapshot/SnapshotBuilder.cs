@@ -56,8 +56,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
 
         var enemies = new List<EnemySnapshot>();
         var interactables = new List<InteractableSnapshot>();
-        if (currentFateId is { } fid)
-            ScanObjects(lp, fid, enemies, interactables);
+        ScanObjects(lp, CompanionObjectId(), currentFateId, enemies, interactables);
 
         // Consumables the planner budgets (greens), plus every visible collect fate's
         // event item, since collect fates hand in by item count (B1)
@@ -128,18 +127,30 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
             EventItemId: eventItem);
     }
 
-    private static void ScanObjects(IGameObject player, uint fateId, List<EnemySnapshot> enemies, List<InteractableSnapshot> interactables)
+    // The chocobo companion's object id, so a mob on it counts as on us; null when it is not out
+    private static ulong? CompanionObjectId()
+    {
+        try { return Svc.Buddies.CompanionBuddy?.GameObject?.GameObjectId; }
+        catch { return null; }
+    }
+
+    // The current fate's enemies and objectives, plus anything hostile that is on us or our
+    // companion wherever it belongs (D3: the planner clears stray aggro itself)
+    private static void ScanObjects(IGameObject player, ulong? companionId, uint? fateId, List<EnemySnapshot> enemies, List<InteractableSnapshot> interactables)
     {
         foreach (var obj in Svc.Objects)
         {
             if (obj == null || obj.Address == nint.Zero) continue;
             var objFate = GameEx.GetFateId(obj);
+            var ours = fateId is { } f && objFate == f;
 
             if (obj is IBattleNpc bnpc)
             {
-                if (objFate != fateId) continue;
                 // a corpse or an untargetable spawn is neither an enemy nor an objective
                 if (bnpc.IsDead || bnpc.CurrentHp == 0 || !obj.IsTargetable) continue;
+                var onUs = bnpc.TargetObjectId == player.GameObjectId
+                           || (companionId is { } c && bnpc.TargetObjectId == c);
+                if (!ours && !onUs) continue; // the hostility check is a game call: only for what matters
                 // B10: hostility, not sub-kind, splits the fate's enemies from its captives and escortees
                 if (GameEx.IsHostile(obj))
                 {
@@ -149,10 +160,10 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
                         HitboxRadius: obj.HitboxRadius,
                         FateId: objFate,
                         IsAlive: true,
-                        TargetsProtectedFriendly: TargetsFateFriendly(bnpc, fateId),
-                        IsAttackingPlayer: bnpc.TargetObjectId == player.GameObjectId));
+                        TargetsProtectedFriendly: ours && TargetsFateFriendly(bnpc, objFate),
+                        IsAttackingPlayer: onUs));
                 }
-                else
+                else if (ours)
                 {
                     interactables.Add(new InteractableSnapshot(obj.GameObjectId, obj.Position, objFate, InteractableKind.ObjectiveNpc));
                 }
@@ -161,10 +172,10 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
 
             switch (obj.ObjectKind)
             {
-                case ObjectKind.EventObj when objFate == fateId:
+                case ObjectKind.EventObj when ours:
                     interactables.Add(new InteractableSnapshot(obj.GameObjectId, obj.Position, objFate, InteractableKind.Collectable));
                     break;
-                case ObjectKind.EventNpc when objFate == fateId:
+                case ObjectKind.EventNpc when ours:
                     interactables.Add(new InteractableSnapshot(obj.GameObjectId, obj.Position, objFate, InteractableKind.ObjectiveNpc));
                     break;
                 case ObjectKind.EventNpc or ObjectKind.BattleNpc when GameEx.GetNameplateIcon(obj) != 0:

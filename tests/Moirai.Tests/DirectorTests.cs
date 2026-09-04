@@ -202,14 +202,138 @@ public class DirectorTests
         Assert.Equal(RunPhase.InFate, d.Phase);
     }
 
-    [Fact] // D3: unexpected combat pauses farming defensively
+    [Fact] // D3: unexpected combat with a stray on us goes defensive and targets it
     public void D3_unexpected_combat_goes_defensive()
     {
         var d = Sut();
         d.Start();
-        var w = TestData.World(player: TestData.Player(inCombat: true));
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: 1, attacksMe: true);
+        var w = TestData.World(player: TestData.Player(inCombat: true), enemies: [stray]);
         var set = Assert.IsType<SetCombat>(d.Tick(w).Intent);
         Assert.Equal(CombatMode.Defensive, set.Mode);
+        Assert.Equal(9uL, Assert.IsType<Engage>(d.Tick(w).Intent).TargetId);
+    }
+
+    [Fact] // D3: combat with nothing we can fight (a lingering flag, a fate mob outside its ring) carries on
+    public void D3_combat_with_nothing_to_fight_carries_on()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 200, z: 0);
+        var w = TestData.World(player: TestData.Player(inCombat: true), fates: [fate]);
+        Assert.Equal("selected fate 1", d.Tick(w).Status);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+    }
+
+    [Fact] // D3 mounted variant: keep riding; nothing can be fought from the saddle and the leash ends it
+    public void D3_mounted_stray_aggro_keeps_traveling()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: 1, attacksMe: true);
+        var riding = TestData.World(player: TestData.Player(mounted: true, inCombat: true), fates: [fate], enemies: [stray]);
+        Assert.IsType<GoTo>(d.Tick(riding).Intent);
+    }
+
+    [Fact] // D3: after the stray is down the rotation stands down and the leg resumes
+    public void D3_stray_clear_stands_down_then_resumes_travel()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: 1, attacksMe: true);
+        var attacked = TestData.World(player: TestData.Player(inCombat: true), fates: [fate], enemies: [stray]);
+        Assert.IsType<SetCombat>(d.Tick(attacked).Intent);
+        Assert.IsType<Engage>(d.Tick(attacked).Intent);
+
+        var calm = TestData.World(fates: [fate]);
+        var down = Assert.IsType<SetCombat>(d.Tick(calm).Intent);
+        Assert.False(down.Enabled);
+        Assert.IsType<MountUp>(d.Tick(calm).Intent);
+    }
+
+    [Fact] // spec 7.2: standing still for a stray fight is not a stuck leg
+    public void D3_stray_fight_on_a_short_leg_is_not_a_stall()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 20, z: 0, radius: 5); // a walking leg
+        d.Tick(TestData.World(nowMs: 0, fates: [fate]));         // selects
+        Assert.IsType<GoTo>(d.Tick(TestData.World(nowMs: 100, fates: [fate])).Intent);
+
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: 1, attacksMe: true);
+        var attacked = TestData.World(nowMs: 200, player: TestData.Player(inCombat: true), fates: [fate], enemies: [stray]);
+        d.Tick(attacked);
+        d.Tick(attacked);
+
+        Assert.False(Assert.IsType<SetCombat>(d.Tick(TestData.World(nowMs: 6_000, fates: [fate])).Intent).Enabled);
+        var resumed = d.Tick(TestData.World(nowMs: 6_100, fates: [fate]));
+        Assert.IsType<GoTo>(resumed.Intent);
+        Assert.Equal("moving", resumed.Status);
+    }
+
+    private static Director InFate(out FateSnapshot fate, out PlayerSnapshot at)
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
+        d.Tick(TestData.World(fates: [fate]));                          // selects
+        d.Tick(TestData.World(fates: [fate]));                          // travel: establishes dropoff
+        var drop = travel.CurrentDropoff!.Value;
+        at = TestData.Player(x: drop.X, z: drop.Z, synced: true);
+        d.Tick(TestData.World(player: at, fates: [fate]));              // arrives
+        Assert.Equal(RunPhase.InFate, d.Phase);
+        return d;
+    }
+
+    [Fact] // D3: inside the fate, a stray on us with no fate enemy on us is cleared before the fate resumes
+    public void D3_in_fate_stray_is_cleared_when_no_fate_enemy_is_on_us()
+    {
+        var d = InFate(out var fate, out var at);
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: at.Position.X + 1, z: at.Position.Z, attacksMe: true);
+        var w = TestData.World(player: at with { InCombat = true }, fates: [fate], enemies: [stray]);
+        var set = Assert.IsType<SetCombat>(d.Tick(w).Intent);
+        Assert.Equal(CombatMode.Defensive, set.Mode);
+        Assert.Equal(9uL, Assert.IsType<Engage>(d.Tick(w).Intent).TargetId);
+    }
+
+    [Fact] // D3: a fate enemy on us outranks the stray; the fate's own behavior fights in its own mode
+    public void D3_in_fate_fate_enemy_on_us_outranks_the_stray()
+    {
+        var d = InFate(out var fate, out var at);
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: at.Position.X + 1, z: at.Position.Z, attacksMe: true);
+        var ours = TestData.Enemy(id: 7, fateId: 1, x: at.Position.X + 2, z: at.Position.Z, attacksMe: true);
+        var w = TestData.World(player: at with { InCombat = true }, fates: [fate], enemies: [stray, ours]);
+        var set = Assert.IsType<SetCombat>(d.Tick(w).Intent);
+        Assert.Equal(CombatMode.Auto, set.Mode);
+        Assert.Equal(7uL, Assert.IsType<Engage>(d.Tick(w).Intent).TargetId);
+    }
+
+    [Fact] // D3: when the stray is down, the fate's behavior starts over so its own rotation mode comes back
+    public void D3_in_fate_behavior_restarts_after_a_stray_clear()
+    {
+        var d = InFate(out var fate, out var at);
+        var ours = TestData.Enemy(id: 7, fateId: 1, x: at.Position.X + 2, z: at.Position.Z, attacksMe: true);
+        var fighting = TestData.World(player: at with { InCombat = true }, fates: [fate], enemies: [ours]);
+        Assert.Equal(CombatMode.Auto, Assert.IsType<SetCombat>(d.Tick(fighting).Intent).Mode);
+        Assert.IsType<Engage>(d.Tick(fighting).Intent);
+
+        // the wave is down and a wandering mob is on us
+        var stray = TestData.Enemy(id: 9, fateId: 0, x: at.Position.X + 1, z: at.Position.Z, attacksMe: true);
+        var strayed = TestData.World(player: at with { InCombat = true }, fates: [fate], enemies: [stray]);
+        Assert.Equal(CombatMode.Defensive, Assert.IsType<SetCombat>(d.Tick(strayed).Intent).Mode);
+        d.Tick(strayed); // engages the stray
+
+        // the stray is down and the next wave is up: stand down, then the fate's own mode again
+        var nextWave = TestData.World(player: at with { InCombat = true }, fates: [fate], enemies: [ours]);
+        Assert.False(Assert.IsType<SetCombat>(d.Tick(nextWave).Intent).Enabled);
+        var back = Assert.IsType<SetCombat>(d.Tick(nextWave).Intent);
+        Assert.True(back.Enabled);
+        Assert.Equal(CombatMode.Auto, back.Mode);
     }
 
     [Fact] // D3: in-fate combat past the ring edge hands control to the engage behavior, which walks back in

@@ -19,10 +19,12 @@ public sealed class Director(
     TravelBehavior travel,
     Func<FateKind, IBehavior> behaviorFactory,
     Func<WorldSnapshot, BehaviorContext> contextFactory,
-    CompanionUpkeep? companion = null)
+    CompanionUpkeep? companion = null,
+    StrayAggroClear? aggro = null)
 {
     private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
+    private readonly StrayAggroClear _aggro = aggro ?? new(new EngageConfig());
     private IBehavior? _active;
     private FateKind _activeKind;
     private long? _lastFateEnd;
@@ -57,18 +59,39 @@ public sealed class Director(
 
         RewardLatch.Observe(w);
 
-        switch (InterruptEvaluator.Evaluate(w, CurrentFate?.Id, inFatePhase: Phase == RunPhase.InFate))
+        var interrupt = InterruptEvaluator.Evaluate(w, CurrentFate?.Id, inFatePhase: Phase == RunPhase.InFate);
+        switch (interrupt)
         {
             case InterruptKind.Busy:
                 return new(new Hold(250), "busy");
             case InterruptKind.Dead:
                 return HandleDeath(w);
-            case InterruptKind.UnexpectedCombat:
-                return new(new SetCombat(true, CombatMode.Defensive), "clearing unexpected aggro");
-            case InterruptKind.NavmeshNotReady:
-                return new(new Hold(1000), "waiting for navmesh");
         }
         _deathCounted = false;
+
+        // D3: stray aggro gets its turn on unexpected combat, and inside the fate whenever none of
+        // the fate's own enemies is on us (those come first, in the fate's own mode). The clear
+        // decides what can be fought: nothing from the saddle, never the fate's own mobs. Once
+        // nothing is on us it stands the rotation down, and the fate's behavior starts over so
+        // its own mode comes back.
+        var strayTurn = interrupt == InterruptKind.UnexpectedCombat
+                        || (Phase == RunPhase.InFate && !FateEnemyOnUs(w));
+        if (strayTurn || _aggro.Fighting)
+        {
+            var clear = strayTurn ? _aggro.Tick(w, CurrentFate?.Id) : _aggro.StandDown();
+            if (clear is not null)
+            {
+                if (clear.Status == BehaviorStatus.Done)
+                {
+                    _active?.Reset();
+                    travel.Resume();
+                }
+                return new(clear.Intent, clear.Note);
+            }
+        }
+
+        if (interrupt == InterruptKind.NavmeshNotReady)
+            return new(new Hold(1000), "waiting for navmesh");
 
         // F9/F10: companion upkeep in settled moments only, never mid-leg
         if (companion is not null)
@@ -212,6 +235,10 @@ public sealed class Director(
         _activeKind = kind;
         _active.Reset();
     }
+
+    private bool FateEnemyOnUs(WorldSnapshot w)
+        => CurrentFate is { } f
+           && w.Enemies.Any(e => e.IsAlive && e.FateId == f.Id && e.IsAttackingPlayer);
 
     private DirectorOutput AwaitContinuation(WorldSnapshot w)
     {

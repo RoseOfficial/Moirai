@@ -22,7 +22,7 @@ public static class DebugReport
         sb.AppendLine($"Moirai {Plugin.Version} debug report {DateTimeOffset.UtcNow:u}");
         sb.AppendLine($"zone={Svc.ClientState.TerritoryType} level={lp?.Level.ToString() ?? "?"} synced={snap?.Player.IsLevelSynced.ToString() ?? "?"} pos={Fmt(lp?.Position)}");
         sb.AppendLine($"phase={director?.Phase.ToString() ?? "none"} currentFate={currentId?.ToString() ?? "none"} status='{plugin.LastStatus}'");
-        sb.AppendLine($"skipNpcStart={plugin.Config.SkipNpcStartFates} navmesh={plugin.NavmeshReady} combat={plugin.CombatBackendLoaded} snapshot={(snap is null ? "none" : "ok")}");
+        sb.AppendLine($"skipNpcStart={plugin.Config.SkipNpcStartFates} navmesh={plugin.NavmeshReady} combat={plugin.CombatBackendLoaded} combatActive={plugin.CombatBackendActive?.ToString() ?? "unknown"} inCombat={snap?.Player.InCombat.ToString() ?? "?"} snapshot={(snap is null ? "none" : "ok")}");
         sb.AppendLine($"visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
         sb.AppendLine();
         sb.AppendLine("fates: game fields | sheet | moirai");
@@ -67,10 +67,12 @@ public static class DebugReport
         }
         sb.AppendLine($"  ({count} fates)");
 
-        if (snap is not null && currentId is { } cur)
+        if (snap is not null)
         {
             sb.AppendLine();
-            sb.AppendLine($"objects seen for fate #{cur}: {snap.Enemies.Count} enemies, {snap.Interactables.Count} interactables");
+            sb.AppendLine($"objects seen (fate #{currentId?.ToString() ?? "none"}): {snap.Enemies.Count} enemies, {snap.Interactables.Count} interactables");
+            foreach (var e in snap.Enemies)
+                sb.AppendLine($"  enemy id={e.Id} fate={e.FateId} onUs={e.IsAttackingPlayer} peel={e.TargetsProtectedFriendly} dist={Vector3.Distance(e.Position, snap.Player.Position):0.0}");
             foreach (var i in snap.Interactables)
                 sb.AppendLine($"  {i.Kind} id={i.Id} fate={i.FateId} dist={Vector3.Distance(i.Position, snap.Player.Position):0.0}");
         }

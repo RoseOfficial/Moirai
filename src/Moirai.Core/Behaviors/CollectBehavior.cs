@@ -27,6 +27,7 @@ public sealed class CollectBehavior(EngageBehavior fight, float npcRange = 5f, i
             if (!_combatOff)
             {
                 _combatOff = true; // B2: single-owner rule — combat never fights over hand-in targeting
+                fight.Reset();     // so the next fight goal turns it back on
                 return new(new SetCombat(false, CombatMode.Auto), BehaviorStatus.Running, "combat off for hand-in");
             }
             var npc = w.Interactables.FirstOrDefault(
@@ -46,6 +47,7 @@ public sealed class CollectBehavior(EngageBehavior fight, float npcRange = 5f, i
             if (!_combatOff)
             {
                 _combatOff = true; // B2
+                fight.Reset();
                 return new(new SetCombat(false, CombatMode.Auto), BehaviorStatus.Running, "combat off for pickup");
             }
             if (Vector3.Distance(p.Position, pickup.Position) > 3f)

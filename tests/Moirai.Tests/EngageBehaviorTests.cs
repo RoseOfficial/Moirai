@@ -95,7 +95,21 @@ public class EngageBehaviorTests
         Assert.Equal(1uL, Assert.IsType<Engage>(sut.Tick(untargeted, Ctx(fate)).Intent).TargetId);
 
         var switched = TestData.World(player: TestData.Player(synced: true, targetId: 2), fates: [fate], enemies: [first, second]);
-        Assert.IsType<NoAction>(sut.Tick(switched, Ctx(fate)).Intent);
+        Assert.IsNotType<Engage>(sut.Tick(switched, Ctx(fate)).Intent);
+    }
+
+    [Fact] // the backend can switch itself off during a lull: fighting re-asserts its mode every tick
+    public void Fighting_reasserts_combat_mode_each_tick()
+    {
+        var fate = TestData.Fate(id: 1, x: 0, z: 0, radius: 60);
+        var enemy = TestData.Enemy(id: 7, x: 2, z: 0);
+        var w = TestData.World(player: TestData.Player(synced: true, targetId: 7), fates: [fate], enemies: [enemy]);
+        var sut = Sut();
+        sut.Tick(w, Ctx(fate)); // combat on
+        var fighting = Assert.IsType<SetCombat>(sut.Tick(w, Ctx(fate)).Intent);
+        Assert.True(fighting.Enabled);
+        Assert.Equal(CombatMode.Auto, fighting.Mode);
+        Assert.IsType<SetCombat>(sut.Tick(w, Ctx(fate)).Intent);
     }
 
     [Fact] // a foreign target is replaced before we start closing distance, so the backend stops hitting it

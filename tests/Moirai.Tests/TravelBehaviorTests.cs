@@ -201,6 +201,20 @@ public class TravelBehaviorTests
         Assert.IsNotType<Dismount>(step.Intent);
     }
 
+    [Fact] // spec 7.2: a pause elsewhere (a stray fight) is not a standstill on the leg
+    public void Resume_after_a_pause_does_not_read_the_standstill_as_a_stall()
+    {
+        var fate = TestData.Fate(x: 500, z: 0);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+        WorldSnapshot Riding(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 100, z: 0, mounted: true), fates: [fate]);
+
+        Assert.IsType<GoTo>(sut.Tick(Riding(0), ctx).Intent); // anchors the sampler
+        sut.Resume();                                          // the leg was paused elsewhere
+        Assert.Equal(BehaviorStatus.Running, sut.Tick(Riding(5_000), ctx).Status);
+    }
+
     [Fact] // C12: the mount cast is a legitimate standstill, never a stuck failure
     public void Mount_cast_standstill_is_not_stuck()
     {

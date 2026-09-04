@@ -3,6 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.5 — 2026-09-04
+
+### Fixed
+- Stray aggro is fought back for real. RotationSolver Reborn switches itself off on its own (thirty seconds out of combat by default, on death, on a zone change), and Moirai assumed it was still on, so the next time something jumped the character the rotation stayed off. Moirai now asks RotationSolver whether it is on before every switch, changes modes through off so a repeated command never toggles it off or cycles its targeting, and re-asserts the mode while fighting, so a rotation that switched itself off during a lull comes back for the next wave
+- Whatever is hitting the character, or its chocobo, is now targeted and fought where it stands, on the way to a FATE and inside one whenever none of the FATE's own enemies is attacking. RotationSolver ignores anything that is not the FATE's while the game counts the character inside one, so its "Ignore Non-Fate targets while in a Fate" option is set aside for the clear and put back afterwards. Mounted, Moirai keeps riding and lets the mobs leash
+- Standing still for a stray fight no longer reads as a stuck leg afterwards
+- Collect FATEs fought their second wave with the rotation off after a pickup had turned it off
+- The debug report now lists the enemies Moirai sees, whether each is on the character, and whether RotationSolver reports itself on
+<!-- LATEST-END -->
+
 ## v0.3.4 — 2026-09-04
 
 ### Fixed
@@ -11,7 +21,6 @@ All notable changes to Moirai will be documented in this file.
 
 ### Added
 - `/moirai debug` and a matching button on the About tab copy a plain-text report of every FATE in the zone and how Moirai reads it, for bug reports
-<!-- LATEST-END -->
 
 ## v0.3.3 — 2026-09-04
 

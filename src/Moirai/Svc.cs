@@ -13,6 +13,7 @@ public sealed class Svc
     [PluginService] public static ICondition Condition { get; private set; } = null!;
     [PluginService] public static IObjectTable Objects { get; private set; } = null!;
     [PluginService] public static ITargetManager Targets { get; private set; } = null!;
+    [PluginService] public static IBuddyList Buddies { get; private set; } = null!;
     [PluginService] public static ICommandManager Commands { get; private set; } = null!;
     [PluginService] public static IDataManager Data { get; private set; } = null!;
     [PluginService] public static IPluginLog Log { get; private set; } = null!;
