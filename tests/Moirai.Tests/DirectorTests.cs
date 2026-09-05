@@ -707,6 +707,22 @@ public class DirectorTests
         Assert.Equal(0, d.Ledger.Abandoned);
     }
 
+    [Fact] // A7 through the settings record: a bonus-only run idles until a bonus fate is up, then takes it
+    public void A7_bonus_only_run_idles_until_a_bonus_fate_appears()
+    {
+        var settings = new Moirai.Core.Replay.RunSettings(
+            new SelectionConfig { BonusOnly = true }, new MovementConfig(), new EngageConfig(), new CompanionConfig(), new DirectorConfig());
+        var d = Moirai.Core.Replay.DirectorFactory.Create(settings, new SingleZoneModule(), new FixedRandom(0.5, 0.5), new FlatGround());
+        d.Start();
+
+        var plain = TestData.Fate(id: 1, x: 200, z: 0);
+        Assert.Equal("no eligible fates", d.Tick(TestData.World(fates: [plain])).Status);
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+
+        var bonus = TestData.Fate(id: 2, x: 400, z: 0, bonus: true);
+        Assert.Equal("selected fate 2", d.Tick(TestData.World(fates: [plain, bonus])).Status);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {

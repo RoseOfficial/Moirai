@@ -246,7 +246,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - A3. Skip FATEs whose coordinates are (0, 0) — not yet registered by the client.
 - A4. Skip FATEs above player level + margin; no lower-level floor.
 - A5. Boss FATEs ineligible below join threshold; special bosses use their own threshold.
-- A6. Bonus FATEs outrank non-bonus when the Bonus criterion is reached.
+- A6. Bonus FATEs outrank non-bonus when the Bonus criterion is reached. The flag is the game's own bonus marker on the FATE (`HasBonus`), read into the snapshot; the bonus-only mode (A7) is a Selection-tab switch.
 - A7. Bonus-only mode selects nothing when no bonus FATE exists (idle, don't roam).
 - A8. Unopened NPC FATEs (start time 0) assume 900 s remaining and rank only against each other unless bonus.
 - A9. Nearby override: inside or within ~50 y of an eligible ring → take it immediately.

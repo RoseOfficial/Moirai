@@ -126,7 +126,9 @@ public sealed class ConfigWindow : Window
             c.Priority = [.. Configuration.DefaultPriority];
             dirty = true;
         }
-        Hint("Bonus detection is not wired in this release, so the Bonus rung has no effect yet.");
+        var bonusOnly = c.BonusOnly;
+        if (ImGui.Checkbox("Bonus FATEs only", ref bonusOnly)) { c.BonusOnly = bonusOnly; dirty = true; }
+        Hint("Idles until a FATE with the bonus marker is up instead of roaming. Bonus FATEs pay out more experience, gil, seals, and gemstones.");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Blacklist (by fate id)");

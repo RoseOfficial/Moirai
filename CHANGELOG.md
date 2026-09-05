@@ -3,6 +3,12 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.12 — 2026-09-05
+
+### Added
+- Bonus FATEs are recognized. The game flags a FATE with a bonus marker now and then, and finishing one pays out more experience, gil, seals, and bicolor gemstones. Moirai reads that flag, so the Bonus rung of the ranking ladder puts them first when it sits high, and a new "Bonus FATEs only" switch on the Selection tab idles the run until one is up. The overlay marks a bonus FATE and the debug report shows the flag
+<!-- LATEST-END -->
+
 ## v0.3.11 — 2026-09-05
 
 ### Added
@@ -12,7 +18,6 @@ All notable changes to Moirai will be documented in this file.
 
 ### Changed
 - A teleport the leg wants is held until the previous FATE's payout registers, like a zone change
-<!-- LATEST-END -->
 
 ## v0.3.10 — 2026-09-05
 

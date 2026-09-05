@@ -58,7 +58,7 @@ public sealed class OverlayWindow : Window
             var name = Plugin.FateName(fate.Id);
             ImGui.TextUnformatted(name is null ? $"Fate {fate.Id}" : name);
             ImGui.SameLine();
-            ImGui.TextColored(Muted, $"{fate.Kind}  {fate.Progress}%  {fate.EffectiveTimeLeft}s left");
+            ImGui.TextColored(Muted, $"{(fate.IsBonus ? "bonus " : "")}{fate.Kind}  {fate.Progress}%  {fate.EffectiveTimeLeft}s left");
         }
 
         ImGui.TextColored(Good,

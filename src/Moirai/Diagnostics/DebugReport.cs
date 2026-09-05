@@ -44,7 +44,7 @@ public static class DebugReport
         {
             if (fate == null) continue;
             count++;
-            sb.Append($"  #{fate.FateId} '{fate.Name}' state={fate.State} start={fate.StartTimeEpoch} dur={fate.Duration} left={fate.TimeRemaining} prog={fate.Progress} handIn={SafeHandIn(fate)} lvl={fate.Level}-{fate.MaxLevel} icon={fate.IconId} pos={Fmt(fate.Position)} r={fate.Radius:0}");
+            sb.Append($"  #{fate.FateId} '{fate.Name}' state={fate.State} start={fate.StartTimeEpoch} dur={fate.Duration} left={fate.TimeRemaining} prog={fate.Progress} bonus={fate.HasBonus} handIn={SafeHandIn(fate)} lvl={fate.Level}-{fate.MaxLevel} icon={fate.IconId} pos={Fmt(fate.Position)} r={fate.Radius:0}");
 
             uint eventItem = 0, turnIn = 0, req = 0, rule = 0, icon = fate.IconId, banner = 0;
             try

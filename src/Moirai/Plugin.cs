@@ -115,6 +115,7 @@ public sealed class Plugin : IDalamudPlugin
             SpecialBossJoinProgress = Config.SpecialBossJoinProgress,
             Priority = Config.NormalizedPriority(),
             Blacklist = Config.BlacklistedFates,
+            BonusOnly = Config.BonusOnly,
             TeleportPenalty = Config.TeleportPenalty, // one margin for the A12 ranking and the C17 leg
         },
         new MovementConfig

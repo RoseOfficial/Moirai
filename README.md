@@ -14,6 +14,8 @@ alongside Olympus and Komos.
 - Ranks FATEs by a ladder you can reorder: progress, bonus, time left, and
   distance. Hard gates skip FATEs that are nearly over, too far along, above
   your level, or on your blacklist.
+- Puts bonus FATEs first when the Bonus rung sits high in the ladder, or farms
+  only bonus FATEs and idles between them.
 - Handles battle, boss, defend, escort, and collect FATEs, and can open
   NPC-started FATEs.
 - Joins boss FATEs only once their progress passes a threshold, so you never
@@ -46,8 +48,8 @@ alongside Olympus and Komos.
 - Farms only the zone you are standing in. Zone rotation and event modes are
   planned for a later release.
 - No food, gear repair, or gemstone shopping.
-- Bonus (Twist of Fate) detection and continuation chains are not wired yet, so
-  those rungs of the ladder have no effect for now.
+- Continuation chains are not wired yet, so a FATE's follow-up is found through
+  the normal selection rather than waited for.
 
 ## Requirements
 

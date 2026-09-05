@@ -20,6 +20,7 @@ public sealed class Configuration : IPluginConfiguration
     public int SpecialBossJoinProgress { get; set; } = 20;
     public List<SelectionCriterion> Priority { get; set; } = [.. DefaultPriority];
     public HashSet<uint> BlacklistedFates { get; set; } = [];
+    public bool BonusOnly { get; set; } // A7: idle until a bonus fate is up
 
     // Movement (spec §7.1)
     public bool UseFlight { get; set; } = true;

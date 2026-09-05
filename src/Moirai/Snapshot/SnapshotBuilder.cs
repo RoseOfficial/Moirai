@@ -129,7 +129,7 @@ public sealed class SnapshotBuilder(
             Phase: phase.Value,
             Kind: kind,
             MaxLevel: fate.Level,
-            IsBonus: false, // bonus detection lands with the data layer
+            IsBonus: fate.HasBonus, // A6/A7: the game's own bonus marker
             IsSpecialBoss: specialBoss,
             HasContinuation: false, // continuation chains land with the data layer
             StartTimeEpoch: fate.StartTimeEpoch,
