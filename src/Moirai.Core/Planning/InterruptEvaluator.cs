@@ -3,22 +3,23 @@ using Moirai.Core.Model;
 
 namespace Moirai.Core.Planning;
 
-public enum InterruptKind { None, Busy, Dead, UnexpectedCombat, NavmeshNotReady }
+public enum InterruptKind { None, Busy, Dead, UnexpectedCombat }
 
 public static class InterruptEvaluator
 {
-    // Spec §3 order: busy guard, death, unexpected combat, navmesh.
-    public static InterruptKind Evaluate(WorldSnapshot w, uint? currentFateId, bool inFatePhase = false)
+    // Spec §3 order: busy guard, death, unexpected combat; the navmesh hold lives in DependencyWatch.
+    // expectsDialog: the active behavior handles dialogs itself (NPC start, collect hand-in), so an
+    // open one is its turn rather than a busy hold (B4); occupied with no dialog open is still busy.
+    public static InterruptKind Evaluate(WorldSnapshot w, uint? currentFateId, bool inFatePhase = false, bool expectsDialog = false)
     {
         var p = w.Player;
-        if (p.IsCasting || p.IsBetweenAreas || p.IsJumping || p.IsBeingMoved || p.IsOccupied || w.LifestreamBusy)
+        var occupied = p.IsOccupied && !(expectsDialog && w.Dialog != DialogKind.None);
+        if (p.IsCasting || p.IsBetweenAreas || p.IsJumping || p.IsBeingMoved || occupied || w.LifestreamBusy)
             return InterruptKind.Busy;
         if (p.IsDead)
             return InterruptKind.Dead;
         if (p.InCombat && !IsFateCombat(w, currentFateId, inFatePhase))
             return InterruptKind.UnexpectedCombat;
-        if (!w.NavmeshReady)
-            return InterruptKind.NavmeshNotReady;
         return InterruptKind.None;
     }
 

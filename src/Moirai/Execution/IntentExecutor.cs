@@ -97,6 +97,10 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 if (Throttle.Try("moirai.return", 2000)) GameEx.ClickYes();
                 break;
 
+            case ConfirmDialog:
+                if (Throttle.Try("moirai.confirm", 600)) GameEx.ClickYes(); // B4: the planner decided it is ours
+                break;
+
             case SetCombat s:
                 if (s is { Enabled: true, Mode: CombatMode.Defensive })
                     navmesh.Stop(); // D3: a stray is fought where we stand

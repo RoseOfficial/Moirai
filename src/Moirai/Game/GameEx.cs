@@ -3,6 +3,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Moirai.Core.Model;
 using CSGameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace Moirai.Game;
@@ -108,11 +109,28 @@ public static unsafe class GameEx
         return names;
     }
 
-    // Confirms the topmost SelectYesno with "yes". Used only for the death return prompt.
+    // An addon that is on screen and finished loading: during its open and close animations it is
+    // visible while its buttons are still null, so visibility alone is not enough to act on.
+    private static AtkUnitBase* ReadyAddon(string name)
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName(name).Address;
+        return addon != null && addon->IsVisible && addon->IsReady ? addon : null;
+    }
+
+    // The dialog open on screen, for the snapshot: a prompt sits on top of a Talk window
+    public static DialogKind DialogOpen()
+    {
+        if (ReadyAddon("SelectYesno") != null) return DialogKind.YesNo;
+        if (ReadyAddon("Request") != null) return DialogKind.Request;
+        if (ReadyAddon("Talk") != null) return DialogKind.Talk;
+        return DialogKind.None;
+    }
+
+    // Confirms the open SelectYesno with "yes": the death return prompt and the fate-start prompt (B4)
     public static bool ClickYes()
     {
-        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName("SelectYesno").Address;
-        if (addon == null || !addon->IsVisible) return false;
+        var addon = ReadyAddon("SelectYesno");
+        if (addon == null) return false;
         addon->FireCallbackInt(0);
         return true;
     }

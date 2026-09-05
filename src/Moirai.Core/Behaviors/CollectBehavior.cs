@@ -30,6 +30,9 @@ public sealed class CollectBehavior(EngageBehavior fight, float npcRange = 5f, i
                 fight.Reset();     // so the next fight goal turns it back on
                 return new(new SetCombat(false, CombatMode.Auto), BehaviorStatus.Running, "combat off for hand-in");
             }
+            // the Talk and hand-in windows are TextAdvance's; wait rather than interact on every throttle
+            if (w.Dialog != DialogKind.None)
+                return new(new Hold(250), BehaviorStatus.Running, "handing in");
             var npc = w.Interactables.FirstOrDefault(
                 i => i.Kind == InteractableKind.ObjectiveNpc && i.FateId == live.Id);
             if (npc is null)

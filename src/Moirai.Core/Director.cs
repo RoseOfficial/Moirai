@@ -25,6 +25,7 @@ public sealed class Director(
     private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
     private readonly EscapeManeuver _escape = new();
+    private readonly DependencyWatch _deps = new(cfg.DependencyGraceMs);
     private readonly StrayAggroClear _aggro = aggro ?? new(new EngageConfig());
     private IBehavior? _active;
     private FateKind _activeKind;
@@ -64,7 +65,9 @@ public sealed class Director(
 
         RewardLatch.Observe(w);
 
-        var interrupt = InterruptEvaluator.Evaluate(w, CurrentFate?.Id, inFatePhase: Phase == RunPhase.InFate);
+        // B4: NPC start and collect hand-in handle the game's dialogs themselves
+        var expectsDialog = Phase == RunPhase.InFate && _activeKind is FateKind.NpcStart or FateKind.Collect;
+        var interrupt = InterruptEvaluator.Evaluate(w, CurrentFate?.Id, inFatePhase: Phase == RunPhase.InFate, expectsDialog);
         switch (interrupt)
         {
             case InterruptKind.Busy:
@@ -95,8 +98,16 @@ public sealed class Director(
             }
         }
 
-        if (interrupt == InterruptKind.NavmeshNotReady)
-            return new(new Hold(1000), "waiting for navmesh");
+        // D5/D8: a missing plugin pauses the run with the reason; a loaded-type one stops it after the grace
+        if (_deps.Tick(w) is { } dep)
+        {
+            if (dep.Lost)
+            {
+                Stop(StopReason.DependencyLost);
+                return new(new StopRun(StopReason.DependencyLost), dep.Note);
+            }
+            return new(new Hold(1000), dep.Note);
+        }
 
         // F9/F10: companion upkeep in settled moments only, never mid-leg
         if (companion is not null)

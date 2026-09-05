@@ -577,6 +577,79 @@ public class DirectorTests
         Assert.Equal(3, d.Ledger.Abandoned);
     }
 
+    [Fact] // D4/B4: inside an NPC-start fate an open prompt is the behavior's turn, not a busy hold
+    public void D4_in_fate_prompt_is_confirmed_despite_the_occupied_flag()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60, kind: FateKind.NpcStart, phase: FatePhase.Preparing, startTimeEpoch: 0, progress: 0);
+        d.Tick(TestData.World(fates: [fate]));                          // selects
+        d.Tick(TestData.World(fates: [fate]));                          // travel: establishes dropoff
+        var drop = travel.CurrentDropoff!.Value;
+        var starter = TestData.Thing(id: 60, x: drop.X, z: drop.Z, fateId: 1, kind: InteractableKind.StarterNpc);
+        var at = TestData.Player(x: drop.X, z: drop.Z);
+        d.Tick(TestData.World(player: at, fates: [fate], interactables: [starter]));   // arrives, dispatches NpcStart
+        Assert.Equal(RunPhase.InFate, d.Phase);
+        Assert.IsType<InteractWith>(d.Tick(TestData.World(nowMs: 100, player: at, fates: [fate], interactables: [starter])).Intent);
+
+        var prompt = TestData.World(nowMs: 600, player: at with { IsOccupied = true }, fates: [fate],
+            interactables: [starter], dialog: DialogKind.YesNo);
+        var output = d.Tick(prompt);
+        Assert.IsType<ConfirmDialog>(output.Intent);
+        Assert.Equal("accepting fate start", output.Status);
+    }
+
+    [Fact] // D5: navmesh not ready holds with a plain reason and never stops the run (a mesh may be building)
+    public void D5_navmesh_not_ready_holds_with_a_reason()
+    {
+        var d = Sut();
+        d.Start();
+        var first = d.Tick(TestData.World(nowMs: 0, navmeshReady: false));
+        Assert.IsType<Hold>(first.Intent);
+        Assert.Equal("paused: vnavmesh is not ready", first.Status);
+        Assert.IsType<Hold>(d.Tick(TestData.World(nowMs: 300_000, navmeshReady: false)).Intent);
+        Assert.NotEqual(RunPhase.Stopped, d.Phase);
+    }
+
+    [Fact] // D8: a missing combat backend pauses the run, then stops it once the grace runs out
+    public void D8_missing_combat_backend_pauses_then_stops()
+    {
+        var d = Sut();
+        d.Start();
+        var first = d.Tick(TestData.World(nowMs: 0, combatReady: false));
+        Assert.IsType<Hold>(first.Intent);
+        Assert.Equal("paused: RotationSolver Reborn is not loaded", first.Status);
+        Assert.IsType<Hold>(d.Tick(TestData.World(nowMs: 59_000, combatReady: false)).Intent);
+
+        var gone = d.Tick(TestData.World(nowMs: 60_000, combatReady: false));
+        Assert.IsType<StopRun>(gone.Intent);
+        Assert.Equal(StopReason.DependencyLost, d.StoppedBecause);
+    }
+
+    [Fact] // D8: a dependency back before the grace runs out resumes, and the grace starts over next time
+    public void D8_dependency_back_in_time_resumes()
+    {
+        var d = Sut();
+        d.Start();
+        d.Tick(TestData.World(nowMs: 0, combatReady: false));
+        Assert.Equal("no eligible fates", d.Tick(TestData.World(nowMs: 30_000)).Status);
+
+        d.Tick(TestData.World(nowMs: 40_000, combatReady: false));
+        Assert.IsType<Hold>(d.Tick(TestData.World(nowMs: 95_000, combatReady: false)).Intent); // 55 s into a fresh grace
+        Assert.NotEqual(RunPhase.Stopped, d.Phase);
+    }
+
+    [Fact] // D8: TextAdvance is required too, since it drives every Talk and hand-in window
+    public void D8_missing_text_advance_pauses()
+    {
+        var d = Sut();
+        d.Start();
+        var output = d.Tick(TestData.World(textAdvanceReady: false));
+        Assert.IsType<Hold>(output.Intent);
+        Assert.Equal("paused: TextAdvance is not loaded", output.Status);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {

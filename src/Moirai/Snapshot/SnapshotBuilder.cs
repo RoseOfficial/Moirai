@@ -9,7 +9,8 @@ using Moirai.Ipc;
 namespace Moirai.Snapshot;
 
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
-public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IReadOnlyList<uint> trackedItems)
+public sealed class SnapshotBuilder(
+    Configuration cfg, NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance, IReadOnlyList<uint> trackedItems)
 {
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -79,7 +80,10 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
             Interactables: interactables,
             ItemCounts: items,
             NavmeshReady: navmesh.IsReady(),
-            LifestreamBusy: false);
+            LifestreamBusy: false,
+            Dialog: GameEx.DialogOpen(),
+            CombatReady: combat.RotationSolverInstalled,
+            TextAdvanceReady: textAdvance.Installed);
     }
 
     private static FateSnapshot? Project(IFate fate)

@@ -13,6 +13,7 @@ public sealed class CombatIpc
     private enum RsrState : byte { Off, Auto, TargetOnly, Manual, AutoDuty }
     private enum RsrTargeting : byte { Big, Small, HighHP, LowHP, HighHPPercent, LowHPPercent, HighMaxHP }
 
+    private readonly LoadedPluginCheck _loaded = new("RotationSolver");
     private readonly ICallGateSubscriber<bool> _active;
     private readonly ICallGateSubscriber<RsrState, RsrTargeting, object> _autoWithTargeting;
     private RotationMode? _last;
@@ -25,9 +26,7 @@ public sealed class CombatIpc
         _autoWithTargeting = pi.GetIpcSubscriber<RsrState, RsrTargeting, object>("RotationSolverReborn.AutodutyChangeOperatingMode");
     }
 
-    public bool RotationSolverInstalled
-        => Svc.PluginInterface.InstalledPlugins.Any(p =>
-            p.IsLoaded && p.InternalName.Contains("RotationSolver", StringComparison.OrdinalIgnoreCase));
+    public bool RotationSolverInstalled => _loaded.Loaded;
 
     // Whether RSR reports itself on; null when it cannot say (not loaded, or too old to report)
     public bool? IsActive()

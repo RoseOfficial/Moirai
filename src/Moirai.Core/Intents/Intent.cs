@@ -15,6 +15,7 @@ public sealed record Engage(ulong TargetId) : Intent;
 public sealed record ClearTarget : Intent;
 public sealed record SyncLevel : Intent;
 public sealed record InteractWith(ulong ObjectId) : Intent;
+public sealed record ConfirmDialog : Intent; // B4: yes to the open yes/no prompt
 public sealed record TeleportTo(uint AetheryteId) : Intent;
 public sealed record ChangeZone(ushort TerritoryId) : Intent;
 public sealed record SummonCompanion(uint GreensItemId) : Intent;

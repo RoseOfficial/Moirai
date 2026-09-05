@@ -44,6 +44,8 @@ public sealed class OverlayWindow : Window
                 ImGui.TextColored(Warn, "vnavmesh is not ready: nothing will move until it is.");
             if (!_plugin.CombatBackendLoaded)
                 ImGui.TextColored(Warn, "RotationSolver Reborn is not loaded: fates will not be fought.");
+            if (!_plugin.TextAdvanceLoaded)
+                ImGui.TextColored(Warn, "TextAdvance is not loaded: NPC dialogue and hand-ins will not advance.");
         }
 
         ImGui.Separator();

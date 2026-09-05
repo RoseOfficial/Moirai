@@ -29,6 +29,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly ConfigWindow _configWindow;
     private readonly NavmeshIpc _navmesh;
     private readonly CombatIpc _combat;
+    private readonly TextAdvanceIpc _textAdvance;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
 
@@ -40,6 +41,7 @@ public sealed class Plugin : IDalamudPlugin
     public bool NavmeshReady => _navmesh.IsReady();
     public bool CombatBackendLoaded => _combat.RotationSolverInstalled;
     public bool? CombatBackendActive => _combat.IsActive();
+    public bool TextAdvanceLoaded => _textAdvance.Installed;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -48,8 +50,9 @@ public sealed class Plugin : IDalamudPlugin
 
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();
+        _textAdvance = new TextAdvanceIpc();
         _executor = new IntentExecutor(_navmesh, _combat, Config);
-        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh, [CompanionData.GysahlGreensItemId]);
+        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh, _combat, _textAdvance, [CompanionData.GysahlGreensItemId]);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -122,6 +125,7 @@ public sealed class Plugin : IDalamudPlugin
             companion,
             new StrayAggroClear(engageConfig));
         _executor.Reset();
+        _textAdvance.Take(); // Talk and hand-in windows are TextAdvance's for the whole run
         Director.Start();
         _overlay.IsOpen = true;
     }
@@ -132,6 +136,7 @@ public sealed class Plugin : IDalamudPlugin
         _navmesh.Stop();
         _combat.Set(false, CombatMode.Auto);
         _combat.ResetCache();
+        _textAdvance.Release();
     }
 
     // Display only: the planner keys everything by fate id
@@ -175,9 +180,12 @@ public sealed class Plugin : IDalamudPlugin
         if (snapshot is null)
             return;
 
+        _textAdvance.Reassert(); // it drops external control on its own after a zone change
         var output = director.Tick(snapshot);
         LastStatus = output.Status;
         _executor.Execute(output.Intent, snapshot);
+        if (director.Phase == RunPhase.Stopped)
+            _textAdvance.Release(); // a stop the planner decided (death cap, dependency lost, stuck)
     }
 
     private const string Usage = "Usage: /moirai [start|stop|config|debug|help]";

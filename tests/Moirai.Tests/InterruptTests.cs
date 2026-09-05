@@ -54,9 +54,17 @@ public class InterruptTests
         Assert.Equal(InterruptKind.UnexpectedCombat, InterruptEvaluator.Evaluate(w, currentFateId: 5, inFatePhase: true));
     }
 
-    [Fact] // D5
-    public void D5_navmesh_not_ready_holds()
-        => Assert.Equal(InterruptKind.NavmeshNotReady, Eval(TestData.World(navmeshReady: false)));
+    [Fact] // D4/B4: an open dialog is the behavior's to handle when it expects one, and busy otherwise
+    public void D4_open_dialog_is_not_busy_when_the_behavior_expects_one()
+    {
+        var talking = TestData.World(player: TestData.Player(occupied: true), dialog: Moirai.Core.Model.DialogKind.YesNo);
+        Assert.Equal(InterruptKind.None, InterruptEvaluator.Evaluate(talking, null, expectsDialog: true));
+        Assert.Equal(InterruptKind.Busy, InterruptEvaluator.Evaluate(talking, null, expectsDialog: false));
+
+        // occupied with no dialog open (a cutscene, a summoning bell) is still busy, expected or not
+        var cutscene = TestData.World(player: TestData.Player(occupied: true));
+        Assert.Equal(InterruptKind.Busy, InterruptEvaluator.Evaluate(cutscene, null, expectsDialog: true));
+    }
 
     private static InterruptKind Eval(Moirai.Core.Model.WorldSnapshot w)
         => InterruptEvaluator.Evaluate(w, null);

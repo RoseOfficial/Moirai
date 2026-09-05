@@ -3,6 +3,13 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.9 — 2026-09-05
+
+### Fixed
+- NPC-started FATEs and collect hand-ins no longer depend on luck. Nothing in Moirai confirmed the FATE-start prompt or advanced the dialogue behind it, and the busy guard held the run while any window was open, so both only ever worked when TextAdvance happened to be installed and set up. TextAdvance is now a stated requirement, shown beside vnavmesh and RotationSolver in the overlay and the About tab: Moirai takes its external control for the run so Talk windows and the hand-in window advance on their own, and releases it at Stop. The FATE-start prompt, which TextAdvance never confirms, is confirmed by Moirai itself, and only right after Moirai talked to the starter; a prompt open at any other time is left alone. After confirming, Moirai waits for the FATE to open instead of talking to the starter again
+- A required plugin going away mid-run is no longer silent. The run pauses with the reason in the overlay and resumes when the plugin is back; RotationSolver or TextAdvance missing for a minute stops the run with the reason. vnavmesh not being ready pauses for as long as it takes, since a mesh may still be building
+<!-- LATEST-END -->
+
 ## v0.3.8 — 2026-09-05
 
 ### Fixed
@@ -11,7 +18,6 @@ All notable changes to Moirai will be documented in this file.
 - A character with no mount no longer stands still forever. Moirai asked to mount for every leg over thirty yalms and treated the wait as the mount cast, so nothing ever counted as a stall. Whether the zone allows mounts and whether a mount is owned are now read from the game, and a mount that does not take within six seconds is given up on for that leg, which is then walked
 - Flight is used only where the zone's aether currents are attuned. Until now every mounted leg was flown, and in a zone without flight unlocked the mount could not follow the airborne path, so every leg fed the recovery ladder
 - The debug report shows why each FATE is skipped, which FATEs are ruled out for the session and why, and whether mounting and flying are available
-<!-- LATEST-END -->
 
 ## v0.3.7 — 2026-09-05
 

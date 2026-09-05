@@ -11,7 +11,10 @@ public sealed record WorldSnapshot(
     IReadOnlyList<InteractableSnapshot> Interactables,
     IReadOnlyDictionary<uint, int> ItemCounts,
     bool NavmeshReady,
-    bool LifestreamBusy)
+    bool LifestreamBusy,
+    DialogKind Dialog = DialogKind.None,
+    bool CombatReady = true,      // D8: the combat backend is loaded
+    bool TextAdvanceReady = true) // D8: TextAdvance is loaded (it drives Talk and hand-in windows)
 {
     public int CountOf(uint itemId) => ItemCounts.TryGetValue(itemId, out var n) ? n : 0;
 

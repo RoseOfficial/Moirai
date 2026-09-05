@@ -135,6 +135,75 @@ public class CollectAndNpcStartTests
         Assert.IsType<InteractWith>(new NpcStartBehavior().Tick(w, Ctx(fate)).Intent);
     }
 
+    private static FateSnapshot Unopened()
+        => TestData.Fate(id: 1, kind: FateKind.NpcStart, x: 0, z: 0, radius: 60,
+            phase: FatePhase.Preparing, startTimeEpoch: 0, progress: 0);
+
+    private static InteractableSnapshot Starter() => TestData.Thing(id: 60, x: 1, z: 0, fateId: 1, kind: InteractableKind.StarterNpc);
+
+    private static WorldSnapshot AtStarter(long ms, DialogKind dialog = DialogKind.None, FateSnapshot? fate = null)
+        => TestData.World(nowMs: ms, player: TestData.Player(x: 0, z: 0, occupied: dialog != DialogKind.None),
+            fates: [fate ?? Unopened()], interactables: [Starter()], dialog: dialog);
+
+    [Fact] // B4: the fate-start prompt is confirmed only after our own interact with the starter
+    public void B4_confirms_the_fate_start_prompt_after_its_own_interact()
+    {
+        var sut = new NpcStartBehavior();
+        Assert.IsType<InteractWith>(sut.Tick(AtStarter(0), Ctx(Unopened())).Intent);
+        var step = sut.Tick(AtStarter(500, DialogKind.YesNo), Ctx(Unopened()));
+        Assert.IsType<ConfirmDialog>(step.Intent);
+        Assert.Equal("accepting fate start", step.Note);
+    }
+
+    [Fact] // B4: a prompt that was open before we interacted is not ours; leave it alone
+    public void B4_leaves_a_prompt_alone_before_any_interact()
+    {
+        var step = new NpcStartBehavior().Tick(AtStarter(0, DialogKind.YesNo), Ctx(Unopened()));
+        Assert.IsType<Hold>(step.Intent);
+    }
+
+    [Fact] // B4: the Talk window before the prompt is TextAdvance's; wait it out rather than interact again
+    public void B4_talk_window_is_waited_out()
+    {
+        var sut = new NpcStartBehavior();
+        sut.Tick(AtStarter(0), Ctx(Unopened()));
+        var step = sut.Tick(AtStarter(300, DialogKind.Talk), Ctx(Unopened()));
+        Assert.IsType<Hold>(step.Intent);
+        Assert.Equal("advancing dialogue", step.Note);
+    }
+
+    [Fact] // B4: the fate opens a few seconds after the prompt; wait for it instead of interacting again
+    public void B4_waits_for_the_fate_to_open_after_confirming()
+    {
+        var sut = new NpcStartBehavior();
+        sut.Tick(AtStarter(0), Ctx(Unopened()));
+        Assert.IsType<ConfirmDialog>(sut.Tick(AtStarter(500, DialogKind.YesNo), Ctx(Unopened())).Intent);
+
+        var waiting = sut.Tick(AtStarter(2_500), Ctx(Unopened()));
+        Assert.IsType<Hold>(waiting.Intent);
+        Assert.Equal("waiting for the fate to open", waiting.Note);
+
+        Assert.IsType<InteractWith>(sut.Tick(AtStarter(11_000), Ctx(Unopened())).Intent); // never took: ask again
+    }
+
+    [Fact] // B1: while the hand-in dialogue runs, wait rather than interact on every throttle
+    public void B1_hand_in_waits_while_a_dialog_is_open()
+    {
+        var fate = CollectFate();
+        var npc = TestData.Thing(id: 42, x: 3, z: 0, kind: InteractableKind.ObjectiveNpc);
+        var sut = Collect();
+        var ready = TestData.World(player: TestData.Player(synced: true), fates: [fate],
+            interactables: [npc], items: new Dictionary<uint, int> { [900] = 7 });
+        sut.Tick(ready, Ctx(fate)); // combat off
+        Assert.IsType<InteractWith>(sut.Tick(ready, Ctx(fate)).Intent);
+
+        var handingIn = TestData.World(player: TestData.Player(synced: true, occupied: true), fates: [fate],
+            interactables: [npc], items: new Dictionary<uint, int> { [900] = 7 }, dialog: DialogKind.Request);
+        var step = sut.Tick(handingIn, Ctx(fate));
+        Assert.IsType<Hold>(step.Intent);
+        Assert.Equal("handing in", step.Note);
+    }
+
     [Fact] // B11: a fate still preparing has not opened, whatever its start-time field says
     public void NpcStart_keeps_starting_while_fate_is_preparing()
     {

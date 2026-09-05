@@ -74,7 +74,7 @@ Thin adapters, one per concern, that turn intents into game/IPC calls: `Movement
 
 Evaluated every tick before any planning, in priority order:
 
-1. **Busy guard** — no intent is executed while the player is casting, between areas, jumping, being moved, mid-mount/dismount animation, occupied by a game UI, or while Lifestream reports busy. The planner still observes; the executors hold.
+1. **Busy guard** — no intent is executed while the player is casting, between areas, jumping, being moved, mid-mount/dismount animation, occupied by a game UI, or while Lifestream reports busy. The planner still observes; the executors hold. An open dialog (Talk, yes/no, hand-in window) is the exception while the NPC-start or collect behavior is active: those handle it themselves (B4).
 2. **Death** — overrides everything (§7.3).
 3. **Unexpected combat** — in combat while not inside the current FATE (stray aggro, adds that followed): stop movement, target whatever is on us (or our companion), engage defensively until nothing is, stand the rotation down, then resume. Only strays are fought: the current FATE's own mobs are carried into the ring, and a mounted character keeps riding until the leash ends it. Inside a running FATE the same clear runs whenever a stray is on us and none of the FATE's enemies is; the FATE's behavior then starts over in its own mode.
 4. **Navmesh not ready** — hold all movement intents until vnavmesh reports ready.
@@ -104,7 +104,7 @@ Classification is ID-based from the Lumina `Fate` sheet — never by localized n
 - **Defend**: peel logic — prefer enemies whose target is a protected friendly.
 - **Escort**: follow the objective NPC with follow/stop hysteresis; navigation owns movement (dodge-layer movement disabled); target scope locked to the FATE.
 - **Collect (hand-in)**: gather ground items owned by the FATE, hand in batches at the objective NPC (7 items = full credit; partial hand-in when short). Combat is disengaged for pickup/hand-in (single-owner rule), re-engaged for fighting. Dialog via TextAdvance with a manual addon fallback.
-- **NPC-started**: detect via zero progress + no active enemies; find the starter NPC; dismount, settle, interact; accept only the FATE-start dialog (recognized by its level-recommendation text pattern), reject unrelated prompts.
+- **NPC-started**: detect via zero progress + no active enemies; find the starter NPC; dismount, settle, interact; confirm only the FATE-start prompt that follows our own interact (B4), leave any other prompt alone.
 - **Ring knockback**: outside the ring with the FATE still running → path back to center.
 - **Reward latch**: after completion, do not leave the zone or teleport until the reward payout registers.
 
@@ -257,7 +257,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B1. Collect: 7 items = full credit; batch hand-ins; partial hand-in when short.
 - B2. Collect: combat disengaged during pickup/hand-in; re-engaged for Fight goal.
 - B3. Collect: event-item id may populate ~1 s after FATE start — tolerate the delay.
-- B4. NPC-start: accept only the FATE-start yes/no (level-recommendation text); reject all other prompts.
+- B4. NPC-start: the FATE-start yes/no is confirmed only by the NPC-start behavior, only after its own interact with the starter, and only while the FATE is still unopened; a prompt open at any other time is not ours and is left alone. Recognition is by context, never by the prompt's localized text. The Talk window before the prompt is TextAdvance's to advance (it never confirms the FATE-start prompt itself), so the behavior waits it out; after confirming it waits up to 10 s for the FATE to open before interacting again, since the game opens it a few seconds later. The snapshot carries the open dialog (Talk, yes/no, hand-in window) and the busy guard does not count an open dialog as busy while the NPC-start or collect behavior is active (D4).
 - B5. NPC-start: starter NPC may report FATE id 0 before starting — match by proximity + nameplate icon.
 - B6. Escort: follow hysteresis (start ~5 y, stop ~2.5 y); dodge-layer movement disabled; target scope locked to FATE.
 - B7. Defend: prefer enemies targeting protected friendlies.
@@ -292,10 +292,10 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - D2. Death never counts as completion; failed FATE never counts as completion.
 - D3. Unexpected combat outside the FATE → defensive clear, then resume. The clear stops movement, targets the nearest stray on us (sticky while it stays on us), closes to engage range on foot, and stands the rotation down once nothing is on us; the leg's stall sampler is re-anchored so the standstill is not a stuck. A stray is anything alive and attacking us or our companion that is not the current FATE's enemy: the FATE's own mobs are never fought outside the ring (the rotation cannot attack them there) and are carried in. Mounted, nothing is fought; the leg carries on and the leash ends it. Inside a running FATE combat past the ring edge (pulled mobs, knockbacks) is that FATE's own and the engage behavior walks back in (C5), but a stray on us while none of the FATE's enemies is gets the same clear, after which the FATE's behavior starts over so its own rotation mode comes back; a FATE enemy on us always outranks the stray.
 - D4. Busy guard: no intents while casting/between-areas/jumping/being-moved/occupied/Lifestream-busy.
-- D5. Navmesh not ready → hold movement, keep observing.
+- D5. Navmesh not ready → hold with the reason shown, keep observing, never stop: a mesh may still be building.
 - D6. Reward latch: no zone change/teleport until FATE payout registers.
 - D7. Every retry loop bounded; ladder exhaustion abandons the FATE (D10), and a wedged character stops with a typed reason.
-- D8. Dependency lost mid-run → pause with reason if recoverable, stop if not.
+- D8. Dependency lost mid-run → pause with the reason in the status line; resume when it is back; the combat backend or TextAdvance missing for the grace period (60 s) stops with `DependencyLost`. Until then the overlay only warned while not running, and a run with the backend unloaded stood in FATEs doing nothing.
 - D9. A FATE the player died in, or died inside the ring of on the way in, is not selected again in the same session, not even by the nearby override. A solo death leaves a boss at full health and progress at 0, so the ranking would send the player straight back (Lazy for You: three deaths to the cap in ten minutes, its 30-minute timer winning the TimeLeft rung every time). A death on the road does not condemn the FATE.
 - D10. Ladder exhaustion abandons the FATE, counts it as abandoned, and skips it for the session (`Unreachable`); selection goes on. Three exhaustions in a row without the character moving more than 10 y between them mean the character is wedged, not the FATE: stop with `StuckExhausted`. Moving between exhaustions resets the count. Until then one unreachable FATE ended the whole run.
 
@@ -315,7 +315,7 @@ Gate names verified against current plugin versions (2026-08).
 
 **Lifestream**: `Lifestream.IsBusy()`, `Lifestream.AethernetTeleportById(uint)`, `/li <aetheryte>` command surface.
 
-**TextAdvance**: `TextAdvance.IsInExternalControl()`, `TextAdvance.EnableExternalControl(string owner, config)`, `TextAdvance.DisableExternalControl(string owner)`; config flags: TalkSkip, RequestFill, RequestHandin, RewardPick, CutsceneEsc, CutsceneSkipConfirm (QuestAccept/Complete and AutoInteract deliberately off).
+**TextAdvance**: `TextAdvance.IsInExternalControl()`, `TextAdvance.EnableExternalControl(string owner, config)`, `TextAdvance.DisableExternalControl(string owner)`; config flags: TalkSkip, RequestFill, RequestHandin, RewardPick, CutsceneEsc, CutsceneSkipConfirm (QuestAccept/Complete and AutoInteract deliberately off). The config crosses Dalamud IPC as JSON, so a local class with the same field names (`EnableTalkSkip`, …, nullable bools) is enough. Control is taken at Start, re-asserted while running (TextAdvance drops it after a zone change), and released at Stop. TextAdvance never confirms the FATE-start `SelectYesno`; that is Moirai's (B4).
 
 **BossMod / Reborn**: `BossMod.Presets.SetActive/ClearActive/GetActive/Create/Get`, `BossMod.Presets.AddTransientStrategy(preset, module, option, value)`; Reborn-only: `BossMod.Hints.ForbiddenZonesCount`, `BossMod.Hints.ForbiddenZonesNextActivation`, `BossMod.AI.IsNavigating`; AI toggles via `/bmrai` (Reborn) or `/vbm` (vanilla) command families.
 

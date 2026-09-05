@@ -55,8 +55,14 @@ alongside Olympus and Komos.
   stray aggro it sets RotationSolver's "Ignore Non-Fate targets while in a
   Fate" option aside and puts it back (on) afterwards; the change is never
   saved to RotationSolver's config.
+- [TextAdvance](https://github.com/NightmareXIV/TextAdvance) for NPC dialogue.
+  Moirai holds its external control while a run is on so Talk windows and the
+  collect hand-in window advance on their own, and releases it at Stop. The
+  FATE-start prompt is confirmed by Moirai itself, and only right after Moirai
+  talked to the starter.
 
-The overlay warns when either is missing. Keep Gysahl Greens in your inventory
+The overlay warns when any of the three is missing, and a run pauses with the
+reason if one goes away mid-session. Keep Gysahl Greens in your inventory
 if you want the companion kept out; that part is optional and switchable.
 
 ## Installation

@@ -228,6 +228,8 @@ public sealed class ConfigWindow : Window
         ImGui.TextUnformatted("Required plugins");
         Dependency("vnavmesh", _plugin.NavmeshReady, "ready", "not ready or not installed");
         Dependency("RotationSolver Reborn", _plugin.CombatBackendLoaded, "loaded", "not loaded");
+        Dependency("TextAdvance", _plugin.TextAdvanceLoaded, "loaded", "not loaded");
+        Hint("TextAdvance advances NPC dialogue and drives the collect hand-in window while a run is on; Moirai confirms the FATE-start prompt itself.");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Commands");
