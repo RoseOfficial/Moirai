@@ -288,6 +288,10 @@ public sealed class ConfigWindow : Window
         Dependency("TextAdvance", _plugin.TextAdvanceLoaded, "loaded", "not loaded");
         Hint("TextAdvance advances NPC dialogue and drives the collect hand-in window while a run is on; Moirai confirms the FATE-start prompt itself.");
 
+        ImGui.TextUnformatted("Optional");
+        Dependency("BossMod Reborn", _plugin.DodgeLoaded, "loaded: dodging on", "not loaded: no dodging");
+        Hint("Its AI runs with the rotation, actions and follow off, and takes over movement only while a marker is about to go off.");
+
         ImGui.Separator();
         ImGui.TextUnformatted("Commands");
         ImGui.TextColored(Muted, "/moirai            toggle the overlay");

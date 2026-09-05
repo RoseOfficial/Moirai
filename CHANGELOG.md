@@ -3,11 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.17 — 2026-09-05
+
+### Added
+- Dodging through BossMod Reborn when it is installed. Its AI is switched on with the rotation and off with it, with its actions forbidden since RotationSolver owns the rotation, its follow modes off, and its movement forbidden by default so vnavmesh keeps moving the character. The moment Reborn reports that it is steering the character out of something, or that a marked zone is about to go off, Moirai stops its own path and hands movement to Reborn, and takes it back a second after the danger clears. Without Reborn nothing changes. The About tab lists it as optional with its status, and the debug report shows the dodge and danger flags
+<!-- LATEST-END -->
+
 ## v0.3.16 — 2026-09-05
 
 ### Added
 - Zone rotation. A new Zones tab takes a list of zones, built with an "add current zone" button. The run starts in the listed zone it is standing in, or teleports to the first one, and moves on to the next when the current zone has had no eligible FATE for the quiet period you set, two minutes by default, wrapping around at the end. A zone whose aetheryte cannot be reached within a minute is skipped, and if none can be reached the run stops and says so. With the list empty the run farms the zone it starts in, as before. The overlay shows the zone while rotating, and recordings carry the list so replays rebuild the same rotation
-<!-- LATEST-END -->
 
 ## v0.3.15 — 2026-09-05
 

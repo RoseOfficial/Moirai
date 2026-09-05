@@ -37,11 +37,12 @@ public static class TestData
         IReadOnlyList<InteractableSnapshot>? interactables = null,
         IReadOnlyDictionary<uint, int>? items = null,
         bool navmeshReady = true, bool lifestreamBusy = false,
-        DialogKind dialog = DialogKind.None, bool combatReady = true, bool textAdvanceReady = true)
+        DialogKind dialog = DialogKind.None, bool combatReady = true, bool textAdvanceReady = true,
+        bool dodgeReady = false, bool danger = false)
         => new(now, nowMs, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
                items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy,
-               dialog, combatReady, textAdvanceReady);
+               dialog, combatReady, textAdvanceReady, dodgeReady, danger);
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float y = 0, float z = 100, float hitbox = 2f,

@@ -8,12 +8,14 @@ public sealed class EngageConfig
 {
     public float MeleeRange { get; init; } = 2.5f; // C10: larger breaks auto-attack
     public float RangedRange { get; init; } = 8f;
+    public long DodgeSettleMs { get; init; } = 1000; // H3: after danger clears, before navigation takes over again
 }
 
 public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
 {
     private ulong? _sticky;
     private bool _combatOn;
+    private long? _yieldUntilMs; // H2/H3: movement is the dodge layer's until then
 
     public BehaviorStep Tick(WorldSnapshot w, BehaviorContext ctx)
     {
@@ -36,6 +38,24 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
         // C11: sync only once actually inside the ring
         if (inside && !p.IsLevelSynced)
             return new(new SyncLevel(), BehaviorStatus.Running, "syncing");
+
+        // H2/H3: the dodge layer's turn, before anything of ours would walk (the ring re-entry
+        // included), so we never path into a marker. Its AI is on with combat, so only then.
+        if (w.DodgeReady && _combatOn)
+        {
+            if (w.Danger)
+            {
+                _yieldUntilMs = w.NowMs + cfg.DodgeSettleMs;
+                return new(new HandMovementTo(MovementOwner.Dodge), BehaviorStatus.Running, "dodging");
+            }
+            if (_yieldUntilMs is { } until)
+            {
+                if (w.NowMs < until)
+                    return new(new Hold(100), BehaviorStatus.Running, "settling after dodge");
+                _yieldUntilMs = null;
+                return new(new HandMovementTo(MovementOwner.Navigation), BehaviorStatus.Running, "movement back from dodge");
+            }
+        }
 
         // C5: knocked out of the ring -> walk back to center
         if (!inside && !p.IsMounted)
@@ -86,5 +106,6 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
     {
         _sticky = null;
         _combatOn = false;
+        _yieldUntilMs = null;
     }
 }

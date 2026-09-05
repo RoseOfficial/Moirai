@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly NavmeshIpc _navmesh;
     private readonly CombatIpc _combat;
     private readonly TextAdvanceIpc _textAdvance;
+    private readonly DodgeIpc _dodge;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
     private Recorder? _recorder;   // §12: the last minute of the run, when the setting is on
@@ -46,6 +47,7 @@ public sealed class Plugin : IDalamudPlugin
     public bool CombatBackendLoaded => _combat.RotationSolverInstalled;
     public bool? CombatBackendActive => _combat.IsActive();
     public bool TextAdvanceLoaded => _textAdvance.Installed;
+    public bool DodgeLoaded => _dodge.Installed;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -55,8 +57,9 @@ public sealed class Plugin : IDalamudPlugin
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();
         _textAdvance = new TextAdvanceIpc();
-        _executor = new IntentExecutor(_navmesh, _combat, Config);
-        _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, new Snapshot.AetheryteProjection(), [CompanionData.GysahlGreensItemId]);
+        _dodge = new DodgeIpc();
+        _executor = new IntentExecutor(_navmesh, _combat, _dodge, Config);
+        _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(), [CompanionData.GysahlGreensItemId]);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -176,6 +179,8 @@ public sealed class Plugin : IDalamudPlugin
         _navmesh.Stop();
         _combat.Set(false, CombatMode.Auto);
         _combat.ResetCache();
+        _dodge.SetAi(false);
+        _dodge.Reset();
         _textAdvance.Release();
     }
 

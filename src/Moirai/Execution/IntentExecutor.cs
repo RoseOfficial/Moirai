@@ -8,7 +8,7 @@ namespace Moirai.Execution;
 
 // Turns planner intents into game and IPC calls. Idempotent per tick: re-issuing
 // an in-flight intent is a no-op, and every game call is throttled.
-public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configuration cfg)
+public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIpc dodge, Configuration cfg)
 {
     private Vector3? _lastDest;
 
@@ -110,12 +110,23 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 if (s is { Enabled: true, Mode: CombatMode.Defensive })
                     navmesh.Stop(); // D3: a stray is fought where we stand
                 combat.Set(s.Enabled, s.Mode);
+                dodge.SetAi(s.Enabled); // H1: the dodge layer's AI rides along with the rotation
+                break;
+
+            case HandMovementTo h:
+                if (h.Owner == MovementOwner.Dodge)
+                {
+                    navmesh.Stop(); // H2: our path ends here; the dodge layer moves the character
+                    _lastDest = null;
+                }
+                dodge.SetMovement(h.Owner);
                 break;
 
             case StopRun:
                 navmesh.Stop();
                 combat.Set(false, CombatMode.Auto);
                 combat.ResetCache();
+                dodge.SetAi(false);
                 _lastDest = null;
                 break;
 
@@ -128,5 +139,6 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
     {
         _lastDest = null;
         combat.ResetCache();
+        dodge.Reset();
     }
 }

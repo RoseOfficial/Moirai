@@ -118,7 +118,7 @@ Classification is ID-based from the Lumina `Fate` sheet — never by localized n
 - **RotationSolverBackend** — RSR via its IPC/commands.
 - **WrathComboBackend** — Wrath's lease model: register for a lease, set auto-rotation state and FATE-priority options through it, release on stop, and handle lease-revocation callbacks (re-register or degrade gracefully).
 
-**Dodging**: BossMod Reborn's AI, when present, is toggled alongside any backend for AOE avoidance; its movement authority is granted only in-combat and revoked for escort/collect (navigation-owned phases). Missing dependencies degrade specific capabilities with a visible status reason — never a silent no-op.
+**Dodging**: BossMod Reborn's AI, when present, is switched on with the combat backend and off with it (H1), with its actions forbidden (the rotation is the backend's), its follow modes off, and its movement forbidden by default so navigation keeps moving the character. While Reborn reports danger, its AI steering the character or a marked zone going off within 3 s, the planner stops its own path and hands movement to Reborn (H2); a 1 s settle window after the danger clears precedes navigation taking over again (H3). Without Reborn nothing changes (H4). Missing dependencies degrade specific capabilities with a visible status reason — never a silent no-op.
 
 ---
 
@@ -312,6 +312,12 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - G5. Every listed zone failing in a row stops with `ZonesUnreachable`; landing anywhere clears the count.
 - G6. The Director's idle clock starts when selection first comes up empty and resets on a pick or a zone change; the module hears it each tick. The reward latch (D6) holds every zone change.
 
+**Dodging**
+- H1. BossMod Reborn's AI is switched on with the combat backend and off with it, with actions forbidden, follow modes off, and movement forbidden by default, so navigation keeps moving the character. Executor-side, de-duplicated.
+- H2. Danger (Reborn's AI navigating, or a marked zone going off within 3 s) makes the engage behavior hand movement to the dodge layer and emit no path of its own, before the ring re-entry, so it never paths into a marker. Only while its combat switch is on, since the AI is on with it.
+- H3. After danger clears, a settle window (1 s) passes before movement is handed back to navigation, once.
+- H4. Without Reborn the danger flag is never set and nothing changes.
+
 **Yo-kai**
 - E1. Watch unequipped → equip if owned, else stop `WatchMissing`.
 - E2. Active yokai = first priority-list entry under legendary cap (10).
@@ -330,7 +336,7 @@ Gate names verified against current plugin versions (2026-08).
 
 **TextAdvance**: `TextAdvance.IsInExternalControl()`, `TextAdvance.EnableExternalControl(string owner, config)`, `TextAdvance.DisableExternalControl(string owner)`; config flags: TalkSkip, RequestFill, RequestHandin, RewardPick, CutsceneEsc, CutsceneSkipConfirm (QuestAccept/Complete and AutoInteract deliberately off). The config crosses Dalamud IPC as JSON, so a local class with the same field names (`EnableTalkSkip`, …, nullable bools) is enough. Control is taken at Start, re-asserted while running (TextAdvance drops it after a zone change), and released at Stop. TextAdvance never confirms the FATE-start `SelectYesno`; that is Moirai's (B4).
 
-**BossMod / Reborn**: `BossMod.Presets.SetActive/ClearActive/GetActive/Create/Get`, `BossMod.Presets.AddTransientStrategy(preset, module, option, value)`; Reborn-only: `BossMod.Hints.ForbiddenZonesCount`, `BossMod.Hints.ForbiddenZonesNextActivation`, `BossMod.AI.IsNavigating`; AI toggles via `/bmrai` (Reborn) or `/vbm` (vanilla) command families.
+**BossMod / Reborn**: `BossMod.Presets.SetActive/ClearActive/GetActive/Create/Get`, `BossMod.Presets.AddTransientStrategy(preset, module, option, value)`; Reborn-only: `BossMod.Hints.ForbiddenZonesCount`, `BossMod.Hints.ForbiddenZonesNextActivation`, `BossMod.AI.IsNavigating`; AI toggles via `/bmrai` (Reborn) or `/vbm` (vanilla) command families. Moirai drives Reborn only: `/bmrai on|off`, `/bmrai forbidactions on`, `/bmrai followtarget|followcombat|followoutofcombat off`, `/bmrai forbidmovement on|off` (H1–H3).
 
 **RotationSolver Reborn**: auto via `RotationSolverReborn.AutodutyChangeOperatingMode(StateCommandType, TargetingType)` with `AutoDuty` (4) and `HighMaxHP` (6), enums crossing Dalamud IPC by value; the state sets a transient targeting override that `off` clears, never toggles, and is the one state RSR does not switch off on its own out of combat, in cutscenes or between areas; a build without the gate gets `/rotation auto` and RSR's own targeting order. Manual and off via `/rotation manual|off`; state via `RotationSolverReborn.AutorotationActive() → bool` (on in any mode, AutoDuty included; absent on older builds, in which case memory decides); settings via `/rotation settings <Name> <value>` (in memory only, not saved); `RotationSolverReborn.AddPriorityNameID(uint)` / `RemovePriorityNameID(uint)` only widen what RSR may attack and do not order its targets. Auto lets RSR pick among the FATE's enemies in max-HP order (B13); Defensive maps to `manual`, which attacks the held target alone, and the planner holds the stray. RSR switches itself off on its own (out of combat for 30 s by default, death, zone change), so every switch asks it first, and a mode command while it is on toggles it off or cycles its targeting type, so a change of mode goes through `off`. RSR's attackable check runs in every mode and, with its default "Ignore Non-Fate targets while in a Fate" (`IgnoreNonFateInFate`), refuses FATE mobs whenever the game does not consider the player inside a FATE (outside the ring, or above the cap without sync) and refuses non-FATE mobs whenever it does; sync and ring re-entry precede targeting, and the option is set to `false` for a defensive clear and back to `true` afterwards.
 

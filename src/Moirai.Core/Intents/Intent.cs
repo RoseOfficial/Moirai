@@ -4,6 +4,9 @@ namespace Moirai.Core.Intents;
 
 public enum CombatMode { Auto, Defensive }
 
+// H2/H3: who moves the character; navigation by default, the dodge layer while danger is up
+public enum MovementOwner { Navigation, Dodge }
+
 public abstract record Intent;
 
 public sealed record GoTo(Vector3 Destination, bool Fly, float Tolerance) : Intent;
@@ -22,6 +25,7 @@ public sealed record SummonCompanion(uint GreensItemId) : Intent;
 public sealed record SetCompanionStance(uint StanceActionId) : Intent;
 public sealed record AcceptReturn : Intent;
 public sealed record SetCombat(bool Enabled, CombatMode Mode) : Intent;
+public sealed record HandMovementTo(MovementOwner Owner) : Intent;
 public sealed record StopRun(StopReason Reason) : Intent;
 public sealed record Hold(int Milliseconds) : Intent;
 public sealed record NoAction : Intent;

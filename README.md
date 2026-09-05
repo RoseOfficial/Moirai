@@ -40,6 +40,8 @@ alongside Olympus and Komos.
   a FATE, or inside one between its waves, is targeted and killed where you
   stand before the run carries on. Mounted, it keeps riding and lets the mobs
   leash.
+- Dodges with BossMod Reborn when it is installed: movement goes to its AI
+  while a marker is about to go off and comes back a second after it clears.
 - Accepts the return prompt on death, counts it, teleports back to the farming
   zone if the return put it elsewhere, and resumes; stops at a death cap you
   choose.
@@ -75,7 +77,13 @@ alongside Olympus and Komos.
   talked to the starter.
 
 The overlay warns when any of the three is missing, and a run pauses with the
-reason if one goes away mid-session. Keep Gysahl Greens in your inventory
+reason if one goes away mid-session.
+
+Optional: [BossMod Reborn](https://github.com/FFXIV-CombatReborn/BossModReborn)
+for dodging. When it is loaded, its AI runs alongside the rotation with its
+actions and follow modes off, and takes over movement only while it reports a
+marker about to go off; Moirai takes movement back a second after the danger
+clears. Without it, nothing changes. Keep Gysahl Greens in your inventory
 if you want the companion kept out; that part is optional and switchable.
 
 ## Installation

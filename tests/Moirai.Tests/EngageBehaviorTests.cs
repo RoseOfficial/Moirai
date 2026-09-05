@@ -187,6 +187,63 @@ public class EngageBehaviorTests
         Assert.Equal(8f + 2f, go.Tolerance);
     }
 
+    private static WorldSnapshot Fight(long ms, bool dodgeReady, bool danger, float playerX = 0)
+        => TestData.World(nowMs: ms,
+            player: TestData.Player(x: playerX, synced: true, targetId: 7),
+            fates: [TestData.Fate(x: 0, z: 0, radius: 60)],
+            enemies: [TestData.Enemy(id: 7, x: 30, hitbox: 2f)],
+            dodgeReady: dodgeReady, danger: danger);
+
+    [Fact] // H2: with the dodge layer on and danger up, movement is handed to it and nothing of ours walks
+    public void H2_danger_hands_movement_to_the_dodge_layer()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        Assert.IsType<SetCombat>(sut.Tick(Fight(0, dodgeReady: true, danger: false), Ctx(fate)).Intent); // combat on
+        Assert.IsType<GoTo>(sut.Tick(Fight(100, dodgeReady: true, danger: false), Ctx(fate)).Intent);    // closing, ours
+
+        var step = sut.Tick(Fight(1000, dodgeReady: true, danger: true), Ctx(fate));
+        Assert.Equal(MovementOwner.Dodge, Assert.IsType<HandMovementTo>(step.Intent).Owner);
+        Assert.Equal("dodging", step.Note);
+        Assert.IsType<HandMovementTo>(sut.Tick(Fight(1300, dodgeReady: true, danger: true), Ctx(fate)).Intent); // held, never a path
+    }
+
+    [Fact] // H2: danger comes before the ring re-entry, so we never path into a marker to get back in
+    public void H2_danger_outranks_ring_reentry()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        sut.Tick(Fight(0, dodgeReady: true, danger: false), Ctx(fate)); // combat on
+        var knockedOut = sut.Tick(Fight(500, dodgeReady: true, danger: true, playerX: 100), Ctx(fate));
+        Assert.IsType<HandMovementTo>(knockedOut.Intent);
+    }
+
+    [Fact] // H3: after danger clears, a settle window passes before movement comes back to navigation
+    public void H3_settle_window_then_movement_returns()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        sut.Tick(Fight(0, dodgeReady: true, danger: false), Ctx(fate));
+        sut.Tick(Fight(1000, dodgeReady: true, danger: true), Ctx(fate)); // dodging
+
+        var settling = sut.Tick(Fight(1500, dodgeReady: true, danger: false), Ctx(fate));
+        Assert.IsType<Hold>(settling.Intent);
+        Assert.Equal("settling after dodge", settling.Note);
+
+        var back = sut.Tick(Fight(2000, dodgeReady: true, danger: false), Ctx(fate));
+        Assert.Equal(MovementOwner.Navigation, Assert.IsType<HandMovementTo>(back.Intent).Owner);
+        Assert.IsType<GoTo>(sut.Tick(Fight(2100, dodgeReady: true, danger: false), Ctx(fate)).Intent);
+    }
+
+    [Fact] // H4: without the dodge layer, danger means nothing and the fight goes on as before
+    public void H4_without_the_dodge_layer_danger_is_ignored()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        Assert.IsType<SetCombat>(sut.Tick(Fight(0, dodgeReady: false, danger: true), Ctx(fate)).Intent);
+        Assert.IsType<GoTo>(sut.Tick(Fight(100, dodgeReady: false, danger: true), Ctx(fate)).Intent);
+    }
+
     [Fact] // B9: no navigation during a boss fight
     public void B9_no_navigation_during_boss_combat()
     {
