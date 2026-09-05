@@ -60,6 +60,16 @@ public class TravelBehaviorTests
         Assert.False(go.Fly);
     }
 
+    [Fact] // C16: flight needs the zone's unlock, mounted or not
+    public void C16_flight_needs_the_zone_unlock()
+    {
+        var fate = TestData.Fate(x: 500, z: 0);
+        var sut = new TravelBehavior(new MovementConfig());
+        var w = TestData.World(player: TestData.Player(mounted: true, canFly: false), fates: [fate]);
+        var go = Assert.IsType<GoTo>(sut.Tick(w, Ctx(fate, flight: true)).Intent);
+        Assert.False(go.Fly);
+    }
+
     [Fact] // C3: dropoff is a randomized in-ring point on the mesh floor, not the raw center
     public void C3_dropoff_is_randomized_not_center()
     {
@@ -227,5 +237,41 @@ public class TravelBehaviorTests
         Assert.IsType<MountUp>(sut.Tick(Casting(0), ctx).Intent);
         Assert.IsType<MountUp>(sut.Tick(Casting(2500), ctx).Intent);
         Assert.IsType<MountUp>(sut.Tick(Casting(5000), ctx).Intent);
+    }
+
+    [Fact] // C15: a mount that never takes is given up on; the leg is walked and the stall sampler starts fresh
+    public void C15_mount_that_never_takes_falls_back_to_walking()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+        WorldSnapshot Standing(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, z: 0), fates: [fate]);
+
+        Assert.IsType<MountUp>(sut.Tick(Standing(0), ctx).Intent);
+        Assert.IsType<MountUp>(sut.Tick(Standing(3000), ctx).Intent);
+
+        var walking = sut.Tick(Standing(6100), ctx);          // budget spent: walk the leg
+        Assert.IsType<GoTo>(walking.Intent);
+        Assert.False(Assert.IsType<GoTo>(walking.Intent).Fly);
+        Assert.Equal(BehaviorStatus.Running, sut.Tick(Standing(7000), ctx).Status); // sampler window restarted at 6100
+        var stuck = sut.Tick(Standing(8200), ctx);            // still standing while walking: a real stall
+        Assert.Equal(BehaviorStatus.Failed, stuck.Status);
+        Assert.Contains("stuck", stuck.Note);
+    }
+
+    [Fact] // C15: a mount that took clears the budget, so a knock off the mount mid-leg mounts again
+    public void C15_a_mount_that_took_refreshes_the_budget()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+
+        Assert.IsType<MountUp>(sut.Tick(TestData.World(nowMs: 0, player: TestData.Player(x: 300, z: 0), fates: [fate]), ctx).Intent);
+        Assert.IsType<GoTo>(sut.Tick(TestData.World(nowMs: 1000, player: TestData.Player(x: 300, z: 0, mounted: true), fates: [fate]), ctx).Intent);
+        Assert.IsType<GoTo>(sut.Tick(TestData.World(nowMs: 4000, player: TestData.Player(x: 200, z: 0, mounted: true), fates: [fate]), ctx).Intent);
+
+        var knockedOff = TestData.World(nowMs: 7000, player: TestData.Player(x: 150, z: 0), fates: [fate]);
+        Assert.IsType<MountUp>(sut.Tick(knockedOff, ctx).Intent);
     }
 }

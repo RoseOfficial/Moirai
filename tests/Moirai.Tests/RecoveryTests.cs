@@ -13,8 +13,8 @@ public class RecoveryTests
         Assert.Equal(RecoveryRung.RePath, ladder.NextAttempt());
         Assert.Equal(RecoveryRung.RerollDestination, ladder.NextAttempt());
         Assert.Equal(RecoveryRung.RerollDestination, ladder.NextAttempt());
-        Assert.Equal(RecoveryRung.VerticalEscape, ladder.NextAttempt());
-        Assert.Equal(RecoveryRung.VerticalEscape, ladder.NextAttempt());
+        Assert.Equal(RecoveryRung.Escape, ladder.NextAttempt());
+        Assert.Equal(RecoveryRung.Escape, ladder.NextAttempt());
         Assert.Equal(RecoveryRung.ReturnToAetheryte, ladder.NextAttempt());
         Assert.Equal(RecoveryRung.ReturnToAetheryte, ladder.NextAttempt());
         Assert.Equal(RecoveryRung.Exhausted, ladder.NextAttempt());

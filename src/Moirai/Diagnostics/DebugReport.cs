@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Text;
 using Dalamud.Game.ClientState.Fates;
 using Moirai.Core.Model;
+using Moirai.Core.Planning;
 using Moirai.Game;
 using Moirai.Snapshot;
 
@@ -23,6 +24,7 @@ public static class DebugReport
         sb.AppendLine($"zone={Svc.ClientState.TerritoryType} level={lp?.Level.ToString() ?? "?"} synced={snap?.Player.IsLevelSynced.ToString() ?? "?"} pos={Fmt(lp?.Position)}");
         sb.AppendLine($"phase={director?.Phase.ToString() ?? "none"} currentFate={currentId?.ToString() ?? "none"} status='{plugin.LastStatus}'");
         sb.AppendLine($"skipNpcStart={plugin.Config.SkipNpcStartFates} navmesh={plugin.NavmeshReady} combat={plugin.CombatBackendLoaded} combatActive={plugin.CombatBackendActive?.ToString() ?? "unknown"} inCombat={snap?.Player.InCombat.ToString() ?? "?"} snapshot={(snap is null ? "none" : "ok")}");
+        sb.AppendLine($"canMount={snap?.Player.CanMount.ToString() ?? "?"} canFly={snap?.Player.CanFly.ToString() ?? "?"} mounted={snap?.Player.IsMounted.ToString() ?? "?"}");
         sb.AppendLine($"visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
         sb.AppendLine();
         sb.AppendLine("fates: game fields | sheet | moirai");
@@ -66,9 +68,15 @@ public static class DebugReport
             var unopened = phase is { } q && FateClassifier.IsUnopened(q, fate.StartTimeEpoch, fate.Progress);
             var projected = snap?.FateById(fate.FateId);
             var timeLeft = projected is null ? "" : $" timeLeft={projected.EffectiveTimeLeft}";
-            sb.AppendLine($" | kind={kind} special={special} unopened={unopened} inSnapshot={projected is not null}{timeLeft}");
+            // the gate that rules it out, or None when it is eligible; needs a run's selection settings
+            var skip = projected is not null && snap is not null && director is not null
+                ? $" skip={SelectionGates.Evaluate(projected, snap, director.Selection, director.Skips)}"
+                : "";
+            sb.AppendLine($" | kind={kind} special={special} unopened={unopened} inSnapshot={projected is not null}{timeLeft}{skip}");
         }
         sb.AppendLine($"  ({count} fates)");
+        if (director is not null)
+            sb.AppendLine($"session skips: {(director.Skips.Count == 0 ? "none" : string.Join(", ", director.Skips.All.Select(s => $"#{s.Key} {s.Value}")))}");
 
         if (snap is not null)
         {

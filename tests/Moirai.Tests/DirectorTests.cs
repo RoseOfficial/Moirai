@@ -1,3 +1,4 @@
+using System.Numerics;
 using Moirai.Core;
 using Moirai.Core.Behaviors;
 using Moirai.Core.Intents;
@@ -412,5 +413,183 @@ public class DirectorTests
         Assert.Contains("recovery: new dropoff", statuses);
         Assert.Equal(RunPhase.Traveling, d.Phase);
         Assert.NotEqual(drop, travel.CurrentDropoff!.Value);
+    }
+
+    // Ticks a wedged leg every 100 ms and keeps every output, so a test can read the ladder's timeline
+    private static List<(long Ms, DirectorOutput Out)> Drive(Director d, Func<long, WorldSnapshot> at, long endMs)
+    {
+        var outs = new List<(long, DirectorOutput)>();
+        for (long ms = 0; ms <= endMs; ms += 100)
+            outs.Add((ms, d.Tick(at(ms))));
+        return outs;
+    }
+
+    [Fact] // C13: the re-path rung stops the running path, so the next tick issues the leg afresh
+    public void C13_repath_rung_stops_the_path_before_the_leg_is_reissued()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 100, z: 0, radius: 20);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, z: 0, canMount: false), fates: [fate]);
+
+        Assert.IsType<GoTo>(d.Tick(Wedged(0)).Intent);
+        var stuck = d.Tick(Wedged(2100));
+        Assert.IsType<StopMoving>(stuck.Intent);
+        Assert.Equal("recovery: re-path", stuck.Status);
+        var again = Assert.IsType<GoTo>(d.Tick(Wedged(2200)).Intent);
+        Assert.Equal(travel.CurrentDropoff!.Value, again.Destination);
+    }
+
+    [Fact] // C14: the escape rung flies up and holds it for its window before the leg resumes
+    public void C14_vertical_escape_is_held_before_travel_resumes()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 100, z: 0, radius: 20);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, y: 20, z: 0, mounted: true, canFly: true), fates: [fate]);
+
+        var outs = Drive(d, Wedged, 14_000);
+        var (begin, first) = outs.First(o => o.Out.Status == "recovery: flying up");
+        var up = Assert.IsType<GoTo>(first.Intent);
+        Assert.True(up.Fly);
+        Assert.Equal(30f, up.Destination.Y);
+
+        foreach (var (ms, held) in outs.Where(o => o.Ms > begin && o.Ms < begin + 1500))
+            Assert.Equal("recovery: flying up", held.Status);
+
+        var (_, resumed) = outs.First(o => o.Ms >= begin + 1500);
+        Assert.Equal("moving", resumed.Status);
+        Assert.Equal(travel.CurrentDropoff!.Value, Assert.IsType<GoTo>(resumed.Intent).Destination);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+    }
+
+    [Fact] // C8: on foot the escape is a sideways nudge with a jump, held for the same window
+    public void C8_ground_escape_nudges_sideways_with_a_jump()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 100, z: 0, radius: 20);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, z: 0, canMount: false), fates: [fate]);
+
+        var outs = Drive(d, Wedged, 14_000);
+        var (begin, first) = outs.First(o => o.Out.Status == "recovery: nudging sideways");
+        var nudge = Assert.IsType<GoTo>(first.Intent);
+        Assert.False(nudge.Fly);
+        Assert.Equal(5f, Geometry.HorizontalDistance(nudge.Destination, new Vector3(300, 0, 0)), 3);
+
+        var (_, second) = outs.First(o => o.Ms > begin);
+        Assert.IsType<Jump>(second.Intent);
+        Assert.Equal("recovery: jumping clear", second.Status);
+
+        foreach (var (_, held) in outs.Where(o => o.Ms > begin + 100 && o.Ms < begin + 1500))
+        {
+            Assert.Equal("recovery: nudging sideways", held.Status);
+            Assert.Equal(nudge.Destination, Assert.IsType<GoTo>(held.Intent).Destination);
+        }
+
+        var (_, resumed) = outs.First(o => o.Ms >= begin + 1500);
+        Assert.Equal("moving", resumed.Status);
+        Assert.Equal(travel.CurrentDropoff!.Value, Assert.IsType<GoTo>(resumed.Intent).Destination);
+    }
+
+    // Ticks every 100 ms until an output satisfies the predicate; returns the time it did
+    private static long DriveUntil(Director d, Func<long, WorldSnapshot> at, Func<DirectorOutput, bool> done, long fromMs, long maxMs = 60_000)
+    {
+        for (var ms = fromMs; ms <= fromMs + maxMs; ms += 100)
+            if (done(d.Tick(at(ms)))) return ms;
+        throw new Xunit.Sdk.XunitException("the condition never came");
+    }
+
+    [Fact] // D10: an exhausted ladder abandons the fate, skips it for the session, and selection goes on
+    public void D10_exhausted_ladder_abandons_the_fate_and_moves_on()
+    {
+        var d = Sut();
+        d.Start();
+        var near = TestData.Fate(id: 1, x: 100, z: 0, radius: 20);
+        var far = TestData.Fate(id: 2, x: -900, z: 0, radius: 20);
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, z: 0, canMount: false), fates: [near, far]);
+
+        Assert.Equal("selected fate 1", d.Tick(Wedged(0)).Status);
+        var gaveUp = DriveUntil(d, Wedged, o => o.Status.StartsWith("recovery exhausted"), 100);
+
+        Assert.Equal(1, d.Ledger.Abandoned);
+        Assert.Equal(SkipReason.Unreachable, d.Skips.Reason(1));
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+        Assert.Equal("selected fate 2", d.Tick(Wedged(gaveUp + 100)).Status);
+    }
+
+    [Fact] // D10: three exhaustions in a row without moving between them is a wedged character: stop
+    public void D10_three_exhaustions_in_place_stop_the_run()
+    {
+        var d = Sut();
+        d.Start();
+        var fates = new[]
+        {
+            TestData.Fate(id: 1, x: 100, z: 0, radius: 20),
+            TestData.Fate(id: 2, x: -900, z: 0, radius: 20),
+            TestData.Fate(id: 3, x: 0, z: 900, radius: 20),
+        };
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, z: 0, canMount: false), fates: fates);
+
+        var ms = 0L;
+        for (var i = 0; i < 3; i++)
+            ms = DriveUntil(d, Wedged, o => o.Status.StartsWith("recovery exhausted"), ms + 100);
+
+        Assert.Equal(RunPhase.Stopped, d.Phase);
+        Assert.Equal(StopReason.StuckExhausted, d.StoppedBecause);
+        Assert.Equal(3, d.Ledger.Abandoned);
+    }
+
+    [Fact] // D10: a character that moved between exhaustions is not wedged; the fates were unreachable
+    public void D10_moving_between_exhaustions_keeps_the_run_going()
+    {
+        var d = Sut();
+        d.Start();
+        var fates = new[]
+        {
+            TestData.Fate(id: 1, x: 100, z: 0, radius: 20),
+            TestData.Fate(id: 2, x: -900, z: 0, radius: 20),
+            TestData.Fate(id: 3, x: 0, z: 900, radius: 20),
+        };
+        var x = 300f;
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: x, z: 0, canMount: false), fates: fates);
+
+        var ms = 0L;
+        for (var i = 0; i < 3; i++)
+        {
+            ms = DriveUntil(d, Wedged, o => o.Status.StartsWith("recovery exhausted"), ms + 100);
+            x += 50; // a different spot each time
+        }
+
+        Assert.NotEqual(RunPhase.Stopped, d.Phase);
+        Assert.Equal(3, d.Ledger.Abandoned);
+    }
+
+    [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
+    public void C8_mounted_without_flight_uses_the_ground_escape()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 100, z: 0, radius: 20);
+        d.Tick(TestData.World(fates: [fate])); // selects
+        WorldSnapshot Wedged(long ms) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: 300, y: 20, z: 0, mounted: true, canFly: false), fates: [fate]);
+
+        var outs = Drive(d, Wedged, 14_000);
+        Assert.DoesNotContain(outs, o => o.Out.Status == "recovery: flying up");
+        Assert.Contains(outs, o => o.Out.Status == "recovery: nudging sideways");
     }
 }

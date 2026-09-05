@@ -1,6 +1,6 @@
 namespace Moirai.Core.Planning;
 
-public enum RecoveryRung { RePath, RerollDestination, VerticalEscape, ReturnToAetheryte, Exhausted }
+public enum RecoveryRung { RePath, RerollDestination, Escape, ReturnToAetheryte, Exhausted }
 
 public sealed class RecoveryLadder(int perRungCap = 2)
 {

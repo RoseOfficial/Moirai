@@ -3,6 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.8 — 2026-09-05
+
+### Fixed
+- The recovery ladder does what it says. The re-path rung issued nothing, and a path vnavmesh still considered running was never re-issued, so a re-path only ever happened once vnavmesh had already given up on its own. The vertical escape was overwritten by the next travel tick within half a second. Now the re-path rung drops the running path so the next leg is issued fresh, and the escape is held for a second and a half before travel resumes: straight up when mounted with flight, otherwise a few yalms sideways with a jump, the ground escape the design always called for
+- A FATE the ladder gives up on no longer ends the run. It is counted as abandoned, skipped for the rest of the session, and the next FATE is chosen. The run still stops as stuck when the character is truly wedged: three exhausted ladders in a row without moving more than ten yalms between them
+- A character with no mount no longer stands still forever. Moirai asked to mount for every leg over thirty yalms and treated the wait as the mount cast, so nothing ever counted as a stall. Whether the zone allows mounts and whether a mount is owned are now read from the game, and a mount that does not take within six seconds is given up on for that leg, which is then walked
+- Flight is used only where the zone's aether currents are attuned. Until now every mounted leg was flown, and in a zone without flight unlocked the mount could not follow the airborne path, so every leg fed the recovery ladder
+- The debug report shows why each FATE is skipped, which FATEs are ruled out for the session and why, and whether mounting and flying are available
+<!-- LATEST-END -->
+
 ## v0.3.7 — 2026-09-05
 
 ### Fixed
@@ -12,7 +22,6 @@ All notable changes to Moirai will be documented in this file.
 
 ### Changed
 - The settings hint under the boss thresholds says what a special boss is
-<!-- LATEST-END -->
 
 ## v0.3.6 — 2026-09-04
 

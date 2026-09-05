@@ -24,15 +24,19 @@ public sealed class Director(
 {
     private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
+    private readonly EscapeManeuver _escape = new();
     private readonly StrayAggroClear _aggro = aggro ?? new(new EngageConfig());
-    private readonly HashSet<uint> _deadly = []; // D9: fates we died in this session
     private IBehavior? _active;
     private FateKind _activeKind;
     private long? _lastFateEnd;
     private bool _deathCounted;
+    private Vector3? _lastExhaustionAt; // D10: where the ladder last ran out
+    private int _exhaustionsInPlace;
 
     public CompanionUpkeep? Companion => companion;
+    public SelectionConfig Selection => selection; // for the debug report's per-fate skip reasons
     public SessionLedger Ledger { get; } = new();
+    public SessionSkipList Skips { get; } = new(); // D9/D10: fates ruled out for this session
     public RewardLatch RewardLatch { get; } = new();
     public RunPhase Phase { get; private set; } = RunPhase.Idle;
     public StopReason? StoppedBecause { get; private set; }
@@ -119,6 +123,15 @@ public sealed class Director(
                 return new(new StopRun(s.Reason), s.Summary);
         }
 
+        // Spec 7.2 rung 3 is held for its window; the leg then resumes with its sampler re-anchored,
+        // so the standstill of the maneuver itself never reads as the next stall
+        if (_escape.Active)
+        {
+            if (_escape.Tick(w) is { } held)
+                return new(held.Intent, held.Note);
+            travel.Resume();
+        }
+
         return Phase switch
         {
             RunPhase.SelectingFate => SelectFate(w),
@@ -141,10 +154,11 @@ public sealed class Director(
                 // session: a solo death leaves a boss at full health, so the ranking would send us
                 // straight back. A death on the road is the road's doing, not the fate's.
                 if (Phase == RunPhase.InFate || f.Contains(w.Player.Position))
-                    _deadly.Add(f.Id);
+                    Skips.Add(f.Id, SkipReason.KilledUs);
                 Ledger.Record(FateOutcome.Abandoned); // D2: death is never a completion
                 CurrentFate = null;
             }
+            _escape.Reset();
             Phase = RunPhase.SelectingFate;
             if (Ledger.Deaths >= cfg.DeathCap)
             {
@@ -157,12 +171,13 @@ public sealed class Director(
 
     private DirectorOutput SelectFate(WorldSnapshot w)
     {
-        var pick = FateRanker.PickBest(w, selection, _lastFateEnd, _deadly);
+        var pick = FateRanker.PickBest(w, selection, _lastFateEnd, Skips);
         if (pick is null)
             return new(new Hold(cfg.IdleHoldMs), "no eligible fates");
         CurrentFate = pick;
         travel.Reset();
         _ladder.Reset();
+        _escape.Reset();
         Phase = RunPhase.Traveling;
         return new(new NoAction(), $"selected fate {pick.Id}");
     }
@@ -270,13 +285,14 @@ public sealed class Director(
         switch (_ladder.NextAttempt())
         {
             case RecoveryRung.RePath:
-                return new(new NoAction(), "recovery: re-path");
+                // C13: the executor drops the running path, so the leg's next GoTo is a fresh path
+                return new(new StopMoving(), "recovery: re-path");
             case RecoveryRung.RerollDestination:
                 travel.RerollDropoff();
                 return new(new NoAction(), "recovery: new dropoff");
-            case RecoveryRung.VerticalEscape:
-                var up = w.Player.Position with { Y = w.Player.Position.Y + 10 };
-                return new(new GoTo(up, true, 2f), "recovery: vertical escape");
+            case RecoveryRung.Escape:
+                var escape = _escape.Begin(w, contextFactory(w)); // C8/C14: held until its window is over
+                return new(escape.Intent, escape.Note);
             case RecoveryRung.ReturnToAetheryte:
                 var nearest = w.Aetherytes.MinBy(a => Vector3.Distance(a.Position, w.Player.Position));
                 if (nearest is null) goto default;
@@ -284,8 +300,36 @@ public sealed class Director(
                 Phase = RunPhase.SelectingFate;
                 return new(new TeleportTo(nearest.Id), "recovery: returning to aetheryte");
             default:
-                Stop(StopReason.StuckExhausted);
-                return new(new StopRun(StopReason.StuckExhausted), "recovery exhausted");
+                return Exhausted(w);
         }
+    }
+
+    // D10: the fate is abandoned and skipped for the session; selection goes on. Three exhaustions
+    // in a row without moving between them mean the character itself is wedged: stop with the reason.
+    private DirectorOutput Exhausted(WorldSnapshot w)
+    {
+        var gaveUp = CurrentFate;
+        if (gaveUp is not null)
+        {
+            Ledger.Record(FateOutcome.Abandoned);
+            Skips.Add(gaveUp.Id, SkipReason.Unreachable);
+        }
+        CurrentFate = null;
+        _escape.Reset();
+        _ladder.Reset();
+
+        var here = w.Player.Position;
+        _exhaustionsInPlace = _lastExhaustionAt is { } last && Vector3.Distance(last, here) <= cfg.WedgedRadius
+            ? _exhaustionsInPlace + 1
+            : 1;
+        _lastExhaustionAt = here;
+        if (_exhaustionsInPlace >= cfg.WedgedStopAfter)
+        {
+            Stop(StopReason.StuckExhausted);
+            return new(new StopRun(StopReason.StuckExhausted), "recovery exhausted: stuck in place");
+        }
+
+        Phase = RunPhase.SelectingFate;
+        return new(new StopMoving(), $"recovery exhausted: skipping fate {gaveUp?.Id}");
     }
 }

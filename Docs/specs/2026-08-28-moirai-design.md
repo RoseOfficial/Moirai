@@ -90,7 +90,7 @@ Selection is a **configurable priority ladder** compared criterion by criterion;
 - **TimeLeft**: more remaining time first, derived from the Eorzea-time model (24 Eorzea hours = 70 real minutes); unopened NPC FATEs (start time 0) assume a 900 s budget.
 - **Distance / DistanceTeleport**: straight-line distance, or `min(direct, nearest-aetheryte-to-FATE + teleport penalty)` with a configurable penalty (default 200) so a teleport-then-fly route can beat a long direct flight.
 
-Hard gates applied before ranking: time remaining below threshold (default 180 s) → skip; progress above threshold (default 80 %) → skip; zero-coordinate FATEs (not yet registered) → skip; blacklisted → skip; died in this session (D9) → skip; level above player + configured margin → skip; boss FATEs below their join threshold (§5) → skip. A nearby override (inside or within ~50 y of a ring) takes the nearest eligible FATE immediately.
+Hard gates applied before ranking: time remaining below threshold (default 180 s) → skip; progress above threshold (default 80 %) → skip; zero-coordinate FATEs (not yet registered) → skip; blacklisted → skip; ruled out this session (died in, D9; unreachable, D10) → skip; level above player + configured margin → skip; boss FATEs below their join threshold (§5) → skip. A nearby override (inside or within ~50 y of a ring) takes the nearest eligible FATE immediately.
 
 Classification is ID-based from the Lumina `Fate` sheet — never by localized name. An event item (`EventItem`, `TurnInEventItem` or `ReqEventItem`) marks a collect FATE; otherwise the `Rule` column names collect (2), escort (3) and defend (4), and the plain kill rule (1) splits into battle and boss by the sheet's `Icon` column alone (60722 = boss). Higher rules are special content and fall back to the icon (B12).
 
@@ -126,17 +126,17 @@ Classification is ID-based from the Lumina `Fate` sheet — never by localized n
 
 ### 7.1 Movement
 
-vnavmesh for all pathing (`PathfindAndMoveCloseTo` with tolerance; floor/nearest-mesh queries for landable points). Mount when the leg exceeds a threshold and mounting is legal; fly when unlocked *and* the zone's data file permits (per-zone no-fly overrides exist because some zone geometry breaks flight pathing); sprint on foot. Landing targets are randomized points within the ring resolved to the mesh floor — never the raw center, which may be unlandable. Altitude-ceiling errors during flight fall back to teleporting.
+vnavmesh for all pathing (`PathfindAndMoveCloseTo` with tolerance; floor/nearest-mesh queries for landable points). Mount when the leg exceeds a threshold and mounting is legal, asking for at most a bounded window before walking the leg (C15); fly when unlocked (the zone's aether currents attuned, C16) *and* the zone's data file permits (per-zone no-fly overrides exist because some zone geometry breaks flight pathing); sprint on foot. Landing targets are randomized points within the ring resolved to the mesh floor — never the raw center, which may be unlandable. Altitude-ceiling errors during flight fall back to teleporting.
 
 ### 7.2 Recovery ladder
 
-Bounded and escalating; every rung has a retry cap, and exhausting the ladder stops with a stated reason:
+Bounded and escalating; every rung has a retry cap, and exhausting the ladder gives the FATE up:
 
-1. Re-path to the same destination.
+1. Re-path to the same destination: the running path is dropped first, so the next leg is issued as a fresh path (C13).
 2. Re-roll the destination (new landable point).
-3. Vertical escape (fly up, retry) or ground escape (jump + sideways nudge) depending on mounted state.
-4. Return to the nearest aetheryte and re-approach.
-5. Stop with `StuckExhausted`, position and state logged.
+3. Escape, held for a short window so the leg cannot overwrite it on the next tick (C14): mounted with flight, climb straight up; otherwise a sideways nudge of a few yalms with a jump (C8).
+4. Return to the nearest aetheryte and re-approach (needs the aetheryte projection; without it the rung falls through).
+5. Exhausted: the FATE is abandoned and skipped for the session, and selection goes on. Three exhaustions in a row without moving between them mean the character itself is wedged: stop with `StuckExhausted` (D10).
 
 Stuck detection: no meaningful movement over a sampling window while a path is running, with the sampler suppressed during the mount cast. A stall while mounted inside the ring is treated as a landing attempt before it counts as stuck, so the final descent never reads as a false positive.
 
@@ -277,11 +277,15 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - C5. Knocked out of ring, FATE running → path back to center.
 - C6. Do not issue movement while casting (never cancel a cast).
 - C7. Mounted + stationary inside ring beyond window → re-roll dropoff.
-- C8. Grounded stuck → jump + sideways nudge, then escalate the ladder.
+- C8. Grounded stuck (on foot, or mounted without flight) → a sideways nudge of a few yalms with a jump, held for the escape window, then escalate the ladder.
 - C9. A stall while mounted inside the ring is a landing attempt, never a stuck failure (vertical-descent false positive).
 - C10. Melee stop distance ≈ 2.5 y (larger breaks auto-attack range); ranged ≈ 8 y.
 - C11. Sync only once actually inside the ring.
-- C12. Mount only when leg length exceeds threshold and mounting is legal (not in combat/housing).
+- C12. Mount only when leg length exceeds threshold and mounting is legal (not in combat/housing). Legality is read from the game: the territory allows mounts and the player owns one.
+- C13. The re-path rung drops the running path (`StopMoving`) so the next leg is issued as a fresh path; re-issuing the same destination into a path the navmesh still considers running is a no-op, so without the drop the rung did nothing.
+- C14. The escape rung is held for its window (1.5 s) before the leg resumes with its stall sampler re-anchored; mounted with flight it climbs straight up. Without the hold the next travel tick overwrote it within half a second.
+- C15. Mounting is asked for at most 6 s in a row; then the leg is walked and the stall sampler starts fresh. A mount that took clears the budget, so a knock off the mount mid-leg mounts again. Without the budget a character who cannot mount stood still forever, the wait suppressing the sampler as a mount cast.
+- C16. Flight only where the zone's aether currents are all attuned, read from the game; C1's overrides apply on top. An airborne path a ground mount cannot follow fed the ladder on every leg.
 
 **Interrupts & lifecycle**
 - D1. Death overrides all states; accept return; teleport back if displaced; resume fresh.
@@ -290,9 +294,10 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - D4. Busy guard: no intents while casting/between-areas/jumping/being-moved/occupied/Lifestream-busy.
 - D5. Navmesh not ready → hold movement, keep observing.
 - D6. Reward latch: no zone change/teleport until FATE payout registers.
-- D7. Every retry loop bounded; ladder exhaustion stops with a typed reason.
+- D7. Every retry loop bounded; ladder exhaustion abandons the FATE (D10), and a wedged character stops with a typed reason.
 - D8. Dependency lost mid-run → pause with reason if recoverable, stop if not.
 - D9. A FATE the player died in, or died inside the ring of on the way in, is not selected again in the same session, not even by the nearby override. A solo death leaves a boss at full health and progress at 0, so the ranking would send the player straight back (Lazy for You: three deaths to the cap in ten minutes, its 30-minute timer winning the TimeLeft rung every time). A death on the road does not condemn the FATE.
+- D10. Ladder exhaustion abandons the FATE, counts it as abandoned, and skips it for the session (`Unreachable`); selection goes on. Three exhaustions in a row without the character moving more than 10 y between them mean the character is wedged, not the FATE: stop with `StuckExhausted`. Moving between exhaustions resets the count. Until then one unreachable FATE ended the whole run.
 
 **Yo-kai**
 - E1. Watch unequipped → equip if owned, else stop `WatchMissing`.

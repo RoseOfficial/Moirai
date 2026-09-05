@@ -7,6 +7,8 @@ public enum CombatMode { Auto, Defensive }
 public abstract record Intent;
 
 public sealed record GoTo(Vector3 Destination, bool Fly, float Tolerance) : Intent;
+public sealed record StopMoving : Intent; // C13: drop the running path so the next GoTo is issued afresh
+public sealed record Jump : Intent;       // C8: part of the ground escape
 public sealed record MountUp : Intent;
 public sealed record Dismount : Intent;
 public sealed record Engage(ulong TargetId) : Intent;

@@ -17,6 +17,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         if (lp is null) return null;
         var cond = Svc.Condition;
 
+        var territory = (ushort)Svc.ClientState.TerritoryType;
         var companionTimeLeft = GameEx.CompanionTimeLeftSeconds();
         var currentFate = currentFateId is { } wanted ? Svc.Fates.FirstOrDefault(f => f?.FateId == wanted) : null;
         var player = new PlayerSnapshot(
@@ -37,8 +38,8 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
                         || cond[ConditionFlag.OccupiedInQuestEvent] || cond[ConditionFlag.OccupiedSummoningBell]
                         || cond[ConditionFlag.OccupiedInCutSceneEvent],
             IsLevelSynced: IsLevelSynced(lp, currentFate),
-            CanMount: true,  // the executor's mount call is a safe no-op where mounting is illegal
-            CanFly: true,    // per-zone no-fly overrides gate flight; vnavmesh grounds the rest
+            CanMount: GameEx.CanMountIn(territory), // C12: a mount owned and a zone that allows it
+            CanFly: GameEx.CanFlyIn(territory),     // C16: the zone's currents attuned; C1's overrides apply on top
             TargetId: Svc.Targets.Target?.GameObjectId,
             CompanionSummoned: companionTimeLeft > 0,
             CompanionTimeLeftSeconds: companionTimeLeft,
@@ -70,7 +71,7 @@ public sealed class SnapshotBuilder(Configuration cfg, NavmeshIpc navmesh, IRead
         return new WorldSnapshot(
             NowEpoch: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             NowMs: Environment.TickCount64,
-            TerritoryId: (ushort)Svc.ClientState.TerritoryType,
+            TerritoryId: territory,
             Player: player,
             Fates: fates,
             Aetherytes: [],

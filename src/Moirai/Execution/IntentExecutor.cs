@@ -25,6 +25,16 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 }
                 break;
 
+            case StopMoving:
+                // C13: drop the running path and forget it, so the next GoTo is issued as a fresh path
+                navmesh.Stop();
+                _lastDest = null;
+                break;
+
+            case Jump:
+                if (Throttle.Try("moirai.jump", 1000)) GameEx.Jump();
+                break;
+
             case MountUp:
                 if (Throttle.Try("moirai.mount", 3000)) GameEx.MountRoulette();
                 break;

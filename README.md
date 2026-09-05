@@ -18,11 +18,14 @@ alongside Olympus and Komos.
   NPC-started FATEs.
 - Joins boss FATEs only once their progress passes a threshold, so you never
   solo-tank from zero.
-- Mounts and flies when the leg is worth it, and walks in zones whose geometry
-  breaks flight pathing.
-- Recovers from stuck states through a bounded ladder (re-path, new landing
-  point, vertical escape, back to the aetheryte) and stops with a stated reason
-  when the ladder runs out.
+- Mounts when the leg is worth it and a mount is available, flies where the
+  zone's aether currents are attuned, and walks in zones whose geometry breaks
+  flight pathing.
+- Recovers from stuck states through a bounded ladder: re-path, a new landing
+  point, then an escape (straight up when flying, otherwise a sideways nudge
+  with a jump). A FATE that stays out of reach is abandoned and skipped for the
+  session; the run stops with a stated reason only when the character is
+  wedged in place.
 - Fights off stray aggro: anything that jumps you or your chocobo on the way to
   a FATE, or inside one between its waves, is targeted and killed where you
   stand before the run carries on. Mounted, it keeps riding and lets the mobs

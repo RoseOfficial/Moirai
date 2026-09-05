@@ -65,7 +65,18 @@ public class SelectionGatesTests
     {
         var f = TestData.Fate(id: 218);
         var w = TestData.World(fates: [f]);
-        Assert.Equal(SkipReason.KilledUs, SelectionGates.Evaluate(f, w, Cfg, deadly: new HashSet<uint> { 218 }));
-        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(f, w, Cfg, deadly: new HashSet<uint> { 150 }));
+        var skips = new SessionSkipList();
+        skips.Add(218, SkipReason.KilledUs);
+        Assert.Equal(SkipReason.KilledUs, SelectionGates.Evaluate(f, w, Cfg, skips));
+        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(TestData.Fate(id: 150), w, Cfg, skips));
+    }
+
+    [Fact] // D10: a fate the ladder gave up on is skipped for the session with its own reason
+    public void D10_unreachable_fate_is_skipped()
+    {
+        var f = TestData.Fate(id: 218);
+        var skips = new SessionSkipList();
+        skips.Add(218, SkipReason.Unreachable);
+        Assert.Equal(SkipReason.Unreachable, SelectionGates.Evaluate(f, TestData.World(fates: [f]), Cfg, skips));
     }
 }

@@ -85,6 +85,8 @@ public class FateRankerTests
         var under = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
         var far = TestData.Fate(id: 2, x: 800, z: 800);
         var w = TestData.World(fates: [under, far]);
-        Assert.Equal(2u, FateRanker.PickBest(w, Cfg, deadly: new HashSet<uint> { 1 })!.Id);
+        var skips = new SessionSkipList();
+        skips.Add(1, SkipReason.KilledUs);
+        Assert.Equal(2u, FateRanker.PickBest(w, Cfg, skips: skips)!.Id);
     }
 }

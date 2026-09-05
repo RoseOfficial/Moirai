@@ -36,6 +36,25 @@ public static unsafe class GameEx
     public static void Jump()
         => ActionManager.Instance()->UseAction(ActionType.GeneralAction, JumpGeneralAction);
 
+    // C12/C15: mounting is legal where the territory allows it and the player owns a mount at all
+    public static bool CanMountIn(ushort territoryId)
+    {
+        var row = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>()?.GetRowOrDefault(territoryId);
+        if (row is not { Mount: true }) return false;
+        var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
+        return ps != null && ps->NumOwnedMounts > 0;
+    }
+
+    // C16: flight needs the zone's aether currents, every one of them attuned
+    public static bool CanFlyIn(ushort territoryId)
+    {
+        var row = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>()?.GetRowOrDefault(territoryId);
+        var set = row?.AetherCurrentCompFlgSet.RowId ?? 0;
+        if (set == 0) return false;
+        var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
+        return ps != null && ps->IsAetherCurrentZoneComplete(set);
+    }
+
     public static void LevelSyncIfNeeded()
     {
         var fm = FateManager.Instance();

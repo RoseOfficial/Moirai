@@ -21,6 +21,7 @@ public sealed class MovementConfig
     public float ArriveVerticalTolerance { get; init; } = 4f; // mount hover height above the floor point
     public float StuckMinMove { get; init; } = 2f;            // spec 7.2 sampler: less than this across the window is a standstill
     public long StuckWindowMs { get; init; } = 2000;
+    public long MountAttemptMs { get; init; } = 6000;         // C15: asking to mount for longer than this walks the leg
 }
 
 public sealed record BehaviorContext(

@@ -11,7 +11,9 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
 
     private readonly StuckDetector _stuck = new(cfg.StuckMinMove, cfg.StuckWindowMs);
     private int _rerolls;
-    private bool _landing; // a dismount has been issued at this dropoff and has not taken yet
+    private bool _landing;      // a dismount has been issued at this dropoff and has not taken yet
+    private long? _mountAskedMs; // when the current unbroken run of mount requests began
+    private bool _walkLeg;      // C15: the mount never took within its budget; the leg is walked
 
     public Vector3? CurrentDropoff { get; private set; }
     public bool RerollsExhausted => _rerolls >= MaxRerolls;
@@ -34,7 +36,25 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         var arrived = overDropoff && insideRing;
 
         // C12: mount only when the leg is worth it and mounting is legal
-        var wantsMount = !p.IsMounted && p.CanMount && !p.InCombat && distToDrop > cfg.MountLegThreshold;
+        if (p.IsMounted) _walkLeg = false; // a mount that took earns a fresh budget
+        var wantsMount = !p.IsMounted && p.CanMount && !p.InCombat && distToDrop > cfg.MountLegThreshold && !_walkLeg;
+
+        // C15: a mount that never takes (no mount owned, a no-mount spot the game refuses) is
+        // asked for only so long; then the leg is walked and the stall sampler starts fresh
+        if (wantsMount)
+        {
+            _mountAskedMs ??= w.NowMs;
+            if (w.NowMs - _mountAskedMs >= cfg.MountAttemptMs)
+            {
+                _walkLeg = true;
+                wantsMount = false;
+                _stuck.Reset();
+            }
+        }
+        else
+        {
+            _mountAskedMs = null;
+        }
 
         // spec 7.2: no meaningful movement across the window while we expect to be moving;
         // the mount cast is a legitimate standstill
@@ -82,6 +102,8 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         CurrentDropoff = null;
         _rerolls = 0;
         _landing = false;
+        _mountAskedMs = null;
+        _walkLeg = false;
         _stuck.Reset();
     }
 

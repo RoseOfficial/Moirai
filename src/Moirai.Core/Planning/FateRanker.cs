@@ -5,9 +5,9 @@ namespace Moirai.Core.Planning;
 
 public static class FateRanker
 {
-    public static FateSnapshot? PickBest(WorldSnapshot w, SelectionConfig c, long? lastFateEndEpoch = null, IReadOnlySet<uint>? deadly = null)
+    public static FateSnapshot? PickBest(WorldSnapshot w, SelectionConfig c, long? lastFateEndEpoch = null, SessionSkipList? skips = null)
     {
-        var eligible = w.Fates.Where(f => SelectionGates.Evaluate(f, w, c, deadly) == SkipReason.None).ToList();
+        var eligible = w.Fates.Where(f => SelectionGates.Evaluate(f, w, c, skips) == SkipReason.None).ToList();
         if (eligible.Count == 0) return null;
 
         // A9: inside a ring or within the nearby radius wins outright, nearest first
