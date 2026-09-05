@@ -10,9 +10,11 @@ public static class TestData
         int progress = 0, FatePhase phase = FatePhase.Running,
         FateKind kind = FateKind.Battle, int maxLevel = 50,
         bool bonus = false, bool specialBoss = false, bool continuation = false,
-        long startTimeEpoch = 1_000, long timeRemaining = 600, uint eventItemId = 0)
+        long startTimeEpoch = 1_000, long timeRemaining = 600, uint eventItemId = 0,
+        FateKind? sheetKind = null)
         => new(id, new Vector3(x, 0, z), radius, progress, phase, kind, maxLevel,
-               bonus, specialBoss, continuation, startTimeEpoch, timeRemaining, eventItemId);
+               bonus, specialBoss, continuation, startTimeEpoch, timeRemaining, eventItemId,
+               sheetKind ?? (kind == FateKind.NpcStart ? (eventItemId != 0 ? FateKind.Collect : FateKind.Battle) : kind));
 
     public static PlayerSnapshot Player(
         float x = 0, float y = 0, float z = 0, int level = 100, bool melee = true,

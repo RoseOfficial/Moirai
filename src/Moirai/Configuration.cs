@@ -10,6 +10,7 @@ public sealed class Configuration : IPluginConfiguration
     // Session
     public int DeathCap { get; set; } = 3;
     public bool SkipNpcStartFates { get; set; } = true;
+    public bool SkipCollectFates { get; set; } // A14: collect fates left alone, open or not
     public bool KeepRecording { get; set; } = true; // §12: the last minute of a run, for /moirai record
 
     // Selection gates and ranking (spec §4)

@@ -15,7 +15,8 @@ public sealed record FateSnapshot(
     bool HasContinuation,
     long StartTimeEpoch,
     long TimeRemainingSeconds,
-    uint EventItemId)
+    uint EventItemId,
+    FateKind SheetKind = FateKind.Battle) // B12: the kind by the sheet alone, whatever the opened state says
 {
     public const long UnopenedDefaultSeconds = 900;
 

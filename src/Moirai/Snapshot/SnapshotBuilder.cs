@@ -119,7 +119,8 @@ public sealed class SnapshotBuilder(
 
         // B11: unopened fates of every sheet kind are NPC-start until they open
         var kind = FateClassifier.Classify(eventItem, rule, icon, phase.Value, fate.StartTimeEpoch, fate.Progress);
-        var specialBoss = FateClassifier.IsSpecialBoss(FateClassifier.FromSheet(eventItem, rule, icon), banner);
+        var sheetKind = FateClassifier.FromSheet(eventItem, rule, icon);
+        var specialBoss = FateClassifier.IsSpecialBoss(sheetKind, banner);
 
         return new FateSnapshot(
             Id: fate.FateId,
@@ -134,7 +135,8 @@ public sealed class SnapshotBuilder(
             HasContinuation: false, // continuation chains land with the data layer
             StartTimeEpoch: fate.StartTimeEpoch,
             TimeRemainingSeconds: fate.TimeRemaining,
-            EventItemId: eventItem);
+            EventItemId: eventItem,
+            SheetKind: sheetKind);
     }
 
     // The chocobo companion's object id, so a mob on it counts as on us; null when it is not out

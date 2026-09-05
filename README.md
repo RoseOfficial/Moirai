@@ -19,7 +19,8 @@ alongside Olympus and Komos.
 - Looks again on the way: a FATE others nearly finished while you rode is
   dropped for a fresh pick, and one that spawns next to you is taken first.
 - Handles battle, boss, defend, escort, and collect FATEs, and can open
-  NPC-started FATEs.
+  NPC-started FATEs. Collect FATEs and NPC-started FATEs can each be
+  switched off.
 - Joins boss FATEs only once their progress passes a threshold, so you never
   solo-tank from zero.
 - Mounts when the leg is worth it and a mount is available, flies where the

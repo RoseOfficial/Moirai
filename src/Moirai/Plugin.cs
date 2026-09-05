@@ -116,6 +116,7 @@ public sealed class Plugin : IDalamudPlugin
             Priority = Config.NormalizedPriority(),
             Blacklist = Config.BlacklistedFates,
             BonusOnly = Config.BonusOnly,
+            SkipCollectFates = Config.SkipCollectFates,
             TeleportPenalty = Config.TeleportPenalty, // one margin for the A12 ranking and the C17 leg
         },
         new MovementConfig

@@ -71,6 +71,23 @@ public class SelectionGatesTests
         Assert.Equal(SkipReason.None, SelectionGates.Evaluate(TestData.Fate(id: 150), w, Cfg, skips));
     }
 
+    [Fact] // A14: the collect switch covers collect fates open or not, by their sheet kind, and nothing else
+    public void A14_skip_collect_covers_open_and_unopened_collect_fates()
+    {
+        var c = new SelectionConfig { SkipCollectFates = true };
+        var w = TestData.World();
+        var open = TestData.Fate(id: 601, kind: FateKind.Collect, eventItemId: 2001053);
+        var unopened = TestData.Fate(id: 601, kind: FateKind.NpcStart, phase: FatePhase.Preparing, startTimeEpoch: 0, progress: 0, eventItemId: 2001053);
+        var byRule = TestData.Fate(id: 7, kind: FateKind.Collect, eventItemId: 0);
+        var battle = TestData.Fate(id: 8, kind: FateKind.Battle);
+
+        Assert.Equal(SkipReason.CollectFate, SelectionGates.Evaluate(open, w, c));
+        Assert.Equal(SkipReason.CollectFate, SelectionGates.Evaluate(unopened, w, c));
+        Assert.Equal(SkipReason.CollectFate, SelectionGates.Evaluate(byRule, w, c));
+        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(battle, w, c));
+        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(open, w, new SelectionConfig()));
+    }
+
     [Fact] // D10: a fate the ladder gave up on is skipped for the session with its own reason
     public void D10_unreachable_fate_is_skipped()
     {

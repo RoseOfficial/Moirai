@@ -254,6 +254,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - A11. Tie-break by lowest FATE id (determinism).
 - A12. Teleport-cost model can prefer aetheryte + short hop over long direct flight. Aetherytes are the current zone's attuned ones, by row id, positioned from the sheet's `Level` link; the penalty is one setting shared with the C17 leg so ranking and travel never disagree.
 - A13. The pick is looked at again on the way. A FATE that no longer passes the gates (others pushed it past the progress cap, its time ran down, it was blacklisted) is dropped for a fresh selection, unless the character is already within the nearby radius, where the credit is quick; this is a change of pick, not an abandonment, and the ledger does not count it. An eligible FATE inside the nearby radius that is not the current one is switched to at once, as A9 would do at selection. Neither applies while a teleport is in flight (C17), since the character would land far from the newcomer. Until then travel committed to its pick until arrival.
+- A14. "Skip collect FATEs" leaves every collect FATE alone, open or not, judged by the sheet kind (`SheetKind`) rather than the opened-state kind, since an unopened collect FATE reads as NPC-start (B11). "Skip NPC-started FATEs" hides only FATEs still waiting at their starter NPC, so a collect FATE another player opened was taken (What's Your Poison, fate 601, event item 2001053) until this switch existed.
 
 **Types**
 - B1. Collect: 7 items = full credit; batch hand-ins; partial hand-in when short.
