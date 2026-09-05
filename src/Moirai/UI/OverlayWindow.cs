@@ -50,6 +50,8 @@ public sealed class OverlayWindow : Window
 
         ImGui.Separator();
         ImGui.TextUnformatted(_plugin.LastStatus);
+        if (_plugin.Config.RotationZones.Count > 0)
+            ImGui.TextColored(Muted, $"zone: {Data.ZoneNames.Name((ushort)Svc.ClientState.TerritoryType)}");
 
         if (d is null) return;
 
@@ -96,6 +98,7 @@ public sealed class OverlayWindow : Window
         Core.Intents.StopReason.DependencyLost => "a required plugin went away",
         Core.Intents.StopReason.DataMissing => "missing data",
         Core.Intents.StopReason.SessionComplete => "session complete",
+        Core.Intents.StopReason.ZonesUnreachable => "none of the listed zones could be reached",
         _ => reason.ToString(),
     };
 }

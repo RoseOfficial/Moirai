@@ -56,7 +56,7 @@ Once per tick, one component reads everything the planner may need and produces 
 Consumes `(WorldSnapshot, Configuration, PlanState)` and returns intents. No game calls, no statics, clock injected. Composed of:
 
 - **Director** — lifecycle (Idle / Running / Paused / Stopped-with-reason) and the interrupt ladder (§3). Delegates strategy to the active module and tactics to behaviors.
-- **Module (`IFarmModule`)** — strategy: which zone to farm, when to rotate, when the session is done. v1 ships `YokaiModule` (§8) and `SingleZoneModule`.
+- **Module (`IFarmModule`)** — strategy: which zone to farm, when to rotate, when the session is done. v1 ships `YokaiModule` (§8) and `SingleZoneModule`; `ZoneRotationModule` (Appendix A, G-series) farms a user's zone list in turn. The Director tells the module each tick how long selection has come up empty in the current zone (`ModuleContext.IdleSeconds`, G6).
 - **Behaviors** — tactical units, each a small explicit state machine with enter/tick/exit and bounded retries: `TravelBehavior`, `EngageBehavior`, `CollectBehavior`, `NpcStartBehavior`, `RecoverBehavior`, `IdleBehavior`. One behavior is active at a time; the Director owns transitions.
 - **FateSelector** — pure scoring over the snapshot's FATE projection (§4).
 
@@ -303,6 +303,14 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - D8. Dependency lost mid-run → pause with the reason in the status line; resume when it is back; the combat backend or TextAdvance missing for the grace period (60 s) stops with `DependencyLost`. Until then the overlay only warned while not running, and a run with the backend unloaded stood in FATEs doing nothing.
 - D9. A FATE the player died in, or died inside the ring of on the way in, is not selected again in the same session, not even by the nearby override. A solo death leaves a boss at full health and progress at 0, so the ranking would send the player straight back (Lazy for You: three deaths to the cap in ten minutes, its 30-minute timer winning the TimeLeft rung every time). A death on the road does not condemn the FATE.
 - D10. Ladder exhaustion abandons the FATE, counts it as abandoned, and skips it for the session (`Unreachable`); selection goes on. Three exhaustions in a row without the character moving more than 10 y between them mean the character is wedged, not the FATE: stop with `StuckExhausted`. Moving between exhaustions resets the count. Until then one unreachable FATE ended the whole run.
+
+**Zones**
+- G1. The rotation's target is the starting zone when it is listed, otherwise the first listed zone; the module steers to the target whenever the snapshot shows another zone (which also covers D1 displacement).
+- G2. A zone with no eligible FATE for the quiet period (default 120 s) is left for the next listed zone, wrapping around.
+- G3. A single listed zone is a pin: quiet or not, the run stays.
+- G4. A zone change that has not landed within the move timeout (60 s; an unattuned aetheryte, a refused teleport) skips that zone for the next.
+- G5. Every listed zone failing in a row stops with `ZonesUnreachable`; landing anywhere clears the count.
+- G6. The Director's idle clock starts when selection first comes up empty and resets on a pick or a zone change; the module hears it each tick. The reward latch (D6) holds every zone change.
 
 **Yo-kai**
 - E1. Watch unequipped → equip if owned, else stop `WatchMissing`.

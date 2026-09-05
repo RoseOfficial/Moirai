@@ -9,16 +9,22 @@ namespace Moirai.Core.Replay;
 // rebuilds exactly the planner that made it (§12)
 public static class DirectorFactory
 {
+    // The module the settings call for: rotation when zones are listed, otherwise the single zone
+    public static IFarmModule CreateModule(RunSettings settings)
+        => settings.Rotation is { Zones.Count: > 0 } rotation
+            ? new ZoneRotationModule(rotation)
+            : new SingleZoneModule();
+
     public static Director Create(
         RunSettings settings,
-        IFarmModule module,
+        IFarmModule? module,
         IRandomSource random,
         ILandingResolver landing,
         Func<WorldSnapshot, bool>? zoneFlightAllowed = null)
     {
         var engage = () => new EngageBehavior(settings.Engage);
         return new Director(
-            module,
+            module ?? CreateModule(settings),
             settings.Selection,
             settings.Director,
             new TravelBehavior(settings.Movement),

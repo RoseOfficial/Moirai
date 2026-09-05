@@ -96,7 +96,7 @@ public sealed class Plugin : IDalamudPlugin
         Timeline = new StatusTimeline();
         _savedOnStop = false;
 
-        Director = DirectorFactory.Create(settings, new SingleZoneModule(), random, landing, w => ZoneFlightAllowed(w.TerritoryId));
+        Director = DirectorFactory.Create(settings, module: null, random, landing, w => ZoneFlightAllowed(w.TerritoryId)); // the settings pick the module
         _executor.Reset();
         _textAdvance.Take(); // Talk and hand-in windows are TextAdvance's for the whole run
         Director.Start();
@@ -139,7 +139,8 @@ public sealed class Plugin : IDalamudPlugin
             ResummonBelowSeconds = Config.CompanionResummonBelowSeconds,
             StopWhenOutOfGreens = Config.CompanionStopWhenOutOfGreens,
         },
-        new DirectorConfig { DeathCap = Config.DeathCap });
+        new DirectorConfig { DeathCap = Config.DeathCap },
+        new RotationConfig { Zones = [.. Config.RotationZones], QuietSeconds = Config.RotateWhenQuietSeconds });
 
     private static bool ZoneFlightAllowed(ushort territory) => !ZoneData.NoFlyTerritories.Contains(territory);
 

@@ -11,8 +11,19 @@ namespace Moirai.Tests;
 public sealed class QueueModule(params ModuleDirective[] directives) : IFarmModule
 {
     private int _i;
-    public ModuleDirective Next(WorldSnapshot w)
+    public ModuleDirective Next(WorldSnapshot w, ModuleContext ctx)
         => _i < directives.Length ? directives[_i++] : new FarmHere();
+}
+
+// Records what the Director tells the module each tick
+public sealed class SpyModule : IFarmModule
+{
+    public List<long> IdleSeen { get; } = [];
+    public ModuleDirective Next(WorldSnapshot w, ModuleContext ctx)
+    {
+        IdleSeen.Add(ctx.IdleSeconds);
+        return new FarmHere();
+    }
 }
 
 public class DirectorTests
@@ -727,11 +738,12 @@ public class DirectorTests
     public void D1_single_zone_module_returns_to_its_starting_zone()
     {
         var module = new SingleZoneModule();
-        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140)));
-        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140)));
-        var away = Assert.IsType<MoveToTerritory>(module.Next(TestData.World(territory: 129)));
+        var ctx = new ModuleContext(IdleSeconds: 0);
+        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140), ctx));
+        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140), ctx));
+        var away = Assert.IsType<MoveToTerritory>(module.Next(TestData.World(territory: 129), ctx));
         Assert.Equal(140, away.TerritoryId);
-        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140)));
+        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140), ctx));
     }
 
     [Fact] // D1: a death whose return lands in another zone teleports back to the farming zone
@@ -820,6 +832,23 @@ public class DirectorTests
         var near = TestData.Fate(id: 2, x: 30, z: 0, radius: 20);
         Assert.IsType<TeleportTo>(d.Tick(TestData.World(nowMs: 200, fates: [far, near], aetherytes: [aetheryte])).Intent);
         Assert.Equal(1u, d.CurrentFate!.Id);
+    }
+
+    [Fact] // G6: the module hears how long selection has come up empty; a pick or a zone change resets it
+    public void G6_idle_clock_reaches_the_module_and_resets()
+    {
+        var spy = new SpyModule();
+        var d = Sut(module: spy);
+        d.Start();
+        d.Tick(TestData.World(now: 1000, territory: 140));            // nothing to farm
+        d.Tick(TestData.World(now: 1090, territory: 140));            // still nothing: 90 s idle
+        d.Tick(TestData.World(now: 1100, territory: 141));            // a zone change starts the clock over
+        d.Tick(TestData.World(now: 1130, territory: 141));
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
+        d.Tick(TestData.World(now: 1130, territory: 141, fates: [fate])); // the module hears 30 s, then the pick clears it
+        d.Tick(TestData.World(now: 1200, territory: 141, fates: [fate]));
+
+        Assert.Equal([0, 90, 0, 30, 30, 0], spy.IdleSeen);
     }
 
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one

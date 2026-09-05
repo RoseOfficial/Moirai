@@ -33,6 +33,8 @@ public sealed class Director(
     private bool _deathCounted;
     private Vector3? _lastExhaustionAt; // D10: where the ladder last ran out
     private int _exhaustionsInPlace;
+    private long? _idleSinceEpoch;      // G6: when selection first came up empty in this zone
+    private ushort? _lastTerritory;
 
     public CompanionUpkeep? Companion => companion;
     public SelectionConfig Selection => selection; // for the debug report's per-fate skip reasons
@@ -65,6 +67,11 @@ public sealed class Director(
 
         Ledger.Observe(w.NowEpoch);
         RewardLatch.Observe(w);
+        if (_lastTerritory != w.TerritoryId)
+        {
+            _lastTerritory = w.TerritoryId;
+            _idleSinceEpoch = null; // G6: a new zone gets a fresh idle clock
+        }
 
         // B4: NPC start and collect hand-in handle the game's dialogs themselves
         var expectsDialog = Phase == RunPhase.InFate && _activeKind is FateKind.NpcStart or FateKind.Collect;
@@ -122,7 +129,8 @@ public sealed class Director(
                 return new(upkeep, upkeep is SetCompanionStance ? "setting companion stance" : "summoning companion");
         }
 
-        switch (module.Next(w))
+        var idleSeconds = _idleSinceEpoch is { } idleSince ? w.NowEpoch - idleSince : 0;
+        switch (module.Next(w, new ModuleContext(idleSeconds)))
         {
             case MoveToTerritory t:
                 if (RewardLatch.IsPending)
@@ -185,7 +193,11 @@ public sealed class Director(
     {
         var pick = FateRanker.PickBest(w, selection, _lastFateEnd, Skips);
         if (pick is null)
+        {
+            _idleSinceEpoch ??= w.NowEpoch; // G6
             return new(new Hold(cfg.IdleHoldMs), "no eligible fates");
+        }
+        _idleSinceEpoch = null;
         CurrentFate = pick;
         travel.Reset();
         _ladder.Reset();

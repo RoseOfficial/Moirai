@@ -13,6 +13,10 @@ public sealed class Configuration : IPluginConfiguration
     public bool SkipCollectFates { get; set; } // A14: collect fates left alone, open or not
     public bool KeepRecording { get; set; } = true; // §12: the last minute of a run, for /moirai record
 
+    // Zones (G1–G5): empty means the zone the run starts in
+    public List<ushort> RotationZones { get; set; } = [];
+    public int RotateWhenQuietSeconds { get; set; } = 120;
+
     // Selection gates and ranking (spec §4)
     public int MinTimeLeftSeconds { get; set; } = 180;
     public int MaxProgressPercent { get; set; } = 80;

@@ -18,7 +18,7 @@ public static class Replayer
     public static IReadOnlyList<ReplayResult> Run(Recording recording, IFarmModule? module = null)
     {
         var feed = new FrameFeed();
-        var director = DirectorFactory.Create(recording.Settings, module ?? new SingleZoneModule(), feed, feed, _ => feed.ZoneFlightAllowed);
+        var director = DirectorFactory.Create(recording.Settings, module, feed, feed, _ => feed.ZoneFlightAllowed);
         director.Start();
 
         var results = new List<ReplayResult>(recording.Frames.Count);

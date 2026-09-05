@@ -8,7 +8,7 @@ public sealed class SingleZoneModule : IFarmModule
 {
     private ushort? _home;
 
-    public ModuleDirective Next(WorldSnapshot w)
+    public ModuleDirective Next(WorldSnapshot w, ModuleContext ctx)
     {
         _home ??= w.TerritoryId;
         return w.TerritoryId == _home ? new FarmHere() : new MoveToTerritory(_home.Value);

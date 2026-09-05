@@ -18,6 +18,9 @@ alongside Olympus and Komos.
   only bonus FATEs and idles between them.
 - Looks again on the way: a FATE others nearly finished while you rode is
   dropped for a fresh pick, and one that spawns next to you is taken first.
+- Rotates through a list of zones you pick on the Zones tab, moving on when
+  the current zone has had no eligible FATE for a while, and skipping a zone
+  it cannot reach.
 - Handles battle, boss, defend, escort, and collect FATEs, and can open
   NPC-started FATEs. Collect FATEs and NPC-started FATEs can each be
   switched off.
@@ -51,8 +54,8 @@ alongside Olympus and Komos.
 
 ## What it does not do (yet)
 
-- Farms only the zone you are standing in. Zone rotation and event modes are
-  planned for a later release.
+- Event modes such as the Yo-kai Watch rotation are planned for a later
+  release.
 - No food, gear repair, or gemstone shopping.
 - Continuation chains are not wired yet, so a FATE's follow-up is found through
   the normal selection rather than waited for.

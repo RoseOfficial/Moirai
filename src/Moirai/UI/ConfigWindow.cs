@@ -38,6 +38,11 @@ public sealed class ConfigWindow : Window
                 DrawGeneral(c, ref dirty);
                 ImGui.EndTabItem();
             }
+            if (ImGui.BeginTabItem("Zones"))
+            {
+                DrawZones(c, ref dirty);
+                ImGui.EndTabItem();
+            }
             if (ImGui.BeginTabItem("Selection"))
             {
                 DrawSelection(c, ref dirty);
@@ -84,6 +89,44 @@ public sealed class ConfigWindow : Window
 
         ImGui.Separator();
         ImGui.TextColored(Muted, "Threshold and ladder changes apply on the next Start. Blacklist changes apply at the next selection.");
+    }
+
+    private static void DrawZones(Configuration c, ref bool dirty)
+    {
+        if (c.RotationZones.Count == 0)
+        {
+            ImGui.TextUnformatted("This zone only: the run farms the zone it starts in.");
+            Hint("Add zones below to rotate through them in order when the current one goes quiet.");
+        }
+        else
+        {
+            ImGui.TextUnformatted("Rotation, in order:");
+        }
+
+        ushort? remove = null;
+        foreach (var id in c.RotationZones)
+        {
+            if (ImGui.SmallButton($"Remove###zone-{id}")) remove = id;
+            ImGui.SameLine();
+            ImGui.TextUnformatted($"{ZoneNames.Name(id)}  ({id})");
+        }
+        if (remove is { } r)
+        {
+            c.RotationZones.Remove(r);
+            dirty = true;
+        }
+
+        var here = (ushort)Svc.ClientState.TerritoryType;
+        if (here != 0 && !c.RotationZones.Contains(here) && ImGui.Button($"Add current zone: {ZoneNames.Name(here)}"))
+        {
+            c.RotationZones.Add(here);
+            dirty = true;
+        }
+
+        ImGui.Separator();
+        var quiet = c.RotateWhenQuietSeconds;
+        if (ImGui.SliderInt("Move on after (s) without an eligible fate", ref quiet, 30, 600)) { c.RotateWhenQuietSeconds = quiet; dirty = true; }
+        Hint("Each zone's main aetheryte must be attuned; a zone that cannot be reached within a minute is skipped. Applies on the next Start.");
     }
 
     private void DrawSelection(Configuration c, ref bool dirty)

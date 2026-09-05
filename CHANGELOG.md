@@ -3,12 +3,17 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.16 — 2026-09-05
+
+### Added
+- Zone rotation. A new Zones tab takes a list of zones, built with an "add current zone" button. The run starts in the listed zone it is standing in, or teleports to the first one, and moves on to the next when the current zone has had no eligible FATE for the quiet period you set, two minutes by default, wrapping around at the end. A zone whose aetheryte cannot be reached within a minute is skipped, and if none can be reached the run stops and says so. With the list empty the run farms the zone it starts in, as before. The overlay shows the zone while rotating, and recordings carry the list so replays rebuild the same rotation
+<!-- LATEST-END -->
+
 ## v0.3.15 — 2026-09-05
 
 ### Fixed
 - Collect FATEs can be switched off for real. "Skip NPC-started fates" only hides FATEs still waiting at their starter NPC, so a collect FATE another player had already opened, What's Your Poison among them, was still taken. A new "Skip collect fates" switch on the General tab leaves every collect FATE alone, open or not, and the debug report says so per FATE
 - With collect FATEs on, an unopened one is opened at its NPC first, even while "Skip NPC-started fates" is on. That switch now covers only the kill FATEs that wait at a starter NPC; collect FATEs follow the collect switch. Every FATE in the zone now appears in the debug report with the reason it is skipped, instead of the hidden ones being left out
-<!-- LATEST-END -->
 
 ## v0.3.14 — 2026-09-05
 

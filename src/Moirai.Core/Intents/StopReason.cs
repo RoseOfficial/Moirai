@@ -9,4 +9,5 @@ public enum StopReason
     DependencyLost,
     DataMissing,
     SessionComplete,
+    ZonesUnreachable, // G5: none of the listed zones could be reached
 }
