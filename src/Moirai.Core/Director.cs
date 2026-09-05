@@ -37,6 +37,7 @@ public sealed class Director(
     private ushort? _lastTerritory;
 
     public CompanionUpkeep? Companion => companion;
+    public IFarmModule Module => module;           // for the overlay's module-specific lines
     public SelectionConfig Selection => selection; // for the debug report's per-fate skip reasons
     public SessionLedger Ledger { get; } = new();
     public SessionSkipList Skips { get; } = new(); // D9/D10: fates ruled out for this session
@@ -130,8 +131,14 @@ public sealed class Director(
         }
 
         var idleSeconds = _idleSinceEpoch is { } idleSince ? w.NowEpoch - idleSince : 0;
-        switch (module.Next(w, new ModuleContext(idleSeconds)))
+        // a settled moment for a summon or an equip: the same rule as the companion (F4/F9)
+        var settled = Phase != RunPhase.Traveling && !w.Player.IsMounted && !w.Player.InCombat && !w.Player.IsCasting;
+        switch (module.Next(w, new ModuleContext(idleSeconds, settled)))
         {
+            case EnsureWatch:
+                return new(new EquipWatch(), "equipping the Yo-kai Watch"); // E1
+            case EnsureMinion m:
+                return new(new SummonMinion(m.MinionId), "summoning minion");   // E3
             case MoveToTerritory t:
                 if (RewardLatch.IsPending)
                     return new(new Hold(1000), "waiting for fate rewards"); // D6

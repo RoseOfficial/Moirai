@@ -3,11 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.0 — 2026-09-05
+
+### Added
+- Yo-kai Watch event mode, first cut. A new Yo-kai tab turns it on and holds the farming order over the seventeen yokai, each with its legendary medal count and whether its minion is owned. The run takes the first yokai under the cap whose minion is owned, summons that minion in a settled moment, farms its designated zones in turn through the zone rotation, moves on at the cap, and stops with a per-yokai summary once every listed yokai is capped, or with a shopping list when nothing is farmable until minions are bought. The Yo-kai Watch is equipped from the bags when owned, since it earns regular medals; legendary medals need the minion, so a missing watch is a note on the overlay, not a stop. A minion that never shows up is given up on after twenty seconds and the next yokai taken. The overlay shows the active yokai and its count, and recordings carry the roster. Buying minions from Nohi is not automated yet
+<!-- LATEST-END -->
+
 ## v0.3.17 — 2026-09-05
 
 ### Added
 - Dodging through BossMod Reborn when it is installed. Its AI is switched on with the rotation and off with it, with its actions forbidden since RotationSolver owns the rotation, its follow modes off, and its movement forbidden by default so vnavmesh keeps moving the character. The moment Reborn reports that it is steering the character out of something, or that a marked zone is about to go off, Moirai stops its own path and hands movement to Reborn, and takes it back a second after the danger clears. Without Reborn nothing changes. The About tab lists it as optional with its status, and the debug report shows the dodge and danger flags
-<!-- LATEST-END -->
 
 ## v0.3.16 — 2026-09-05
 

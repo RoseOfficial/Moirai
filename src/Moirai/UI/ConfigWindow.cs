@@ -3,6 +3,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 using Moirai.Core.Planning;
 using Moirai.Data;
+using Moirai.Game;
 
 namespace Moirai.UI;
 
@@ -41,6 +42,11 @@ public sealed class ConfigWindow : Window
             if (ImGui.BeginTabItem("Zones"))
             {
                 DrawZones(c, ref dirty);
+                ImGui.EndTabItem();
+            }
+            if (ImGui.BeginTabItem("Yo-kai"))
+            {
+                DrawYokai(c, ref dirty);
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Selection"))
@@ -127,6 +133,56 @@ public sealed class ConfigWindow : Window
         var quiet = c.RotateWhenQuietSeconds;
         if (ImGui.SliderInt("Move on after (s) without an eligible fate", ref quiet, 30, 600)) { c.RotateWhenQuietSeconds = quiet; dirty = true; }
         Hint("Each zone's main aetheryte must be attuned; a zone that cannot be reached within a minute is skipped. Applies on the next Start.");
+    }
+
+    private static void DrawYokai(Configuration c, ref bool dirty)
+    {
+        var enabled = c.YokaiEnabled;
+        if (ImGui.Checkbox("Farm Yo-kai legendary medals", ref enabled)) { c.YokaiEnabled = enabled; dirty = true; }
+        Hint("Works down the list in order: summons the yokai's minion, farms its zones in turn, and moves on at the cap. Overrides the Zones tab while on. Applies on the next Start.");
+        if (!c.YokaiEnabled) return;
+
+        var cap = c.YokaiCap;
+        if (ImGui.SliderInt("Legendary medals per yokai", ref cap, 1, 10)) { c.YokaiCap = cap; dirty = true; }
+        var equip = c.YokaiAutoEquipWatch;
+        if (ImGui.Checkbox("Equip the Yo-kai Watch when owned", ref equip)) { c.YokaiAutoEquipWatch = equip; dirty = true; }
+        Hint("The watch earns regular medals; legendary medals need the minion, not the watch.");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Farming order");
+        var order = c.YokaiPriority.Count == 0 ? YokaiData.MinionIds.ToList() : c.YokaiPriority;
+        int? up = null, down = null, remove = null;
+        for (var i = 0; i < order.Count; i++)
+        {
+            var y = YokaiData.ByMinion(order[i]);
+            if (y is null) continue;
+            if (ImGui.ArrowButton($"###yk-up-{y.MinionId}", ImGuiDir.Up)) up = i;
+            ImGui.SameLine();
+            if (ImGui.ArrowButton($"###yk-dn-{y.MinionId}", ImGuiDir.Down)) down = i;
+            ImGui.SameLine();
+            if (ImGui.SmallButton($"Skip###yk-rm-{y.MinionId}")) remove = i;
+            ImGui.SameLine();
+            ImGui.TextUnformatted($"{y.Name}  {GameEx.ItemCount(y.LegendaryMedalItemId)}/{c.YokaiCap}");
+            ImGui.SameLine();
+            var owned = GameEx.IsCompanionUnlocked(y.MinionId);
+            ImGui.TextColored(owned ? Good : Warn, owned ? "owned" : "not owned");
+        }
+        if (up is { } u && u > 0) { (order[u - 1], order[u]) = (order[u], order[u - 1]); c.YokaiPriority = order; dirty = true; }
+        if (down is { } dn && dn < order.Count - 1) { (order[dn + 1], order[dn]) = (order[dn], order[dn + 1]); c.YokaiPriority = order; dirty = true; }
+        if (remove is { } r) { order.RemoveAt(r); c.YokaiPriority = order; dirty = true; }
+
+        var skipped = YokaiData.Roster.Where(y => !order.Contains(y.MinionId)).ToList();
+        if (skipped.Count > 0)
+        {
+            ImGui.TextColored(Muted, "Not farmed:");
+            foreach (var y in skipped)
+            {
+                if (ImGui.SmallButton($"Add###yk-add-{y.MinionId}")) { order.Add(y.MinionId); c.YokaiPriority = order; dirty = true; }
+                ImGui.SameLine();
+                ImGui.TextUnformatted(y.Name);
+            }
+        }
+        Hint("Minions are bought from Nohi at the Gold Saucer with regular medals; the run stops with a shopping list when nothing left is farmable.");
     }
 
     private void DrawSelection(Configuration c, ref bool dirty)

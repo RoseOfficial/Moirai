@@ -21,6 +21,10 @@ alongside Olympus and Komos.
 - Rotates through a list of zones you pick on the Zones tab, moving on when
   the current zone has had no eligible FATE for a while, and skipping a zone
   it cannot reach.
+- Farms the Yo-kai Watch event: works down your yokai list, summons each
+  yokai's minion, farms its designated zones in turn, equips the watch when
+  owned, moves on at the medal cap, and stops with a summary or a shopping
+  list.
 - Handles battle, boss, defend, escort, and collect FATEs, and can open
   NPC-started FATEs. Collect FATEs and NPC-started FATEs can each be
   switched off.
@@ -56,8 +60,8 @@ alongside Olympus and Komos.
 
 ## What it does not do (yet)
 
-- Event modes such as the Yo-kai Watch rotation are planned for a later
-  release.
+- Buying yokai minions from Nohi at the Gold Saucer is manual; the run tells
+  you what to buy.
 - No food, gear repair, or gemstone shopping.
 - Continuation chains are not wired yet, so a FATE's follow-up is found through
   the normal selection rather than waited for.

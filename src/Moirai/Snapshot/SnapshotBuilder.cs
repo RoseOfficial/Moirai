@@ -11,8 +11,13 @@ namespace Moirai.Snapshot;
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
 public sealed class SnapshotBuilder(
     NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance, DodgeIpc dodge,
-    AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems)
+    AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
+    uint watchItemId, IReadOnlyList<uint> minionIds)
 {
+    private const long OwnedRecheckMs = 1000;
+    private HashSet<uint> _ownedMinions = [];
+    private long _ownedCheckedMs = long.MinValue / 2;
+
     public WorldSnapshot? Build(uint? currentFateId)
     {
         var lp = Svc.Objects.LocalPlayer;
@@ -21,6 +26,8 @@ public sealed class SnapshotBuilder(
 
         var territory = (ushort)Svc.ClientState.TerritoryType;
         var companionTimeLeft = GameEx.CompanionTimeLeftSeconds();
+        var watchEquipped = watchItemId != 0 && GameEx.IsItemEquipped(watchItemId);
+        var watchOwned = watchEquipped || (watchItemId != 0 && GameEx.ItemCount(watchItemId) > 0);
         var currentFate = currentFateId is { } wanted ? Svc.Fates.FirstOrDefault(f => f?.FateId == wanted) : null;
         var player = new PlayerSnapshot(
             Position: lp.Position,
@@ -45,7 +52,10 @@ public sealed class SnapshotBuilder(
             TargetId: Svc.Targets.Target?.GameObjectId,
             CompanionSummoned: companionTimeLeft > 0,
             CompanionTimeLeftSeconds: companionTimeLeft,
-            CompanionStanceId: GameEx.CompanionStanceId());
+            CompanionStanceId: GameEx.CompanionStanceId(),
+            ActiveMinionId: lp.CurrentMinion is { RowId: > 0 } minion ? minion.RowId : null, // §8
+            WatchEquipped: watchEquipped,
+            WatchOwned: watchOwned);
 
         var fates = new List<FateSnapshot>();
         foreach (var fate in Svc.Fates)
@@ -86,7 +96,23 @@ public sealed class SnapshotBuilder(
             CombatReady: combat.RotationSolverInstalled,
             TextAdvanceReady: textAdvance.Installed,
             DodgeReady: dodge.Installed,
-            Danger: dodge.Installed && dodge.Danger());
+            Danger: dodge.Installed && dodge.Danger(),
+            OwnedMinions: OwnedMinions());
+    }
+
+    // §8: which of the event minions are unlocked, rechecked once a second
+    private IReadOnlySet<uint> OwnedMinions()
+    {
+        var now = Environment.TickCount64;
+        if (now - _ownedCheckedMs >= OwnedRecheckMs)
+        {
+            _ownedCheckedMs = now;
+            var owned = new HashSet<uint>();
+            foreach (var id in minionIds)
+                if (GameEx.IsCompanionUnlocked(id)) owned.Add(id);
+            _ownedMinions = owned;
+        }
+        return _ownedMinions;
     }
 
     private static FateSnapshot? Project(IFate fate)

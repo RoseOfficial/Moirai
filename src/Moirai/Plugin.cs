@@ -59,7 +59,8 @@ public sealed class Plugin : IDalamudPlugin
         _textAdvance = new TextAdvanceIpc();
         _dodge = new DodgeIpc();
         _executor = new IntentExecutor(_navmesh, _combat, _dodge, Config);
-        _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(), [CompanionData.GysahlGreensItemId]);
+        _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(),
+            [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -143,7 +144,17 @@ public sealed class Plugin : IDalamudPlugin
             StopWhenOutOfGreens = Config.CompanionStopWhenOutOfGreens,
         },
         new DirectorConfig { DeathCap = Config.DeathCap },
-        new RotationConfig { Zones = [.. Config.RotationZones], QuietSeconds = Config.RotateWhenQuietSeconds });
+        new RotationConfig { Zones = [.. Config.RotationZones], QuietSeconds = Config.RotateWhenQuietSeconds },
+        new YokaiConfig
+        {
+            Enabled = Config.YokaiEnabled,
+            Roster = YokaiData.Roster,
+            Priority = [.. Config.YokaiPriority],
+            LegendaryCap = Config.YokaiCap,
+            WatchItemId = YokaiData.WatchItemId,
+            AutoEquipWatch = Config.YokaiAutoEquipWatch,
+            QuietSeconds = Config.RotateWhenQuietSeconds,
+        });
 
     private static bool ZoneFlightAllowed(ushort territory) => !ZoneData.NoFlyTerritories.Contains(territory);
 

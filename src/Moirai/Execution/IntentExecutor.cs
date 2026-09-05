@@ -98,6 +98,14 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIp
                 if (Throttle.Try("moirai.stance", 2000)) GameEx.SetBuddyAction(s.StanceActionId);
                 break;
 
+            case SummonMinion m:
+                if (!w.Player.IsMounted && Throttle.Try("moirai.minion", 3000)) GameEx.SummonMinion(m.MinionId); // E3
+                break;
+
+            case EquipWatch:
+                if (Throttle.Try("moirai.equipwatch", 3000)) GameEx.EquipWristItem(Data.YokaiData.WatchItemId); // E1
+                break;
+
             case AcceptReturn:
                 if (Throttle.Try("moirai.return", 2000)) GameEx.ClickYes();
                 break;

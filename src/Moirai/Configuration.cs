@@ -17,6 +17,12 @@ public sealed class Configuration : IPluginConfiguration
     public List<ushort> RotationZones { get; set; } = [];
     public int RotateWhenQuietSeconds { get; set; } = 120;
 
+    // Yo-kai mode (§8): the farming order is a list of minion ids; empty means the roster order
+    public bool YokaiEnabled { get; set; }
+    public List<uint> YokaiPriority { get; set; } = [];
+    public int YokaiCap { get; set; } = 10;
+    public bool YokaiAutoEquipWatch { get; set; } = true;
+
     // Selection gates and ranking (spec §4)
     public int MinTimeLeftSeconds { get; set; } = 180;
     public int MaxProgressPercent { get; set; } = 80;

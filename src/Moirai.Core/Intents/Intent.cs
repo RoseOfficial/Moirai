@@ -22,6 +22,8 @@ public sealed record ConfirmDialog : Intent; // B4: yes to the open yes/no promp
 public sealed record TeleportTo(uint AetheryteId) : Intent;
 public sealed record ChangeZone(ushort TerritoryId) : Intent;
 public sealed record SummonCompanion(uint GreensItemId) : Intent;
+public sealed record SummonMinion(uint MinionId) : Intent; // E3
+public sealed record EquipWatch : Intent;                  // E1
 public sealed record SetCompanionStance(uint StanceActionId) : Intent;
 public sealed record AcceptReturn : Intent;
 public sealed record SetCombat(bool Enabled, CombatMode Mode) : Intent;

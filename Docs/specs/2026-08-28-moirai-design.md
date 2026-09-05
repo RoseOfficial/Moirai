@@ -156,16 +156,16 @@ Data: a 17-row yokai table — minion id, companion action, legendary medal item
 
 Per tick, from the snapshot: current medal counts per yokai (regular medal, per-yokai legendary medals) via inventory item ids.
 
-Rotation logic (pure, in the module):
+Rotation logic (pure, in the module; implemented in v0.4.0 as E1–E8):
 
-1. Verify the Yo-kai Watch is equipped; equip it if owned, else stop with `WatchMissing`.
-2. Target yokai = first entry in the user's priority list under its legendary cap (10).
-3. Ensure that yokai's minion is summoned (`SwapMinion` intent).
-4. If not in one of its designated zones, `ChangeZone` to the nearest (Lifestream/teleport).
+1. Target yokai = first entry in the user's priority list under its legendary cap (10) whose minion is owned (E2); unowned ones are skipped and listed.
+2. The Yo-kai Watch is worn when owned, judged by the equipped slot (E1, E8); it earns regular medals only, so a missing watch is a note, never a stop.
+3. The yokai's designated zones are a zone rotation (G-series): the current one when listed, the next when quiet, unreachable ones skipped (E4, E7).
+4. In a designated zone, the yokai's minion is summoned in a settled moment (E3); a minion that never appears through a 20 s grace of settled asking is given up on for the session and the next yokai taken (E8).
 5. Farm FATEs there (core loop). Regular medals accrue anywhere; legendary medals only in designated zones — the module only ever farms designated zones for the active yokai.
 6. On cap: advance to the next yokai (announce progress). All capped → stop with a session summary (per-yokai counts, FATEs done, elapsed time).
 
-Vendor turn-ins (weapons, mount) remain manual in v1. The module surfaces per-yokai progress in the overlay (§10).
+Buying minions from Nohi and vendor turn-ins (weapons, mount) remain manual in this cut; the run stops with the shopping list when nothing is farmable (E5). The module surfaces the active yokai's count and its notes in the overlay (§10).
 
 ---
 
@@ -325,6 +325,8 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - E4. Legendary medals only accrue in the yokai's designated zones — never farm outside them in Yo-kai mode.
 - E5. On cap: advance and announce; all capped → stop with summary.
 - E6. Medal counts read by item id from inventory each tick (no cached assumptions across hand-ins).
+- E7. The active yokai's designated zones are farmed as a zone rotation (G1–G5); a new active yokai gets its own rotation. Until then the module sat in the first designated zone.
+- E8. The watch is optional (legendary medals need the minion, not the watch): equipped from the bags when owned, judged by the equipped slot rather than an item count, given up on after a 10 s grace, noted on the overlay. Summons and equips are asked for in settled moments only (the Director's `ModuleContext.Settled`), and a minion that never appears through a 20 s settled grace is given up on for the session.
 
 ## Appendix B — Verified dependency IPC surface
 

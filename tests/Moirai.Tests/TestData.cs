@@ -23,10 +23,12 @@ public static class TestData
         bool beingMoved = false, bool occupied = false, bool synced = false,
         bool canMount = true, bool canFly = true,
         ulong? targetId = null,
-        bool companionSummoned = false, int companionTimeLeft = 0, uint companionStance = 0)
+        bool companionSummoned = false, int companionTimeLeft = 0, uint companionStance = 0,
+        uint? activeMinionId = null, bool watchEquipped = false, bool watchOwned = false)
         => new(new Vector3(x, y, z), level, melee, dead, inCombat, mounted, flying,
                casting, betweenAreas, jumping, beingMoved, occupied, synced,
-               canMount, canFly, targetId, companionSummoned, companionTimeLeft, companionStance);
+               canMount, canFly, targetId, companionSummoned, companionTimeLeft, companionStance,
+               activeMinionId, watchEquipped, watchOwned);
 
     public static WorldSnapshot World(
         long now = 10_000, long nowMs = 0, ushort territory = 0,
@@ -38,11 +40,11 @@ public static class TestData
         IReadOnlyDictionary<uint, int>? items = null,
         bool navmeshReady = true, bool lifestreamBusy = false,
         DialogKind dialog = DialogKind.None, bool combatReady = true, bool textAdvanceReady = true,
-        bool dodgeReady = false, bool danger = false)
+        bool dodgeReady = false, bool danger = false, IReadOnlySet<uint>? ownedMinions = null)
         => new(now, nowMs, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
                items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy,
-               dialog, combatReady, textAdvanceReady, dodgeReady, danger);
+               dialog, combatReady, textAdvanceReady, dodgeReady, danger, ownedMinions);
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float y = 0, float z = 100, float hitbox = 2f,

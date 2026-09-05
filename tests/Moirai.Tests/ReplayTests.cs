@@ -108,6 +108,32 @@ public class ReplayTests
         Assert.Equal(first.Index, results[^1].Index); // nothing after it is comparable, so the replay stops there
     }
 
+    [Fact] // §8/§12: a recording carries the yokai roster and settings, so a replay rebuilds the same module
+    public void Recording_round_trips_yokai_settings()
+    {
+        var settings = Defaults() with
+        {
+            Yokai = new YokaiConfig
+            {
+                Enabled = true,
+                Roster = [new Yokai(200, "Jibanyan", 15168, [148, 135, 141], MinionItemId: 15195)],
+                Priority = [200],
+                WatchItemId = 15222,
+                LegendaryCap = 7,
+            },
+        };
+        var world = TestData.World(player: TestData.Player(activeMinionId: 200, watchEquipped: true, watchOwned: true),
+            ownedMinions: new HashSet<uint> { 200, 201 });
+        var recording = new Recording("0.4.0", settings, [new Frame(world, true, [], [], "idle", "NoAction")]);
+
+        var back = RecordingFile.FromJson(RecordingFile.ToJson(recording));
+        Assert.Equal(RecordingFile.ToJson(recording), RecordingFile.ToJson(back));
+        Assert.Equal(7, back.Settings.Yokai!.LegendaryCap);
+        Assert.Equal([148, 135, 141], back.Settings.Yokai.Roster[0].TerritoryIds);
+        Assert.Contains(201u, back.Frames[0].World.OwnedMinions!);
+        Assert.IsType<YokaiModule>(DirectorFactory.CreateModule(back.Settings));
+    }
+
     [Fact] // the debug report's timeline: one line per status change, newest kept
     public void Status_timeline_records_changes_only_and_keeps_the_newest()
     {

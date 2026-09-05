@@ -851,6 +851,47 @@ public class DirectorTests
         Assert.Equal([0, 90, 0, 30, 30, 0], spy.IdleSeen);
     }
 
+    private static Moirai.Core.Replay.RunSettings YokaiSettings() => new(
+        new SelectionConfig(), new MovementConfig(), new EngageConfig(), new CompanionConfig(), new DirectorConfig(),
+        Yokai: new YokaiConfig
+        {
+            Enabled = true,
+            Roster = [new Yokai(200, "Jibanyan", 15168, [148, 135, 141])],
+            Priority = [200],
+            WatchItemId = 15222,
+        });
+
+    [Fact] // E3 at the Director: the minion is summoned in a settled moment and never mid-leg
+    public void E3_minion_is_summoned_when_settled_and_not_mid_leg()
+    {
+        var d = Moirai.Core.Replay.DirectorFactory.Create(YokaiSettings(), null, new FixedRandom(0.5, 0.5), new FlatGround());
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
+        var noMinion = TestData.Player(watchEquipped: true, watchOwned: true);
+
+        var first = d.Tick(TestData.World(territory: 148, player: noMinion, fates: [fate]));
+        Assert.Equal(200u, Assert.IsType<SummonMinion>(first.Intent).MinionId); // settled: selecting
+
+        var withMinion = TestData.Player(watchEquipped: true, watchOwned: true, activeMinionId: 200);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(territory: 148, player: withMinion, fates: [fate])).Status);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+
+        var dropped = d.Tick(TestData.World(territory: 148, player: noMinion, fates: [fate])); // dismissed mid-leg
+        Assert.IsNotType<SummonMinion>(dropped.Intent);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+    }
+
+    [Fact] // E1 at the Director: the watch is equipped when settled, and the module is reachable for the overlay
+    public void E1_watch_is_equipped_when_settled()
+    {
+        var d = Moirai.Core.Replay.DirectorFactory.Create(YokaiSettings(), null, new FixedRandom(0.5, 0.5), new FlatGround());
+        d.Start();
+        var unworn = TestData.Player(watchEquipped: false, watchOwned: true, activeMinionId: 200);
+        Assert.IsType<EquipWatch>(d.Tick(TestData.World(territory: 148, player: unworn)).Intent);
+        var yokai = Assert.IsType<YokaiModule>(d.Module);
+        Assert.Equal("Jibanyan", yokai.Status!.Name);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {

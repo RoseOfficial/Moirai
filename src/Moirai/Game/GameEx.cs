@@ -73,6 +73,52 @@ public static unsafe class GameEx
     public static int ItemCount(uint itemId)
         => InventoryManager.Instance()->GetInventoryItemCount(itemId);
 
+    // §8: minions are companions; summoning one is an action of its own type
+    public static void SummonMinion(uint companionId)
+        => ActionManager.Instance()->UseAction(ActionType.Companion, companionId);
+
+    public static bool IsCompanionUnlocked(uint companionId)
+    {
+        try { return FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance()->IsCompanionUnlocked(companionId); }
+        catch { return true; } // fail open: the summon itself is a no-op when locked
+    }
+
+    // E1: judged by the equipped container, not by counting the item in the bags
+    public static bool IsItemEquipped(uint itemId)
+    {
+        var container = InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems);
+        if (container == null) return false;
+        for (var i = 0; i < container->Size; i++)
+        {
+            var slot = container->GetInventorySlot(i);
+            if (slot != null && slot->ItemId == itemId) return true;
+        }
+        return false;
+    }
+
+    private const ushort WristEquipSlot = 10;
+
+    // E1: the Yo-kai Watch is wrist-only; move it from the bags into the wrist slot
+    public static bool EquipWristItem(uint itemId)
+    {
+        var im = InventoryManager.Instance();
+        ReadOnlySpan<InventoryType> bags =
+            [InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4];
+        foreach (var bag in bags)
+        {
+            var container = im->GetInventoryContainer(bag);
+            if (container == null) continue;
+            for (var i = 0; i < container->Size; i++)
+            {
+                var slot = container->GetInventorySlot(i);
+                if (slot == null || slot->ItemId != itemId) continue;
+                im->MoveItemSlot(bag, (ushort)i, InventoryType.EquippedItems, WristEquipSlot, true);
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static void UseItem(uint itemId)
         => ActionManager.Instance()->UseAction(ActionType.Item, itemId, extraParam: 65535);
 

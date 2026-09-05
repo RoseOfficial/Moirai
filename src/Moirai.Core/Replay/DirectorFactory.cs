@@ -9,10 +9,11 @@ namespace Moirai.Core.Replay;
 // rebuilds exactly the planner that made it (§12)
 public static class DirectorFactory
 {
-    // The module the settings call for: rotation when zones are listed, otherwise the single zone
+    // The module the settings call for: the yokai module when enabled, else rotation when zones
+    // are listed, else the single zone
     public static IFarmModule CreateModule(RunSettings settings)
-        => settings.Rotation is { Zones.Count: > 0 } rotation
-            ? new ZoneRotationModule(rotation)
+        => settings.Yokai is { Enabled: true } yokai ? new YokaiModule(yokai)
+            : settings.Rotation is { Zones.Count: > 0 } rotation ? new ZoneRotationModule(rotation)
             : new SingleZoneModule();
 
     public static Director Create(

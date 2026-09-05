@@ -70,6 +70,14 @@ public sealed class OverlayWindow : Window
         if (d.Companion?.Note is { } companionNote)
             ImGui.TextColored(Warn, $"Companion: {companionNote}");
 
+        if (d.Module is Core.Modules.YokaiModule yokai && yokai.Status is { } ys)
+        {
+            if (ys.Name.Length > 0)
+                ImGui.TextColored(Good, $"yokai: {ys.Name}   legendary {ys.Legendary}/{ys.Cap}");
+            if (ys.Note is { } yokaiNote)
+                ImGui.TextColored(Warn, $"Yo-kai: {yokaiNote}");
+        }
+
         if (d.StoppedBecause is { } why)
             ImGui.TextColored(Bad, $"Stopped: {Reason(why)}");
     }
@@ -99,6 +107,8 @@ public sealed class OverlayWindow : Window
         Core.Intents.StopReason.DataMissing => "missing data",
         Core.Intents.StopReason.SessionComplete => "session complete",
         Core.Intents.StopReason.ZonesUnreachable => "none of the listed zones could be reached",
+        Core.Intents.StopReason.AllYokaiCapped => "every listed yokai is at the cap",
+        Core.Intents.StopReason.MinionsMissing => "minions not owned: buy them from Nohi at the Gold Saucer",
         _ => reason.ToString(),
     };
 }
