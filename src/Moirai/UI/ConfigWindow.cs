@@ -72,11 +72,11 @@ public sealed class ConfigWindow : Window
 
         var skipNpc = c.SkipNpcStartFates;
         if (ImGui.Checkbox("Skip NPC-started fates", ref skipNpc)) { c.SkipNpcStartFates = skipNpc; dirty = true; }
-        Hint("Fates still waiting at their starter NPC are left alone. A collect fate another player has opened is not covered; use the next switch for those.");
+        Hint("Kill fates still waiting at their starter NPC are left alone. Collect fates follow the next switch instead.");
 
         var skipCollect = c.SkipCollectFates;
         if (ImGui.Checkbox("Skip collect fates", ref skipCollect)) { c.SkipCollectFates = skipCollect; dirty = true; }
-        Hint("Item hand-in fates such as What's Your Poison are left alone, open or not.");
+        Hint("Item hand-in fates such as What's Your Poison are left alone, open or not. With this off, an unopened one is opened at its NPC first.");
 
         var record = c.KeepRecording;
         if (ImGui.Checkbox("Keep a rolling recording for bug reports", ref record)) { c.KeepRecording = record; dirty = true; }

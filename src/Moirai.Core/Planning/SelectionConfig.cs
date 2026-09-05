@@ -14,6 +14,7 @@ public sealed class SelectionConfig
     public int PostFateGraceSeconds { get; init; } = 5;       // A10
     public bool BonusOnly { get; init; }                      // A7
     public bool SkipCollectFates { get; init; }               // A14: collect fates left alone, open or not
+    public bool SkipNpcStartFates { get; init; }              // A15: kill fates waiting at a starter NPC left alone
     public IReadOnlyList<SelectionCriterion> Priority { get; init; } =
         [SelectionCriterion.Progress, SelectionCriterion.Bonus, SelectionCriterion.TimeLeft, SelectionCriterion.DistanceTeleport];
     public IReadOnlySet<uint> Blacklist { get; init; } = new HashSet<uint>();

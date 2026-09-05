@@ -88,6 +88,23 @@ public class SelectionGatesTests
         Assert.Equal(SkipReason.None, SelectionGates.Evaluate(open, w, new SelectionConfig()));
     }
 
+    [Fact] // A15: the NPC-start switch covers kill fates waiting at a starter; collect fates follow the collect switch
+    public void A15_skip_npc_start_exempts_collect_fates()
+    {
+        var w = TestData.World();
+        var killAtNpc = TestData.Fate(id: 1, kind: FateKind.NpcStart, phase: FatePhase.Preparing, startTimeEpoch: 0, progress: 0);
+        var collectAtNpc = TestData.Fate(id: 601, kind: FateKind.NpcStart, phase: FatePhase.Preparing, startTimeEpoch: 0, progress: 0, eventItemId: 2001053);
+
+        var skipNpc = new SelectionConfig { SkipNpcStartFates = true };
+        Assert.Equal(SkipReason.NpcStart, SelectionGates.Evaluate(killAtNpc, w, skipNpc));
+        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(collectAtNpc, w, skipNpc)); // opened at its NPC, then collected
+
+        var skipBoth = new SelectionConfig { SkipNpcStartFates = true, SkipCollectFates = true };
+        Assert.Equal(SkipReason.CollectFate, SelectionGates.Evaluate(collectAtNpc, w, skipBoth));
+
+        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(killAtNpc, w, new SelectionConfig()));
+    }
+
     [Fact] // D10: a fate the ladder gave up on is skipped for the session with its own reason
     public void D10_unreachable_fate_is_skipped()
     {

@@ -10,7 +10,7 @@ namespace Moirai.Snapshot;
 
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
 public sealed class SnapshotBuilder(
-    Configuration cfg, NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance,
+    NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance,
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems)
 {
     public WorldSnapshot? Build(uint? currentFateId)
@@ -53,8 +53,8 @@ public sealed class SnapshotBuilder(
             if (fate == null) continue;
             var snap = Project(fate);
             if (snap is null) continue;
-            if (cfg.SkipNpcStartFates && snap.Kind == FateKind.NpcStart && snap.Id != currentFateId) continue;
-            fates.Add(snap);
+            fates.Add(snap); // every fate is in the snapshot; the selection gates say which are skipped and why
+
         }
 
         var enemies = new List<EnemySnapshot>();

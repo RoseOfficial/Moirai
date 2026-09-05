@@ -5,7 +5,7 @@ namespace Moirai.Core.Planning;
 public enum SkipReason
 {
     None, WrongPhase, NotRegistered, Blacklisted, AboveLevel,
-    TooLittleTime, TooFarAlong, BossTooEarly, NotBonus, KilledUs, Unreachable, CollectFate,
+    TooLittleTime, TooFarAlong, BossTooEarly, NotBonus, KilledUs, Unreachable, CollectFate, NpcStart,
 }
 
 public static class SelectionGates
@@ -18,6 +18,8 @@ public static class SelectionGates
         if (c.Blacklist.Contains(f.Id)) return SkipReason.Blacklisted;
         if (skips?.Reason(f.Id) is { } skipped) return skipped;
         if (c.SkipCollectFates && f.SheetKind == FateKind.Collect) return SkipReason.CollectFate; // A14
+        // A15: collect fates open at their hand-in NPC and follow the collect switch instead
+        if (c.SkipNpcStartFates && f.Kind == FateKind.NpcStart && f.SheetKind != FateKind.Collect) return SkipReason.NpcStart;
         if (f.MaxLevel > w.Player.Level + c.LevelMargin) return SkipReason.AboveLevel;
         if (f.EffectiveTimeLeft < c.MinTimeLeftSeconds) return SkipReason.TooLittleTime;
         if (f.Progress > c.MaxProgressPercent) return SkipReason.TooFarAlong;
