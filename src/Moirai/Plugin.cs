@@ -190,6 +190,12 @@ public sealed class Plugin : IDalamudPlugin
         return true;
     }
 
+    public bool IsPaused => Director is { Phase: RunPhase.Paused };
+
+    public void PauseRun() => Director?.Pause();
+
+    public void ResumeRun() => Director?.Resume();
+
     public void StopRun()
     {
         Director?.Stop(StopReason.UserRequested);
@@ -263,7 +269,7 @@ public sealed class Plugin : IDalamudPlugin
         }
     }
 
-    private const string Usage = "Usage: /moirai [start|stop|config|debug|record|help]";
+    private const string Usage = "Usage: /moirai [start|pause|resume|stop|config|debug|record|help]";
 
     private void OnCommand(string command, string args)
     {
@@ -279,6 +285,14 @@ public sealed class Plugin : IDalamudPlugin
             case "stop":
                 StopRun();
                 Svc.Chat.Print("[Moirai] Stopped.");
+                break;
+            case "pause":
+                PauseRun();
+                Svc.Chat.Print(IsPaused ? "[Moirai] Paused; /moirai resume picks the session back up." : "[Moirai] Nothing to pause.");
+                break;
+            case "resume":
+                ResumeRun();
+                Svc.Chat.Print(IsRunning && !IsPaused ? "[Moirai] Resumed." : "[Moirai] Nothing to resume.");
                 break;
             case "config":
             case "settings":

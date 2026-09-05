@@ -54,7 +54,8 @@ alongside Olympus and Komos.
   mounted or in combat.
 - `/moirai` opens the overlay, with the run's status, the current FATE, the
   session tally, elapsed time, and FATEs per hour; `/moirai help` lists chat
-  commands.
+  commands. Pause stands everything down and keeps the session; Resume picks
+  it back up from selection.
 - `/moirai debug` copies a plain-text report of every FATE in the zone and how
   Moirai reads it. Paste it into a bug report.
 

@@ -3,11 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.2 — 2026-09-05
+
+### Added
+- Pause and resume. A Pause button on the overlay, or `/moirai pause`, stands movement, combat, and dodging down and keeps the session: the tally, the FATEs skipped this run, the zone rotation's place, and the yokai progress. Resume, or `/moirai resume`, picks the session back up from selection. Until now the only way to step away, to buy a minion by hand or answer a tell, was Stop, which forgot all of it
+<!-- LATEST-END -->
+
 ## v0.4.1 — 2026-09-05
 
 ### Added
 - Buying yokai minions from Nohi, off by default, switched on from the Yo-kai tab. When the next yokai in the list is not owned and the regular medals cover it, one medal for the first event minion and three after, the run teleports to the Gold Saucer, walks to Nohi, goes through his menu by entry index, buys the minion from the exchange window by its position, confirms, closes the window, and uses the item to learn it, then goes back to farming. Nothing reads menu text. A step that does not finish in twenty seconds fails with a chat line, turns auto-buy off for the run, and leaves the shopping list stop in place. The menu path and the exchange list offset are settings, and `/moirai debug` with any of Nohi's windows open lists every entry with its index, which is how a wrong index gets pinned from a report
-<!-- LATEST-END -->
 
 ## v0.4.0 — 2026-09-05
 

@@ -32,6 +32,15 @@ public sealed class OverlayWindow : Window
         else
         {
             if (ImGui.Button("Stop")) _plugin.StopRun();
+            ImGui.SameLine();
+            if (_plugin.IsPaused)
+            {
+                if (ImGui.Button("Resume")) _plugin.ResumeRun();
+            }
+            else if (ImGui.Button("Pause"))
+            {
+                _plugin.PauseRun();
+            }
         }
         ImGui.SameLine();
         if (ImGui.Button("Settings")) _plugin.OpenSettings();
@@ -93,6 +102,7 @@ public sealed class OverlayWindow : Window
         RunPhase.Traveling => "traveling",
         RunPhase.InFate => "in fate",
         RunPhase.WaitingContinuation => "waiting for continuation",
+        RunPhase.Paused => "paused",
         RunPhase.Stopped => "stopped",
         _ => "idle",
     };

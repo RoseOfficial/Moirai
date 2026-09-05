@@ -371,6 +371,8 @@ public sealed class ConfigWindow : Window
         ImGui.TextUnformatted("Commands");
         ImGui.TextColored(Muted, "/moirai            toggle the overlay");
         ImGui.TextColored(Muted, "/moirai start      start farming here");
+        ImGui.TextColored(Muted, "/moirai pause      stand everything down, keep the session");
+        ImGui.TextColored(Muted, "/moirai resume     pick the session back up");
         ImGui.TextColored(Muted, "/moirai stop       stop the run");
         ImGui.TextColored(Muted, "/moirai config     open settings");
         ImGui.TextColored(Muted, "/moirai debug      copy a debug report for bug reports");

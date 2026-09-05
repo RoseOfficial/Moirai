@@ -192,7 +192,7 @@ Curated files live in the plugin config directory, are hot-reloaded on change, a
 
 ## 11. Error handling and stop reasons
 
-Every terminal stop carries a typed `StopReason` (`UserRequested`, `AllYokaiCapped`, `WatchMissing`, `StuckExhausted`, `DeathCapReached`, `DependencyLost`, `DataMissing`, …) surfaced in the overlay and log. Mid-run dependency loss (a required plugin unloads) pauses rather than stops when recoverable, with the reason displayed. No unbounded retry exists anywhere: every loop has a cap, every wait a timeout.
+A pause (§2.2 Paused, `/moirai pause`, the overlay button) stands movement and combat down over the next two ticks and keeps the session: the ledger, the session skips, the zone rotation's position, and the module's state. Resume picks up from selection; the FATE under way is not counted as anything. Every terminal stop carries a typed `StopReason` (`UserRequested`, `AllYokaiCapped`, `WatchMissing`, `StuckExhausted`, `DeathCapReached`, `DependencyLost`, `DataMissing`, …) surfaced in the overlay and log. Mid-run dependency loss (a required plugin unloads) pauses rather than stops when recoverable, with the reason displayed. No unbounded retry exists anywhere: every loop has a cap, every wait a timeout.
 
 ---
 

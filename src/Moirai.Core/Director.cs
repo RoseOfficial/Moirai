@@ -8,7 +8,7 @@ using Moirai.Core.Session;
 
 namespace Moirai.Core;
 
-public enum RunPhase { Idle, SelectingFate, Traveling, InFate, WaitingContinuation, Stopped }
+public enum RunPhase { Idle, SelectingFate, Traveling, InFate, WaitingContinuation, Paused, Stopped }
 
 public sealed record DirectorOutput(Intent Intent, string Status);
 
@@ -61,10 +61,46 @@ public sealed class Director(
         StoppedBecause = reason;
     }
 
+    public bool IsRunningOrPaused => Phase is not (RunPhase.Idle or RunPhase.Stopped);
+
+    // §2.2 Paused: everything stands down and nothing is forgotten; the ticks that follow issue the
+    // stand-down intents (movement, then combat) and then nothing
+    public void Pause()
+    {
+        if (!IsRunningOrPaused || Phase == RunPhase.Paused) return;
+        Phase = RunPhase.Paused;
+        _pausedTicks = 0;
+        _escape.Reset();
+        _aggro.Reset();
+    }
+
+    // Resume picks up from selection: the fate under way is not counted as anything
+    public void Resume()
+    {
+        if (Phase != RunPhase.Paused) return;
+        CurrentFate = null;
+        _active = null;
+        travel.Reset();
+        _ladder.Reset();
+        Phase = RunPhase.SelectingFate;
+    }
+
+    private int _pausedTicks;
+
     public DirectorOutput Tick(WorldSnapshot w)
     {
         if (Phase is RunPhase.Idle or RunPhase.Stopped)
             return new(new NoAction(), Phase == RunPhase.Stopped ? $"stopped: {StoppedBecause}" : "idle");
+        if (Phase == RunPhase.Paused)
+        {
+            _pausedTicks++;
+            return _pausedTicks switch
+            {
+                1 => new(new StopMoving(), "paused"),
+                2 => new(new SetCombat(false, CombatMode.Auto), "paused"),
+                _ => new(new NoAction(), "paused"),
+            };
+        }
 
         Ledger.Observe(w.NowEpoch);
         RewardLatch.Observe(w);

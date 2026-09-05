@@ -920,6 +920,43 @@ public class DirectorTests
         Assert.Equal("Jibanyan", yokai.Status!.Name);
     }
 
+    [Fact] // §2.2 Paused: a pause stands everything down and keeps the session; resume picks up from selection
+    public void Pause_keeps_the_session_and_resume_selects_again()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+        d.Ledger.Record(Moirai.Core.Session.FateOutcome.Completed);
+
+        d.Pause();
+        Assert.Equal(RunPhase.Paused, d.Phase);
+        var paused = d.Tick(TestData.World(fates: [fate]));
+        Assert.IsType<StopMoving>(paused.Intent); // the first paused tick stands movement down
+        Assert.Equal("paused", paused.Status);
+        Assert.False(Assert.IsType<SetCombat>(d.Tick(TestData.World(fates: [fate])).Intent).Enabled); // then combat
+        Assert.IsType<NoAction>(d.Tick(TestData.World(fates: [fate])).Intent);                         // then nothing
+        Assert.True(d.IsRunningOrPaused);
+
+        d.Resume();
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+        Assert.Null(d.CurrentFate);
+        Assert.Equal(1, d.Ledger.Completed); // nothing forgotten
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+    }
+
+    [Fact] // a pause from inside a fate abandons nothing and stands combat down
+    public void Pause_in_a_fate_stands_combat_down()
+    {
+        var d = InFate(out var fate, out var at);
+        d.Pause();
+        var first = d.Tick(TestData.World(player: at, fates: [fate]));
+        Assert.IsType<StopMoving>(first.Intent);
+        var second = d.Tick(TestData.World(player: at, fates: [fate]));
+        Assert.False(Assert.IsType<SetCombat>(second.Intent).Enabled);
+        Assert.Equal(0, d.Ledger.Abandoned);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {
