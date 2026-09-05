@@ -3,11 +3,19 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.13 — 2026-09-05
+
+### Fixed
+- A death whose return prompt lands the character somewhere else, at a home point in a city when no aetheryte in the zone is attuned, no longer leaves the run farming the wrong zone or idling in town. The run remembers the zone it started in and teleports back, after any pending FATE payout
+
+### Added
+- The overlay shows the session's elapsed time and FATEs completed per hour
+<!-- LATEST-END -->
+
 ## v0.3.12 — 2026-09-05
 
 ### Added
 - Bonus FATEs are recognized. The game flags a FATE with a bonus marker now and then, and finishing one pays out more experience, gil, seals, and bicolor gemstones. Moirai reads that flag, so the Bonus rung of the ranking ladder puts them first when it sits high, and a new "Bonus FATEs only" switch on the Selection tab idles the run until one is up. The overlay marks a bonus FATE and the debug report shows the flag
-<!-- LATEST-END -->
 
 ## v0.3.11 — 2026-09-05
 

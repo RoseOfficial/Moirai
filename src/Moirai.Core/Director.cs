@@ -63,6 +63,7 @@ public sealed class Director(
         if (Phase is RunPhase.Idle or RunPhase.Stopped)
             return new(new NoAction(), Phase == RunPhase.Stopped ? $"stopped: {StoppedBecause}" : "idle");
 
+        Ledger.Observe(w.NowEpoch);
         RewardLatch.Observe(w);
 
         // B4: NPC start and collect hand-in handle the game's dialogs themselves

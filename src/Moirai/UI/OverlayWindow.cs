@@ -63,6 +63,7 @@ public sealed class OverlayWindow : Window
 
         ImGui.TextColored(Good,
             $"done {d.Ledger.Completed}   failed {d.Ledger.Failed}   abandoned {d.Ledger.Abandoned}   deaths {d.Ledger.Deaths}");
+        ImGui.TextColored(Muted, $"{Elapsed(d.Ledger.ElapsedSeconds)}   {d.Ledger.CompletedPerHour:0.0} fates/h");
 
         if (d.Companion?.Note is { } companionNote)
             ImGui.TextColored(Warn, $"Companion: {companionNote}");
@@ -70,6 +71,11 @@ public sealed class OverlayWindow : Window
         if (d.StoppedBecause is { } why)
             ImGui.TextColored(Bad, $"Stopped: {Reason(why)}");
     }
+
+    private static string Elapsed(long seconds)
+        => seconds >= 3600
+            ? $"{seconds / 3600}h {seconds % 3600 / 60:00}m"
+            : $"{seconds / 60}m {seconds % 60:00}s";
 
     private static string Phase(RunPhase phase) => phase switch
     {

@@ -67,4 +67,20 @@ public class SessionTests
         var (state, _) = watcher.Tick(TestData.World(now: 1_005, fates: [done]));
         Assert.Equal(ContinuationState.Waiting, state);
     }
+
+    [Fact] // overlay: elapsed time and completions per hour follow the observed clock
+    public void Ledger_tracks_elapsed_time_and_completion_rate()
+    {
+        var ledger = new SessionLedger();
+        Assert.Equal(0, ledger.ElapsedSeconds);
+        Assert.Equal(0, ledger.CompletedPerHour);
+
+        ledger.Observe(1_000);
+        ledger.Record(FateOutcome.Completed);
+        ledger.Record(FateOutcome.Completed);
+        ledger.Observe(1_000 + 1_800);
+
+        Assert.Equal(1_800, ledger.ElapsedSeconds);
+        Assert.Equal(4.0, ledger.CompletedPerHour, 3);
+    }
 }

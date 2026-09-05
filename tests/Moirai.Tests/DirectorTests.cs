@@ -723,6 +723,45 @@ public class DirectorTests
         Assert.Equal("selected fate 2", d.Tick(TestData.World(fates: [plain, bonus])).Status);
     }
 
+    [Fact] // D1: the single-zone module pins the zone it started in and steers back to it
+    public void D1_single_zone_module_returns_to_its_starting_zone()
+    {
+        var module = new SingleZoneModule();
+        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140)));
+        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140)));
+        var away = Assert.IsType<MoveToTerritory>(module.Next(TestData.World(territory: 129)));
+        Assert.Equal(140, away.TerritoryId);
+        Assert.IsType<FarmHere>(module.Next(TestData.World(territory: 140)));
+    }
+
+    [Fact] // D1: a death whose return lands in another zone teleports back to the farming zone
+    public void D1_displaced_after_death_returns_to_the_farming_zone()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(territory: 140, fates: [fate])).Status);
+
+        Assert.IsType<AcceptReturn>(d.Tick(TestData.World(territory: 140, player: TestData.Player(dead: true), fates: [fate])).Intent);
+
+        // revived at the home point in a city: no fates here, and the run must not settle for it
+        var displaced = d.Tick(TestData.World(territory: 129));
+        Assert.Equal(140, Assert.IsType<ChangeZone>(displaced.Intent).TerritoryId);
+        Assert.Equal("changing zone", displaced.Status);
+
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(territory: 140, fates: [fate])).Status);
+    }
+
+    [Fact] // overlay: the session clock follows the snapshot's clock, from the first tick of the run
+    public void Session_clock_follows_the_ticks()
+    {
+        var d = Sut();
+        d.Start();
+        d.Tick(TestData.World(now: 5_000));
+        d.Tick(TestData.World(now: 5_600));
+        Assert.Equal(600, d.Ledger.ElapsedSeconds);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {

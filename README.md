@@ -34,12 +34,15 @@ alongside Olympus and Komos.
   a FATE, or inside one between its waves, is targeted and killed where you
   stand before the run carries on. Mounted, it keeps riding and lets the mobs
   leash.
-- Accepts the return prompt on death, counts it, and resumes; stops at a death
-  cap you choose.
+- Accepts the return prompt on death, counts it, teleports back to the farming
+  zone if the return put it elsewhere, and resumes; stops at a death cap you
+  choose.
 - Keeps your chocobo companion summoned with Gysahl Greens, in the stance you
   pick, and tops up its timer before it lapses. Greens are never spent while
   mounted or in combat.
-- `/moirai` opens the overlay; `/moirai help` lists chat commands.
+- `/moirai` opens the overlay, with the run's status, the current FATE, the
+  session tally, elapsed time, and FATEs per hour; `/moirai help` lists chat
+  commands.
 - `/moirai debug` copies a plain-text report of every FATE in the zone and how
   Moirai reads it. Paste it into a bug report.
 
