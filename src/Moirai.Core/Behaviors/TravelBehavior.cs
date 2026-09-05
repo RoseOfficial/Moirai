@@ -20,6 +20,7 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
 
     public Vector3? CurrentDropoff { get; private set; }
     public bool RerollsExhausted => _rerolls >= MaxRerolls;
+    public bool Teleporting => _teleport is not null; // C17: a teleport is asked for and has not landed
 
     public BehaviorStep Tick(WorldSnapshot w, BehaviorContext ctx)
     {

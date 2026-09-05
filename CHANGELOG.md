@@ -3,6 +3,12 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.14 — 2026-09-05
+
+### Changed
+- The pick is looked at again on the way. Until now travel committed to its FATE until arrival, so a FATE that other players nearly finished during the ride was still ridden to for little or no credit, and one that spawned right next to the character was ignored. Now a FATE that no longer passes the selection gates is dropped for a fresh pick, unless the character is already next to it, and a FATE that appears within the nearby radius is taken first, the same way it would be at selection. Neither happens while a teleport is in flight
+<!-- LATEST-END -->
+
 ## v0.3.13 — 2026-09-05
 
 ### Fixed
@@ -10,7 +16,6 @@ All notable changes to Moirai will be documented in this file.
 
 ### Added
 - The overlay shows the session's elapsed time and FATEs completed per hour
-<!-- LATEST-END -->
 
 ## v0.3.12 — 2026-09-05
 

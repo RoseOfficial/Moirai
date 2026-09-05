@@ -11,9 +11,8 @@ public static class FateRanker
         if (eligible.Count == 0) return null;
 
         // A9: inside a ring or within the nearby radius wins outright, nearest first
-        var nearby = eligible.Where(f => IsNearby(f, w, c)).ToList();
-        if (nearby.Count > 0)
-            return nearby.MinBy(f => Vector3.Distance(w.Player.Position, f.Position));
+        if (Nearest(eligible.Where(f => IsNearby(f, w, c)), w) is { } nearby)
+            return nearby;
 
         // A10: shortly after a completion, only nearby (chain) spawns are considered
         if (lastFateEndEpoch is { } end && w.NowEpoch - end < c.PostFateGraceSeconds)
@@ -22,11 +21,18 @@ public static class FateRanker
         return eligible.Min(Comparer<FateSnapshot>.Create((x, y) => RankCompare(x, y, w, c)));
     }
 
-    private static bool IsNearby(FateSnapshot f, WorldSnapshot w, SelectionConfig c)
+    // A9/A13: the nearest eligible fate inside the nearby radius, or null; asked again on the way
+    public static FateSnapshot? PickNearby(WorldSnapshot w, SelectionConfig c, SessionSkipList? skips = null)
+        => Nearest(w.Fates.Where(f => IsNearby(f, w, c) && SelectionGates.Evaluate(f, w, c, skips) == SkipReason.None), w);
+
+    public static bool IsNearby(FateSnapshot f, WorldSnapshot w, SelectionConfig c)
     {
         var d = Vector3.Distance(w.Player.Position, f.Position);
         return d <= c.NearbyOverrideDistance || f.Contains(w.Player.Position);
     }
+
+    private static FateSnapshot? Nearest(IEnumerable<FateSnapshot> fates, WorldSnapshot w)
+        => fates.MinBy(f => Vector3.Distance(w.Player.Position, f.Position));
 
     // negative when x outranks y; final tie-break lowest id (A11, determinism)
     private static int RankCompare(FateSnapshot x, FateSnapshot y, WorldSnapshot w, SelectionConfig c)

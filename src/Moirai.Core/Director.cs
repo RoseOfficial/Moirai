@@ -205,6 +205,29 @@ public sealed class Director(
         }
         CurrentFate = live;
 
+        // A13: the pick is looked at again on the way. A fate others have nearly finished is not
+        // worth the rest of the ride, unless we are already next to it (A9 counts the credit as
+        // quick); and a fate that spawns next to us comes first, as it would at selection, except
+        // while a teleport is in flight, since we would land far from it anyway.
+        if (!travel.Teleporting)
+        {
+            var nearbyAlready = FateRanker.IsNearby(live, w, selection);
+            if (!nearbyAlready && SelectionGates.Evaluate(live, w, selection, Skips) is var why && why != SkipReason.None)
+            {
+                CurrentFate = null;
+                Phase = RunPhase.SelectingFate;
+                return new(new StopMoving(), $"fate no longer eligible: {why}");
+            }
+            if (FateRanker.PickNearby(w, selection, Skips) is { } newcomer && newcomer.Id != live.Id)
+            {
+                CurrentFate = newcomer;
+                travel.Reset();
+                _ladder.Reset();
+                _escape.Reset();
+                return new(new StopMoving(), $"switching to nearby fate {newcomer.Id}");
+            }
+        }
+
         var step = travel.Tick(w, contextFactory(w) with { Fate = live });
         if (step.Status == BehaviorStatus.Done)
         {

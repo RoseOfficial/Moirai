@@ -16,6 +16,8 @@ alongside Olympus and Komos.
   your level, or on your blacklist.
 - Puts bonus FATEs first when the Bonus rung sits high in the ladder, or farms
   only bonus FATEs and idles between them.
+- Looks again on the way: a FATE others nearly finished while you rode is
+  dropped for a fresh pick, and one that spawns next to you is taken first.
 - Handles battle, boss, defend, escort, and collect FATEs, and can open
   NPC-started FATEs.
 - Joins boss FATEs only once their progress passes a threshold, so you never

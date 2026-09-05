@@ -762,6 +762,66 @@ public class DirectorTests
         Assert.Equal(600, d.Ledger.ElapsedSeconds);
     }
 
+    [Fact] // A13: a fate others nearly finished while we rode is not worth the rest of the ride
+    public void A13_travel_abandons_a_fate_that_no_longer_passes_the_gates()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0, progress: 40);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+
+        var overtaken = d.Tick(TestData.World(fates: [fate with { Progress = 90 }]));
+        Assert.IsType<StopMoving>(overtaken.Intent);
+        Assert.Equal("fate no longer eligible: TooFarAlong", overtaken.Status);
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+        Assert.Equal(0, d.Ledger.Abandoned); // a change of pick, not a failure
+    }
+
+    [Fact] // A13: already next to it, the ride is over and the credit is quick, whatever the gate says
+    public void A13_travel_keeps_a_fate_that_crossed_the_gate_when_already_nearby()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 500, z: 0, radius: 20, progress: 40);
+        d.Tick(TestData.World(fates: [fate]));
+
+        var close = TestData.World(player: TestData.Player(x: 470, z: 0), fates: [fate with { Progress = 90 }]);
+        Assert.IsNotType<StopMoving>(d.Tick(close).Intent);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.Equal(1u, d.CurrentFate!.Id);
+    }
+
+    [Fact] // A13/A9: a fate that spawns next to us on the way is taken first
+    public void A13_travel_switches_to_a_fate_that_spawned_nearby()
+    {
+        var d = Sut();
+        d.Start();
+        var far = TestData.Fate(id: 1, x: 900, z: 0);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [far])).Status);
+
+        var near = TestData.Fate(id: 2, x: 30, z: 0, radius: 20);
+        var spawned = d.Tick(TestData.World(fates: [far, near]));
+        Assert.IsType<StopMoving>(spawned.Intent);
+        Assert.Equal("switching to nearby fate 2", spawned.Status);
+        Assert.Equal(2u, d.CurrentFate!.Id);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+    }
+
+    [Fact] // A13: not while a teleport is in flight; we would land far from the newcomer anyway
+    public void A13_no_switch_while_a_teleport_is_in_flight()
+    {
+        var d = Sut();
+        d.Start();
+        var far = TestData.Fate(id: 1, x: 2000, z: 0, radius: 20);
+        var aetheryte = new Aetheryte(5, new Vector3(1900, 0, 0));
+        d.Tick(TestData.World(fates: [far], aetherytes: [aetheryte]));
+        Assert.IsType<TeleportTo>(d.Tick(TestData.World(nowMs: 100, fates: [far], aetherytes: [aetheryte])).Intent);
+
+        var near = TestData.Fate(id: 2, x: 30, z: 0, radius: 20);
+        Assert.IsType<TeleportTo>(d.Tick(TestData.World(nowMs: 200, fates: [far, near], aetherytes: [aetheryte])).Intent);
+        Assert.Equal(1u, d.CurrentFate!.Id);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {
