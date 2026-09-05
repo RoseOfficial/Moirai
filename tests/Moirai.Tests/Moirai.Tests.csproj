@@ -24,4 +24,9 @@
     <ProjectReference Include="..\..\src\Moirai.Core\Moirai.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Recordings saved in-game (/moirai record); each one replays as a regression test -->
+    <None Include="Recordings\**\*.json.gz" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

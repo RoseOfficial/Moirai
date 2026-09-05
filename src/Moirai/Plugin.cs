@@ -9,6 +9,7 @@ using Moirai.Core.Intents;
 using Moirai.Core.Model;
 using Moirai.Core.Modules;
 using Moirai.Core.Planning;
+using Moirai.Core.Replay;
 using Moirai.Data;
 using Moirai.Diagnostics;
 using Moirai.Execution;
@@ -32,10 +33,13 @@ public sealed class Plugin : IDalamudPlugin
     private readonly TextAdvanceIpc _textAdvance;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
+    private Recorder? _recorder;   // §12: the last minute of the run, when the setting is on
+    private bool _savedOnStop;
 
     public Configuration Config { get; }
     public Director? Director { get; private set; }
     public string LastStatus { get; private set; } = "idle";
+    public StatusTimeline Timeline { get; private set; } = new();
 
     public bool IsRunning => Director is { } d && d.Phase is not (RunPhase.Idle or RunPhase.Stopped);
     public bool NavmeshReady => _navmesh.IsReady();
@@ -78,7 +82,31 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (IsRunning) return;
 
-        var selection = new SelectionConfig
+        var settings = BuildSettings();
+        IRandomSource random = SystemRandom.Instance;
+        ILandingResolver landing = new NavmeshLanding(_navmesh);
+        _recorder = null;
+        if (Config.KeepRecording)
+        {
+            // §12: the recorder sits between the planner and its two services, so every input is on file
+            _recorder = new Recorder(settings, Version, random, landing);
+            random = _recorder.Random;
+            landing = _recorder.Landing;
+        }
+        Timeline = new StatusTimeline();
+        _savedOnStop = false;
+
+        Director = DirectorFactory.Create(settings, new SingleZoneModule(), random, landing, w => ZoneFlightAllowed(w.TerritoryId));
+        _executor.Reset();
+        _textAdvance.Take(); // Talk and hand-in windows are TextAdvance's for the whole run
+        Director.Start();
+        _overlay.IsOpen = true;
+    }
+
+    // The run's settings, read once at Start. The blacklist stays a live reference so edits apply
+    // at the next selection; a recording carries whatever it held when saved.
+    private RunSettings BuildSettings() => new(
+        new SelectionConfig
         {
             MinTimeLeftSeconds = Config.MinTimeLeftSeconds,
             MaxProgressPercent = Config.MaxProgressPercent,
@@ -86,48 +114,54 @@ public sealed class Plugin : IDalamudPlugin
             BossJoinProgress = Config.BossJoinProgress,
             SpecialBossJoinProgress = Config.SpecialBossJoinProgress,
             Priority = Config.NormalizedPriority(),
-            Blacklist = Config.BlacklistedFates, // live reference: edits apply at the next selection
-        };
-        var movement = new MovementConfig
+            Blacklist = Config.BlacklistedFates,
+        },
+        new MovementConfig
         {
             MountLegThreshold = Config.MountLegThreshold,
             ArriveTolerance = Config.ArriveTolerance,
-        };
-        var engageConfig = new EngageConfig
+        },
+        new EngageConfig
         {
             MeleeRange = Config.MeleeRange,
             RangedRange = Config.RangedRange,
-        };
-
-        var companion = new CompanionUpkeep(new CompanionConfig
+        },
+        new CompanionConfig
         {
             Enabled = Config.CompanionEnabled,
             GreensItemId = CompanionData.GysahlGreensItemId,
             StanceActionId = Config.CompanionStanceId,
             ResummonBelowSeconds = Config.CompanionResummonBelowSeconds,
             StopWhenOutOfGreens = Config.CompanionStopWhenOutOfGreens,
-        });
+        },
+        new DirectorConfig { DeathCap = Config.DeathCap });
 
-        var engage = () => new EngageBehavior(engageConfig);
-        Director = new Director(
-            new SingleZoneModule(),
-            selection,
-            new DirectorConfig { DeathCap = Config.DeathCap },
-            new TravelBehavior(movement),
-            kind => kind switch
-            {
-                FateKind.Collect => new CollectBehavior(engage()),
-                FateKind.NpcStart => new NpcStartBehavior(),
-                FateKind.Escort => new EscortBehavior(engage()),
-                _ => engage(),
-            },
-            BuildContext,
-            companion,
-            new StrayAggroClear(engageConfig));
-        _executor.Reset();
-        _textAdvance.Take(); // Talk and hand-in windows are TextAdvance's for the whole run
-        Director.Start();
-        _overlay.IsOpen = true;
+    private static bool ZoneFlightAllowed(ushort territory) => !ZoneData.NoFlyTerritories.Contains(territory);
+
+    // Writes the rolling recording to the config directory and says so in chat; false when there is none
+    public bool SaveRecording(string tag)
+    {
+        if (_recorder is not { Count: > 0 } recorder)
+        {
+            Svc.Chat.Print("[Moirai] Nothing to save: recording is off, or no run has happened yet.");
+            return false;
+        }
+        var dir = Svc.PluginInterface.GetPluginConfigDirectory();
+        var path = Path.Combine(dir, $"recording-{tag}-{DateTime.Now:yyyyMMdd-HHmmss}{RecordingFile.Extension}");
+        try
+        {
+            Directory.CreateDirectory(dir);
+            using var stream = File.Create(path);
+            RecordingFile.Write(recorder.Snapshot(), stream);
+        }
+        catch (Exception e)
+        {
+            Svc.Log.Error(e, "could not save the recording");
+            Svc.Chat.Print("[Moirai] Could not save the recording; see /xllog.");
+            return false;
+        }
+        Svc.Chat.Print($"[Moirai] Recording saved to {path}");
+        return true;
     }
 
     public void StopRun()
@@ -162,13 +196,6 @@ public sealed class Plugin : IDalamudPlugin
         }
     }
 
-    private BehaviorContext BuildContext(WorldSnapshot w)
-        => new(
-            Fate: null,
-            ZoneFlightAllowed: !ZoneData.NoFlyTerritories.Contains(w.TerritoryId),
-            Random: SystemRandom.Instance,
-            Landing: new NavmeshLanding(_navmesh));
-
     private void OnUpdate(IFramework framework)
     {
         if (Director is not { } director || director.Phase is RunPhase.Idle or RunPhase.Stopped)
@@ -181,14 +208,24 @@ public sealed class Plugin : IDalamudPlugin
             return;
 
         _textAdvance.Reassert(); // it drops external control on its own after a zone change
-        var output = director.Tick(snapshot);
+        var output = _recorder is { } recorder
+            ? recorder.Tick(director, snapshot, ZoneFlightAllowed(snapshot.TerritoryId))
+            : director.Tick(snapshot);
         LastStatus = output.Status;
+        Timeline.Observe(snapshot.NowEpoch, output.Status);
         _executor.Execute(output.Intent, snapshot);
         if (director.Phase == RunPhase.Stopped)
+        {
             _textAdvance.Release(); // a stop the planner decided (death cap, dependency lost, stuck)
+            if (director.StoppedBecause is { } why && why != StopReason.UserRequested && !_savedOnStop)
+            {
+                _savedOnStop = true;
+                SaveRecording(why.ToString()); // the evidence, kept without being asked
+            }
+        }
     }
 
-    private const string Usage = "Usage: /moirai [start|stop|config|debug|help]";
+    private const string Usage = "Usage: /moirai [start|stop|config|debug|record|help]";
 
     private void OnCommand(string command, string args)
     {
@@ -211,6 +248,9 @@ public sealed class Plugin : IDalamudPlugin
                 break;
             case "debug":
                 CopyDebugReport();
+                break;
+            case "record":
+                SaveRecording("manual");
                 break;
             default:
                 Svc.Chat.Print($"[Moirai] {Usage}");

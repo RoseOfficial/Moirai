@@ -78,6 +78,19 @@ or Komos, the repository is already there and Moirai simply appears in the list.
 To build a sideload copy instead, run a Release build of `src/Moirai/Moirai.csproj`;
 the ready-to-install zip lands at `src/Moirai/bin/Release/Moirai/latest.zip`.
 
+## Bug reports
+
+- `/moirai debug` copies a plain-text report: every FATE in the zone as the
+  game reports it and as Moirai reads it, what Moirai sees around the
+  character, and a timeline of the last fifty status changes. Paste it in.
+- `/moirai record` saves the last minute of what Moirai saw and decided, tick
+  by tick, to the plugin's config folder as a small `.json.gz` file. A run that
+  stops on its own (stuck, death cap, a plugin gone) saves one without being
+  asked. Attach it: the file replays through Moirai's planner in the test
+  suite, so the exact decision can be reproduced and fixed without the game.
+  It holds positions, ids, and counts, no names or chat. The General tab has
+  a switch to turn recording off.
+
 ## Safety notes
 
 Moirai automates movement, targeting, and FATE participation on your behalf.

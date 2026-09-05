@@ -74,6 +74,10 @@ public sealed class ConfigWindow : Window
         if (ImGui.Checkbox("Skip NPC-started fates", ref skipNpc)) { c.SkipNpcStartFates = skipNpc; dirty = true; }
         Hint("Unopened fates that need a starter NPC, collect fates included, are left alone when checked.");
 
+        var record = c.KeepRecording;
+        if (ImGui.Checkbox("Keep a rolling recording for bug reports", ref record)) { c.KeepRecording = record; dirty = true; }
+        Hint("The last minute of what Moirai saw and decided, in memory only. /moirai record saves it, and a run that stops on its own saves it too. Applies on the next Start.");
+
         ImGui.Separator();
         ImGui.TextColored(Muted, "Threshold and ladder changes apply on the next Start. Blacklist changes apply at the next selection.");
     }
@@ -238,6 +242,7 @@ public sealed class ConfigWindow : Window
         ImGui.TextColored(Muted, "/moirai stop       stop the run");
         ImGui.TextColored(Muted, "/moirai config     open settings");
         ImGui.TextColored(Muted, "/moirai debug      copy a debug report for bug reports");
+        ImGui.TextColored(Muted, "/moirai record     save the last minute of the run for bug reports");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Source and issues");
@@ -247,7 +252,10 @@ public sealed class ConfigWindow : Window
         ImGui.TextColored(Muted, "Ships through the Olympus plugin repository.");
         if (ImGui.SmallButton("Copy debug report")) _plugin.CopyDebugReport();
         ImGui.SameLine();
-        ImGui.TextColored(Muted, "Paste it into a bug report: every fate in the zone and how Moirai reads it.");
+        ImGui.TextColored(Muted, "Paste it into a bug report: every fate in the zone, how Moirai reads it, and a status timeline.");
+        if (ImGui.SmallButton("Save recording")) _plugin.SaveRecording("manual");
+        ImGui.SameLine();
+        ImGui.TextColored(Muted, "Attach it to a bug report: the last minute of the run, replayable in Moirai's tests.");
     }
 
     private static void Dependency(string name, bool ok, string okText, string badText)

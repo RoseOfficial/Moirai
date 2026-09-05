@@ -26,6 +26,16 @@ public static class DebugReport
         sb.AppendLine($"skipNpcStart={plugin.Config.SkipNpcStartFates} navmesh={plugin.NavmeshReady} combat={plugin.CombatBackendLoaded} combatActive={plugin.CombatBackendActive?.ToString() ?? "unknown"} inCombat={snap?.Player.InCombat.ToString() ?? "?"} snapshot={(snap is null ? "none" : "ok")}");
         sb.AppendLine($"canMount={snap?.Player.CanMount.ToString() ?? "?"} canFly={snap?.Player.CanFly.ToString() ?? "?"} mounted={snap?.Player.IsMounted.ToString() ?? "?"}");
         sb.AppendLine($"visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
+
+        var timeline = plugin.Timeline.Entries;
+        if (timeline.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("status timeline (newest last):");
+            foreach (var (epoch, status) in timeline)
+                sb.AppendLine($"  {DateTimeOffset.FromUnixTimeSeconds(epoch).ToLocalTime():HH:mm:ss}  {status}");
+        }
+
         sb.AppendLine();
         sb.AppendLine("fates: game fields | sheet | moirai");
 

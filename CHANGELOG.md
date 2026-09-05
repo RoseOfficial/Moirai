@@ -3,12 +3,18 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.10 — 2026-09-05
+
+### Added
+- Recordings for bug reports. While a run is on, Moirai keeps the last minute of what it saw and decided on every tick, in memory. `/moirai record`, or the new button on the About tab, saves it to the plugin's config folder as a small `.json.gz` file, and a run that stops on its own (stuck, death cap, a plugin gone) saves one without being asked. A recording replays through Moirai's planner in the test suite, tick for tick, so the exact decision that went wrong can be reproduced and fixed without the game. It holds positions, ids, and counts, no names. A switch on the General tab turns it off
+- The debug report carries a timeline of the last fifty status changes with the time of each, which is usually enough to see where a run went wrong
+<!-- LATEST-END -->
+
 ## v0.3.9 — 2026-09-05
 
 ### Fixed
 - NPC-started FATEs and collect hand-ins no longer depend on luck. Nothing in Moirai confirmed the FATE-start prompt or advanced the dialogue behind it, and the busy guard held the run while any window was open, so both only ever worked when TextAdvance happened to be installed and set up. TextAdvance is now a stated requirement, shown beside vnavmesh and RotationSolver in the overlay and the About tab: Moirai takes its external control for the run so Talk windows and the hand-in window advance on their own, and releases it at Stop. The FATE-start prompt, which TextAdvance never confirms, is confirmed by Moirai itself, and only right after Moirai talked to the starter; a prompt open at any other time is left alone. After confirming, Moirai waits for the FATE to open instead of talking to the starter again
 - A required plugin going away mid-run is no longer silent. The run pauses with the reason in the overlay and resumes when the plugin is back; RotationSolver or TextAdvance missing for a minute stops the run with the reason. vnavmesh not being ready pauses for as long as it takes, since a mesh may still be building
-<!-- LATEST-END -->
 
 ## v0.3.8 — 2026-09-05
 
