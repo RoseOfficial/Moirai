@@ -139,6 +139,12 @@ public sealed class Director(
                 return new(new EquipWatch(), "equipping the Yo-kai Watch"); // E1
             case EnsureMinion m:
                 return new(new SummonMinion(m.MinionId), "summoning minion");   // E3
+            case BuyMinion b:
+                if (RewardLatch.IsPending)
+                    return new(new Hold(1000), "waiting for fate rewards"); // D6: the trip is a zone change
+                CurrentFate = null;
+                Phase = RunPhase.SelectingFate;
+                return new(new AcquireMinion(b.MinionId, b.MinionItemId, b.MedalCost), "buying minion"); // E9
             case MoveToTerritory t:
                 if (RewardLatch.IsPending)
                     return new(new Hold(1000), "waiting for fate rewards"); // D6

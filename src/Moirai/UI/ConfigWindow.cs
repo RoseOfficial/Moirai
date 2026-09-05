@@ -182,7 +182,26 @@ public sealed class ConfigWindow : Window
                 ImGui.TextUnformatted(y.Name);
             }
         }
-        Hint("Minions are bought from Nohi at the Gold Saucer with regular medals; the run stops with a shopping list when nothing left is farmable.");
+        ImGui.Separator();
+        var autoBuy = c.YokaiAutoBuy;
+        if (ImGui.Checkbox("Buy the next minion from Nohi when the medals cover it", ref autoBuy)) { c.YokaiAutoBuy = autoBuy; dirty = true; }
+        Hint("Teleports to the Gold Saucer, walks to Nohi, and buys by menu index. A failure says so in chat and turns this off for the run; the run then stops with a shopping list when nothing is farmable.");
+        if (c.YokaiAutoBuy)
+        {
+            var path = string.Join(",", c.YokaiNohiMenuPath);
+            ImGui.SetNextItemWidth(160);
+            if (ImGui.InputText("Nohi menu path (entry indices)", ref path, 32))
+            {
+                var parsed = path.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : -1).Where(n => n >= 0).ToList();
+                if (parsed.Count > 0) { c.YokaiNohiMenuPath = parsed; dirty = true; }
+            }
+            Hint("The entries picked, in order, from talking to Nohi to the exchange window. /moirai debug with his menu open lists them with their indices.");
+            var offset = c.YokaiShopIndexOffset;
+            ImGui.SetNextItemWidth(160);
+            if (ImGui.InputInt("Exchange list offset", ref offset)) { c.YokaiShopIndexOffset = offset; dirty = true; }
+            Hint("Added to the minion's roster position when picking the exchange row; leave at 0 unless a report shows the list starts elsewhere.");
+        }
     }
 
     private void DrawSelection(Configuration c, ref bool dirty)

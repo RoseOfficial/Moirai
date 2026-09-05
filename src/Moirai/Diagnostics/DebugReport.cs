@@ -29,6 +29,15 @@ public static class DebugReport
         sb.AppendLine($"yokai={plugin.Config.YokaiEnabled} minion={snap?.Player.ActiveMinionId?.ToString() ?? "none"} watchEquipped={snap?.Player.WatchEquipped.ToString() ?? "?"} watchOwned={snap?.Player.WatchOwned.ToString() ?? "?"} ownedMinions={snap?.OwnedMinions?.Count.ToString() ?? "?"}");
         sb.AppendLine($"rotation={(plugin.Config.RotationZones.Count == 0 ? "this zone only" : string.Join(",", plugin.Config.RotationZones))} quiet={plugin.Config.RotateWhenQuietSeconds}s");
         sb.AppendLine($"visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
+        sb.AppendLine($"purchase: {plugin.Purchaser.DebugState} status='{plugin.Purchaser.Status}'");
+        foreach (var name in Execution.MinionPurchaser.MenuAddons.Concat(Execution.MinionPurchaser.ShopAddons).Append(Execution.MinionPurchaser.ShopDialogAddon))
+        {
+            var values = GameEx.AddonValues(name);
+            if (values.Count == 0) continue;
+            sb.AppendLine($"window {name} values:");
+            foreach (var line in values.Take(200))
+                sb.AppendLine($"  {line}");
+        }
 
         var timeline = plugin.Timeline.Entries;
         if (timeline.Count > 0)

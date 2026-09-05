@@ -17,7 +17,8 @@ public sealed record WorldSnapshot(
     bool TextAdvanceReady = true, // D8: TextAdvance is loaded (it drives Talk and hand-in windows)
     bool DodgeReady = false,      // H1: the dodge layer (BossMod Reborn) is loaded
     bool Danger = false,          // H2: the dodge layer is steering us or a marked zone is about to go off
-    IReadOnlySet<uint>? OwnedMinions = null) // §8: Companion row ids unlocked; null when unknown
+    IReadOnlySet<uint>? OwnedMinions = null, // §8: Companion row ids unlocked; null when unknown
+    bool AutoBuyReady = true)                // E9: the shell's purchaser has not failed this run
 {
     public int CountOf(uint itemId) => ItemCounts.TryGetValue(itemId, out var n) ? n : 0;
 

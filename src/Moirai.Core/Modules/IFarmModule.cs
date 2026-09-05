@@ -9,6 +9,7 @@ public sealed record MoveToTerritory(ushort TerritoryId) : ModuleDirective;
 public sealed record StopSession(StopReason Reason, string Summary) : ModuleDirective;
 public sealed record EnsureMinion(uint MinionId) : ModuleDirective; // E3: summon this yokai's minion
 public sealed record EnsureWatch : ModuleDirective;                 // E1: wear the Yo-kai Watch
+public sealed record BuyMinion(uint MinionId, uint MinionItemId, int MedalCost) : ModuleDirective; // E9
 
 // What the Director tells the module each tick besides the snapshot: how long selection has
 // come up empty in this zone (G6), which is the module's cue to move on, and whether this is a

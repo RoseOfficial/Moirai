@@ -40,11 +40,12 @@ public static class TestData
         IReadOnlyDictionary<uint, int>? items = null,
         bool navmeshReady = true, bool lifestreamBusy = false,
         DialogKind dialog = DialogKind.None, bool combatReady = true, bool textAdvanceReady = true,
-        bool dodgeReady = false, bool danger = false, IReadOnlySet<uint>? ownedMinions = null)
+        bool dodgeReady = false, bool danger = false, IReadOnlySet<uint>? ownedMinions = null,
+        bool autoBuyReady = true)
         => new(now, nowMs, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
                items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy,
-               dialog, combatReady, textAdvanceReady, dodgeReady, danger, ownedMinions);
+               dialog, combatReady, textAdvanceReady, dodgeReady, danger, ownedMinions, autoBuyReady);
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float y = 0, float z = 100, float hitbox = 2f,

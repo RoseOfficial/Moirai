@@ -3,11 +3,16 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.1 — 2026-09-05
+
+### Added
+- Buying yokai minions from Nohi, off by default, switched on from the Yo-kai tab. When the next yokai in the list is not owned and the regular medals cover it, one medal for the first event minion and three after, the run teleports to the Gold Saucer, walks to Nohi, goes through his menu by entry index, buys the minion from the exchange window by its position, confirms, closes the window, and uses the item to learn it, then goes back to farming. Nothing reads menu text. A step that does not finish in twenty seconds fails with a chat line, turns auto-buy off for the run, and leaves the shopping list stop in place. The menu path and the exchange list offset are settings, and `/moirai debug` with any of Nohi's windows open lists every entry with its index, which is how a wrong index gets pinned from a report
+<!-- LATEST-END -->
+
 ## v0.4.0 — 2026-09-05
 
 ### Added
 - Yo-kai Watch event mode, first cut. A new Yo-kai tab turns it on and holds the farming order over the seventeen yokai, each with its legendary medal count and whether its minion is owned. The run takes the first yokai under the cap whose minion is owned, summons that minion in a settled moment, farms its designated zones in turn through the zone rotation, moves on at the cap, and stops with a per-yokai summary once every listed yokai is capped, or with a shopping list when nothing is farmable until minions are bought. The Yo-kai Watch is equipped from the bags when owned, since it earns regular medals; legendary medals need the minion, so a missing watch is a note on the overlay, not a stop. A minion that never shows up is given up on after twenty seconds and the next yokai taken. The overlay shows the active yokai and its count, and recordings carry the roster. Buying minions from Nohi is not automated yet
-<!-- LATEST-END -->
 
 ## v0.3.17 — 2026-09-05
 

@@ -22,6 +22,9 @@ public sealed class Configuration : IPluginConfiguration
     public List<uint> YokaiPriority { get; set; } = [];
     public int YokaiCap { get; set; } = 10;
     public bool YokaiAutoEquipWatch { get; set; } = true;
+    public bool YokaiAutoBuy { get; set; }                     // E9
+    public List<int> YokaiNohiMenuPath { get; set; } = [0];    // E9: menu entry indices to reach the exchange
+    public int YokaiShopIndexOffset { get; set; }              // E9: added to the roster position in the exchange list
 
     // Selection gates and ranking (spec §4)
     public int MinTimeLeftSeconds { get; set; } = 180;

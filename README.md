@@ -60,8 +60,9 @@ alongside Olympus and Komos.
 
 ## What it does not do (yet)
 
-- Buying yokai minions from Nohi at the Gold Saucer is manual; the run tells
-  you what to buy.
+- Buying yokai minions from Nohi is off by default. Switched on, it works by
+  menu index and fails loudly rather than guessing; the run then tells you
+  what to buy.
 - No food, gear repair, or gemstone shopping.
 - Continuation chains are not wired yet, so a FATE's follow-up is found through
   the normal selection rather than waited for.

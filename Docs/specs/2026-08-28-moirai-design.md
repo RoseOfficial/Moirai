@@ -165,7 +165,9 @@ Rotation logic (pure, in the module; implemented in v0.4.0 as E1–E8):
 5. Farm FATEs there (core loop). Regular medals accrue anywhere; legendary medals only in designated zones — the module only ever farms designated zones for the active yokai.
 6. On cap: advance to the next yokai (announce progress). All capped → stop with a session summary (per-yokai counts, FATEs done, elapsed time).
 
-Buying minions from Nohi and vendor turn-ins (weapons, mount) remain manual in this cut; the run stops with the shopping list when nothing is farmable (E5). The module surfaces the active yokai's count and its notes in the overlay (§10).
+7. Buying (E9, off by default): an unowned yokai whose price the regular medals cover (one for the first event minion, three after, as a hint; the shop is the authority) is bought before it is skipped. The shell's purchaser runs outside the busy guard: teleport to the Gold Saucer, walk to Nohi (ENpcResident 1017247/1017528, found in view or by his Level-sheet placement), interact, TextAdvance carries the talk, the menu entries are picked by a configured index path, the exchange row by the minion's roster position plus a configured offset, the dialog or yes/no confirmed, the window closed, the item used to learn the minion. Nohi's only handler is a Story row, so his menu order is not in the sheets: the debug report dumps every open menu and exchange window value by value, and a report pins the indices. Any step past 20 s fails with a chat line and switches auto-buy off for the run (`AutoBuyReady`), so the shopping list stop (E5) takes over.
+
+Vendor turn-ins (weapons, mount) remain manual. The module surfaces the active yokai's count and its notes in the overlay (§10).
 
 ---
 
@@ -326,6 +328,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - E5. On cap: advance and announce; all capped → stop with summary.
 - E6. Medal counts read by item id from inventory each tick (no cached assumptions across hand-ins).
 - E7. The active yokai's designated zones are farmed as a zone rotation (G1–G5); a new active yokai gets its own rotation. Until then the module sat in the first designated zone.
+- E9. Auto-buy: with the switch on and the purchaser not failed, an unowned yokai is bought when the regular medals cover the price hint (1 for the first event minion, 3 after); otherwise it is skipped and listed. The buy directive becomes an intent for the shell's purchaser, held while a payout is pending (D6); the purchaser picks menus and rows by index only, and a failure switches auto-buy off for the run.
 - E8. The watch is optional (legendary medals need the minion, not the watch): equipped from the bags when owned, judged by the equipped slot rather than an item count, given up on after a 10 s grace, noted on the overlay. Summons and equips are asked for in settled moments only (the Director's `ModuleContext.Settled`), and a minion that never appears through a 20 s settled grace is given up on for the session.
 
 ## Appendix B — Verified dependency IPC surface

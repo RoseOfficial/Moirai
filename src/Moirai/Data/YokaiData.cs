@@ -44,6 +44,18 @@ public static class YokaiData
         new(393, "Damona", 30806, Stormblood, MinionItemId: 30880),
     ];
 
+    // Nohi, the medal-exchange vendor at the Gold Saucer: two ENpcResident rows carry the name
+    public const ushort GoldSaucerTerritory = 144;
+    public static IReadOnlySet<uint> NohiNpcIds { get; } = new HashSet<uint> { 1017247, 1017528 };
+
+    // E9: the exchange window lists the minions in roster order; the Yo-kai tab holds an offset
+    public static int ShopIndexOf(uint minionItemId)
+    {
+        for (var i = 0; i < Roster.Count; i++)
+            if (Roster[i].MinionItemId == minionItemId) return i;
+        return -1;
+    }
+
     public static Yokai? ByMinion(uint minionId)
     {
         foreach (var y in Roster)

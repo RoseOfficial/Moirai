@@ -19,4 +19,6 @@ public sealed class YokaiConfig
     public bool AutoEquipWatch { get; init; } = true;         // E1
     public int QuietSeconds { get; init; } = 120;             // E7: rotation within the yokai's zones
     public int MoveTimeoutSeconds { get; init; } = 60;
+    public uint MedalItemId { get; init; }                    // E9: the regular medal minions are bought with
+    public bool AutoBuy { get; init; }                        // E9: ask the shell to buy the next unowned minion
 }

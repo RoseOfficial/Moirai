@@ -8,7 +8,7 @@ namespace Moirai.Execution;
 
 // Turns planner intents into game and IPC calls. Idempotent per tick: re-issuing
 // an in-flight intent is a no-op, and every game call is throttled.
-public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIpc dodge, Configuration cfg)
+public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIpc dodge, MinionPurchaser purchaser, Configuration cfg)
 {
     private Vector3? _lastDest;
 
@@ -104,6 +104,10 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIp
 
             case EquipWatch:
                 if (Throttle.Try("moirai.equipwatch", 3000)) GameEx.EquipWristItem(Data.YokaiData.WatchItemId); // E1
+                break;
+
+            case AcquireMinion a:
+                purchaser.Begin(a.MinionId, a.MinionItemId); // E9: idempotent while a purchase runs; ticked by the plugin
                 break;
 
             case AcceptReturn:

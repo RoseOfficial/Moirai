@@ -32,6 +32,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly CombatIpc _combat;
     private readonly TextAdvanceIpc _textAdvance;
     private readonly DodgeIpc _dodge;
+    private readonly MinionPurchaser _purchaser;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
     private Recorder? _recorder;   // §12: the last minute of the run, when the setting is on
@@ -48,6 +49,7 @@ public sealed class Plugin : IDalamudPlugin
     public bool? CombatBackendActive => _combat.IsActive();
     public bool TextAdvanceLoaded => _textAdvance.Installed;
     public bool DodgeLoaded => _dodge.Installed;
+    public MinionPurchaser Purchaser => _purchaser;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -58,9 +60,10 @@ public sealed class Plugin : IDalamudPlugin
         _combat = new CombatIpc();
         _textAdvance = new TextAdvanceIpc();
         _dodge = new DodgeIpc();
-        _executor = new IntentExecutor(_navmesh, _combat, _dodge, Config);
+        _purchaser = new MinionPurchaser(_navmesh, Config);
+        _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, Config);
         _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(),
-            [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds);
+            [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds, _purchaser);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -99,6 +102,7 @@ public sealed class Plugin : IDalamudPlugin
         }
         Timeline = new StatusTimeline();
         _savedOnStop = false;
+        _purchaser.Reset();
 
         Director = DirectorFactory.Create(settings, module: null, random, landing, w => ZoneFlightAllowed(w.TerritoryId)); // the settings pick the module
         _executor.Reset();
@@ -154,6 +158,8 @@ public sealed class Plugin : IDalamudPlugin
             WatchItemId = YokaiData.WatchItemId,
             AutoEquipWatch = Config.YokaiAutoEquipWatch,
             QuietSeconds = Config.RotateWhenQuietSeconds,
+            MedalItemId = YokaiData.MedalItemId,
+            AutoBuy = Config.YokaiAutoBuy,
         });
 
     private static bool ZoneFlightAllowed(ushort territory) => !ZoneData.NoFlyTerritories.Contains(territory);
@@ -192,6 +198,7 @@ public sealed class Plugin : IDalamudPlugin
         _combat.ResetCache();
         _dodge.SetAi(false);
         _dodge.Reset();
+        _purchaser.Reset();
         _textAdvance.Release();
     }
 
@@ -230,6 +237,15 @@ public sealed class Plugin : IDalamudPlugin
             return;
 
         _textAdvance.Reassert(); // it drops external control on its own after a zone change
+        if (_purchaser.IsActive)
+        {
+            // E9: a purchase is all game windows, so it runs here, outside the planner's busy guard;
+            // the planner keeps asking for it and its intent is a no-op until the purchase ends
+            _purchaser.Tick();
+            LastStatus = _purchaser.Status;
+            Timeline.Observe(snapshot.NowEpoch, LastStatus);
+            return;
+        }
         var output = _recorder is { } recorder
             ? recorder.Tick(director, snapshot, ZoneFlightAllowed(snapshot.TerritoryId))
             : director.Tick(snapshot);

@@ -881,6 +881,34 @@ public class DirectorTests
         Assert.Equal(RunPhase.Traveling, d.Phase);
     }
 
+    [Fact] // E9 at the Director: a buy is an intent for the shell's purchaser, held while a payout is pending
+    public void E9_buy_directive_becomes_an_acquire_intent_after_any_payout()
+    {
+        var settings = YokaiSettings() with
+        {
+            Yokai = new YokaiConfig
+            {
+                Enabled = true,
+                Roster = [new Yokai(200, "Jibanyan", 15168, [148, 135, 141], MinionItemId: 15195)],
+                Priority = [200],
+                MedalItemId = 15167,
+                AutoBuy = true,
+            },
+        };
+        var d = Moirai.Core.Replay.DirectorFactory.Create(settings, null, new FixedRandom(0.5, 0.5), new FlatGround());
+        d.Start();
+        d.RewardLatch.Arm(9);
+        var world = TestData.World(territory: 148, fates: [TestData.Fate(id: 9, phase: FatePhase.Ended, progress: 100)],
+            items: new Dictionary<uint, int> { [15167] = 1 }, ownedMinions: new HashSet<uint>());
+        Assert.IsType<Hold>(d.Tick(world).Intent); // fate 9 still in the table: payout pending
+
+        var paid = TestData.World(territory: 148, items: new Dictionary<uint, int> { [15167] = 1 }, ownedMinions: new HashSet<uint>());
+        var buy = d.Tick(paid);
+        var acquire = Assert.IsType<AcquireMinion>(buy.Intent);
+        Assert.Equal(15195u, acquire.MinionItemId);
+        Assert.Equal("buying minion", buy.Status);
+    }
+
     [Fact] // E1 at the Director: the watch is equipped when settled, and the module is reachable for the overlay
     public void E1_watch_is_equipped_when_settled()
     {

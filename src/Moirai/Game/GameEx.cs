@@ -180,6 +180,69 @@ public static unsafe class GameEx
         addon->FireCallbackInt(0);
         return true;
     }
+
+    public static bool AddonReady(string name) => ReadyAddon(name) != null;
+
+    // E9: the game's own callback surface for a window: a list of ints, the way the field scripts
+    // drive menus and exchange windows (an entry index, or 0 / row / count for a purchase)
+    public static bool FireAddonCallback(string name, params int[] values)
+    {
+        var addon = ReadyAddon(name);
+        if (addon == null) return false;
+        var atk = stackalloc AtkValue[values.Length];
+        for (var i = 0; i < values.Length; i++)
+            atk[i].SetInt(values[i]);
+        addon->FireCallback((uint)values.Length, atk, false);
+        return true;
+    }
+
+    public static bool CloseAddon(string name)
+    {
+        var addon = ReadyAddon(name);
+        if (addon == null) return false;
+        addon->Close(true);
+        return true;
+    }
+
+    // Diagnostics: every value a window carries, so a report pins menu entries and shop rows
+    public static List<string> AddonValues(string name)
+    {
+        var lines = new List<string>();
+        var addon = ReadyAddon(name);
+        if (addon == null) return lines;
+        for (var i = 0; i < addon->AtkValuesCount; i++)
+        {
+            var v = addon->AtkValues[i];
+            string text;
+            try { text = v.GetValueAsString(); }
+            catch { text = "?"; }
+            if (!string.IsNullOrEmpty(text)) lines.Add($"[{i}] {v.Type} {text}");
+        }
+        return lines;
+    }
+
+    // E9: the first event NPC in view whose base id is one of the given
+    public static IGameObject? FindNpc(IReadOnlySet<uint> baseIds)
+    {
+        foreach (var obj in Svc.Objects)
+            if (obj is { ObjectKind: Dalamud.Game.ClientState.Objects.Enums.ObjectKind.EventNpc } && baseIds.Contains(obj.BaseId))
+                return obj;
+        return null;
+    }
+
+    // E9: an NPC's placement from the Level sheet (type 8 rows link to ENpcBase), for walking to
+    // one that is not in view yet; null when the sheet has none
+    public static (ushort Territory, System.Numerics.Vector3 Position)? NpcPlacement(IReadOnlySet<uint> baseIds)
+    {
+        var sheet = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Level>();
+        if (sheet is null) return null;
+        foreach (var row in sheet)
+        {
+            if (row.Type != 8 || !baseIds.Contains(row.Object.RowId)) continue;
+            return ((ushort)row.Territory.RowId, new System.Numerics.Vector3(row.X, row.Y, row.Z));
+        }
+        return null;
+    }
 }
 
 public static class Throttle

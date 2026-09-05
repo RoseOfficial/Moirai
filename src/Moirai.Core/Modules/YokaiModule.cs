@@ -27,7 +27,8 @@ public sealed class YokaiModule(YokaiConfig cfg) : IFarmModule
     {
         var p = w.Player;
 
-        // E2/E6: fresh counts every call; the first under the cap, owned and summonable, is the target
+        // E2/E6: fresh counts every call; the first under the cap, owned and summonable, is the target.
+        // E9: an unowned one is bought first when auto-buy is on and the medals cover it.
         Yokai? active = null;
         var shopping = new List<string>();
         foreach (var y in InPriorityOrder())
@@ -36,6 +37,13 @@ public sealed class YokaiModule(YokaiConfig cfg) : IFarmModule
             if (_unsummonable.Contains(y.MinionId)) continue;
             if (!Owned(w, y))
             {
+                var price = PriceFor(w);
+                if (cfg.AutoBuy && w.AutoBuyReady && y.MinionItemId != 0 && cfg.MedalItemId != 0
+                    && w.CountOf(cfg.MedalItemId) >= price)
+                {
+                    Status = new YokaiStatus(y.Name, 0, cfg.LegendaryCap, Note(p));
+                    return new BuyMinion(y.MinionId, y.MinionItemId, price);
+                }
                 shopping.Add(y.Name);
                 continue;
             }
@@ -102,6 +110,11 @@ public sealed class YokaiModule(YokaiConfig cfg) : IFarmModule
 
     private static bool Owned(WorldSnapshot w, Yokai y)
         => w.OwnedMinions is null || w.OwnedMinions.Contains(y.MinionId); // null: ownership unknown, so try
+
+    // E9: the event's price rule as a hint, one medal for the first event minion and three after;
+    // the shop itself is the authority and a refusal fails the purchase cleanly
+    private int PriceFor(WorldSnapshot w)
+        => w.OwnedMinions is { } owned && !cfg.Roster.Any(y => owned.Contains(y.MinionId)) ? 1 : 3;
 
     private IEnumerable<Yokai> InPriorityOrder()
     {

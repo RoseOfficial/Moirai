@@ -135,6 +135,58 @@ public class YokaiModuleTests
         Assert.IsType<FarmHere>(step);
     }
 
+    private const uint Medal = 15167;
+    private static readonly Yokai JibanyanBuyable = new(200, "Jibanyan", 15168, [148, 135, 141], MinionItemId: 15195);
+    private static readonly Yokai KomasanBuyable = new(201, "Komasan", 15169, [152, 138, 145], MinionItemId: 15196);
+
+    private static YokaiConfig BuyCfg() => new()
+    {
+        Enabled = true,
+        Roster = [JibanyanBuyable, KomasanBuyable],
+        Priority = [200, 201],
+        LegendaryCap = 10,
+        WatchItemId = Watch,
+        MedalItemId = Medal,
+        AutoBuy = true,
+    };
+
+    [Fact] // E9: an unowned yokai is bought when the medals cover it; the first event minion costs one
+    public void E9_buys_the_next_unowned_yokai_when_affordable()
+    {
+        var w = TestData.World(territory: 148, player: TestData.Player(watchEquipped: true, watchOwned: true),
+            items: new Dictionary<uint, int> { [Medal] = 1 }, ownedMinions: new HashSet<uint>());
+        var buy = Assert.IsType<BuyMinion>(new YokaiModule(BuyCfg()).Next(w, Settled()));
+        Assert.Equal(200u, buy.MinionId);
+        Assert.Equal(15195u, buy.MinionItemId);
+        Assert.Equal(1, buy.MedalCost);
+    }
+
+    [Fact] // E9: every later minion costs three, and an unaffordable one is skipped for the next owned
+    public void E9_later_minions_cost_three_and_unaffordable_ones_are_skipped()
+    {
+        var owned = new HashSet<uint> { 201 };
+        var rich = TestData.World(territory: 148, player: TestData.Player(watchEquipped: true, watchOwned: true),
+            items: new Dictionary<uint, int> { [Medal] = 3 }, ownedMinions: owned);
+        Assert.Equal(3, Assert.IsType<BuyMinion>(new YokaiModule(BuyCfg()).Next(rich, Settled())).MedalCost);
+
+        var poor = TestData.World(territory: 152, player: TestData.Player(watchEquipped: true, watchOwned: true, activeMinionId: 201),
+            items: new Dictionary<uint, int> { [Medal] = 2 }, ownedMinions: owned);
+        var m = new YokaiModule(BuyCfg());
+        Assert.IsType<FarmHere>(m.Next(poor, Settled()));
+        Assert.Equal("Komasan", m.Status!.Name);
+    }
+
+    [Fact] // E9: with auto-buy off, or after the purchaser has failed, the shopping list is the stop as before
+    public void E9_no_purchase_without_the_switch_or_after_a_failure()
+    {
+        var w = TestData.World(territory: 148, items: new Dictionary<uint, int> { [Medal] = 9 }, ownedMinions: new HashSet<uint>());
+        var off = new YokaiModule(new YokaiConfig { Enabled = true, Roster = [JibanyanBuyable], Priority = [200], MedalItemId = Medal, AutoBuy = false });
+        Assert.Equal(StopReason.MinionsMissing, Assert.IsType<StopSession>(off.Next(w, Settled())).Reason);
+
+        var failed = w with { AutoBuyReady = false };
+        Assert.Equal(StopReason.MinionsMissing, Assert.IsType<StopSession>(new YokaiModule(BuyCfg()).Next(failed, Settled())).Reason);
+    }
+
     [Fact] // E6: counts come from the snapshot every call
     public void E6_counts_are_read_fresh_each_call()
     {

@@ -24,6 +24,7 @@ public sealed record ChangeZone(ushort TerritoryId) : Intent;
 public sealed record SummonCompanion(uint GreensItemId) : Intent;
 public sealed record SummonMinion(uint MinionId) : Intent; // E3
 public sealed record EquipWatch : Intent;                  // E1
+public sealed record AcquireMinion(uint MinionId, uint MinionItemId, int MedalCost) : Intent; // E9: the shell's purchaser
 public sealed record SetCompanionStance(uint StanceActionId) : Intent;
 public sealed record AcceptReturn : Intent;
 public sealed record SetCombat(bool Enabled, CombatMode Mode) : Intent;

@@ -12,7 +12,7 @@ namespace Moirai.Snapshot;
 public sealed class SnapshotBuilder(
     NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance, DodgeIpc dodge,
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
-    uint watchItemId, IReadOnlyList<uint> minionIds)
+    uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser)
 {
     private const long OwnedRecheckMs = 1000;
     private HashSet<uint> _ownedMinions = [];
@@ -97,7 +97,8 @@ public sealed class SnapshotBuilder(
             TextAdvanceReady: textAdvance.Installed,
             DodgeReady: dodge.Installed,
             Danger: dodge.Installed && dodge.Danger(),
-            OwnedMinions: OwnedMinions());
+            OwnedMinions: OwnedMinions(),
+            AutoBuyReady: !purchaser.HasFailed); // E9
     }
 
     // §8: which of the event minions are unlocked, rechecked once a second
