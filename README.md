@@ -21,11 +21,13 @@ alongside Olympus and Komos.
 - Mounts when the leg is worth it and a mount is available, flies where the
   zone's aether currents are attuned, and walks in zones whose geometry breaks
   flight pathing.
+- Teleports to an attuned aetheryte when that beats the ride by a margin you
+  set, and ranks FATEs by the same teleport-aware distance.
 - Recovers from stuck states through a bounded ladder: re-path, a new landing
-  point, then an escape (straight up when flying, otherwise a sideways nudge
-  with a jump). A FATE that stays out of reach is abandoned and skipped for the
-  session; the run stops with a stated reason only when the character is
-  wedged in place.
+  point, an escape (straight up when flying, otherwise a sideways nudge with a
+  jump), then a teleport to the nearest aetheryte and a fresh approach. A FATE
+  that stays out of reach is abandoned and skipped for the session; the run
+  stops with a stated reason only when the character is wedged in place.
 - Fights off stray aggro: anything that jumps you or your chocobo on the way to
   a FATE, or inside one between its waves, is targeted and killed where you
   stand before the run carries on. Mounted, it keeps riding and lets the mobs

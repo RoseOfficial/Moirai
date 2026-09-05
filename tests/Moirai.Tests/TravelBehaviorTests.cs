@@ -239,6 +239,63 @@ public class TravelBehaviorTests
         Assert.IsType<MountUp>(sut.Tick(Casting(5000), ctx).Intent);
     }
 
+    private static readonly Aetheryte NearFarFate = new(5, new Vector3(1900, 0, 0));
+
+    [Fact] // C17: an aetheryte route that beats the direct path by the penalty starts the leg with a teleport
+    public void C17_teleports_when_an_aetheryte_route_is_cheaper()
+    {
+        var fate = TestData.Fate(x: 2000, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var w = TestData.World(fates: [fate], aetherytes: [NearFarFate]);
+        var step = sut.Tick(w, Ctx(fate));
+        Assert.Equal(5u, Assert.IsType<TeleportTo>(step.Intent).AetheryteId);
+        Assert.Equal("teleporting", step.Note);
+    }
+
+    [Fact] // C17: a teleport that saves less than the penalty, or one asked for in combat, is not worth it
+    public void C17_keeps_the_direct_path_when_teleport_saves_too_little()
+    {
+        var fate = TestData.Fate(x: 300, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var tooClose = TestData.World(fates: [fate], aetherytes: [new Aetheryte(5, new Vector3(150, 0, 0))]);
+        Assert.IsType<MountUp>(sut.Tick(tooClose, Ctx(fate)).Intent);
+
+        var far = TestData.Fate(x: 2000, z: 0, radius: 20);
+        var inCombat = TestData.World(player: TestData.Player(inCombat: true), fates: [far], aetherytes: [NearFarFate]);
+        Assert.IsType<GoTo>(new TravelBehavior(new MovementConfig()).Tick(inCombat, Ctx(far)).Intent);
+    }
+
+    [Fact] // C17: once the player stands at the aetheryte the leg carries on from there
+    public void C17_continues_the_leg_after_landing()
+    {
+        var fate = TestData.Fate(x: 2000, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+        Assert.IsType<TeleportTo>(sut.Tick(TestData.World(nowMs: 0, fates: [fate], aetherytes: [NearFarFate]), ctx).Intent);
+        Assert.IsType<TeleportTo>(sut.Tick(TestData.World(nowMs: 3000, fates: [fate], aetherytes: [NearFarFate]), ctx).Intent);
+
+        var landed = TestData.World(nowMs: 12_000, player: TestData.Player(x: 1895, z: 3), fates: [fate], aetherytes: [NearFarFate]);
+        var step = sut.Tick(landed, ctx);
+        Assert.IsType<MountUp>(step.Intent); // a normal leg from the aetheryte: 100 y to ride
+        Assert.Equal(BehaviorStatus.Running, sut.Tick(landed with { NowMs = 14_500 }, ctx).Status); // sampler restarted on landing
+    }
+
+    [Fact] // C17: a teleport that never lands (no gil, refused) falls back to the direct path without a stall
+    public void C17_teleport_that_never_lands_falls_back_to_the_direct_path()
+    {
+        var fate = TestData.Fate(x: 2000, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+        WorldSnapshot Standing(long ms) => TestData.World(nowMs: ms, fates: [fate], aetherytes: [NearFarFate]);
+
+        Assert.IsType<TeleportTo>(sut.Tick(Standing(0), ctx).Intent);
+        Assert.IsType<TeleportTo>(sut.Tick(Standing(10_000), ctx).Intent);
+        Assert.IsType<TeleportTo>(sut.Tick(Standing(19_000), ctx).Intent);
+        var direct = sut.Tick(Standing(20_100), ctx);
+        Assert.IsType<MountUp>(direct.Intent);
+        Assert.Equal(BehaviorStatus.Running, sut.Tick(Standing(21_000), ctx).Status);
+    }
+
     [Fact] // C15: a mount that never takes is given up on; the leg is walked and the stall sampler starts fresh
     public void C15_mount_that_never_takes_falls_back_to_walking()
     {

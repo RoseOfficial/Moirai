@@ -69,8 +69,13 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, Configu
                 }
                 break;
 
-            case TeleportTo:
-                // v1 has no aetheryte projection; ChangeZone covers travel
+            case TeleportTo t:
+                // C17 and recovery rung 4: an in-zone teleport; the planner holds the intent until it lands
+                if (Throttle.Try("moirai.teleport", 8000))
+                {
+                    navmesh.Stop();
+                    ZoneTravel.TeleportToAetheryte(t.AetheryteId);
+                }
                 break;
 
             case ChangeZone z:

@@ -3,12 +3,22 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.11 — 2026-09-05
+
+### Added
+- Aetherytes are part of what Moirai sees: the current zone's attuned ones, with positions from the game's data. The "Distance, teleport-aware" ranking rung, which had nothing to work with until now, ranks a FATE by the cheaper of the direct path and a teleport to the aetheryte nearest it, and travel honors the same choice: a leg starts with a teleport when that beats the ride by more than the margin on the Movement tab, 200 yalms by default. A teleport that does not land within twenty seconds is given up on and the leg goes on directly
+- The recovery ladder's fourth rung works: a character that stays stuck teleports to the nearest attuned aetheryte and approaches the same FATE afresh; a further stall abandons the FATE as before
+- The debug report lists the aetherytes Moirai sees, with positions
+
+### Changed
+- A teleport the leg wants is held until the previous FATE's payout registers, like a zone change
+<!-- LATEST-END -->
+
 ## v0.3.10 — 2026-09-05
 
 ### Added
 - Recordings for bug reports. While a run is on, Moirai keeps the last minute of what it saw and decided on every tick, in memory. `/moirai record`, or the new button on the About tab, saves it to the plugin's config folder as a small `.json.gz` file, and a run that stops on its own (stuck, death cap, a plugin gone) saves one without being asked. A recording replays through Moirai's planner in the test suite, tick for tick, so the exact decision that went wrong can be reproduced and fixed without the game. It holds positions, ids, and counts, no names. A switch on the General tab turns it off
 - The debug report carries a timeline of the last fifty status changes with the time of each, which is usually enough to see where a run went wrong
-<!-- LATEST-END -->
 
 ## v0.3.9 — 2026-09-05
 

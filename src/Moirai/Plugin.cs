@@ -56,7 +56,7 @@ public sealed class Plugin : IDalamudPlugin
         _combat = new CombatIpc();
         _textAdvance = new TextAdvanceIpc();
         _executor = new IntentExecutor(_navmesh, _combat, Config);
-        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh, _combat, _textAdvance, [CompanionData.GysahlGreensItemId]);
+        _snapshots = new Snapshot.SnapshotBuilder(Config, _navmesh, _combat, _textAdvance, new Snapshot.AetheryteProjection(), [CompanionData.GysahlGreensItemId]);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -115,11 +115,13 @@ public sealed class Plugin : IDalamudPlugin
             SpecialBossJoinProgress = Config.SpecialBossJoinProgress,
             Priority = Config.NormalizedPriority(),
             Blacklist = Config.BlacklistedFates,
+            TeleportPenalty = Config.TeleportPenalty, // one margin for the A12 ranking and the C17 leg
         },
         new MovementConfig
         {
             MountLegThreshold = Config.MountLegThreshold,
             ArriveTolerance = Config.ArriveTolerance,
+            TeleportPenalty = Config.TeleportPenalty,
         },
         new EngageConfig
         {

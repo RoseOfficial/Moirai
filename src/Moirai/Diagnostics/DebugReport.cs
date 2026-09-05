@@ -91,6 +91,11 @@ public static class DebugReport
         if (snap is not null)
         {
             sb.AppendLine();
+            sb.AppendLine($"aetherytes attuned here: {snap.Aetherytes.Count}");
+            foreach (var a in snap.Aetherytes)
+                sb.AppendLine($"  #{a.Id} pos={Fmt(a.Position)} dist={Vector3.Distance(a.Position, snap.Player.Position):0}");
+
+            sb.AppendLine();
             sb.AppendLine($"objects seen (fate #{currentId?.ToString() ?? "none"}): {snap.Enemies.Count} enemies, {snap.Interactables.Count} interactables");
             foreach (var e in snap.Enemies)
                 sb.AppendLine($"  enemy id={e.Id} fate={e.FateId} maxHp={e.MaxHp} onUs={e.IsAttackingPlayer} peel={e.TargetsProtectedFriendly} dist={Vector3.Distance(e.Position, snap.Player.Position):0.0}");

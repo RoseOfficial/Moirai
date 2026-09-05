@@ -25,6 +25,7 @@ public sealed class Configuration : IPluginConfiguration
     public bool UseFlight { get; set; } = true;
     public float MountLegThreshold { get; set; } = 30f;
     public float ArriveTolerance { get; set; } = 4f;
+    public float TeleportPenalty { get; set; } = 200f; // A12/C17: an aetheryte route must beat the direct path by this
 
     // Combat (spec §5, C10)
     public float MeleeRange { get; set; } = 2.5f;

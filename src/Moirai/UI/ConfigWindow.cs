@@ -177,6 +177,10 @@ public sealed class ConfigWindow : Window
 
         var arrive = c.ArriveTolerance;
         if (ImGui.SliderFloat("Arrival tolerance (y)", ref arrive, 2f, 10f, "%.1f")) { c.ArriveTolerance = arrive; dirty = true; }
+
+        var penalty = c.TeleportPenalty;
+        if (ImGui.SliderFloat("Teleport when it saves more than (y)", ref penalty, 50f, 1000f, "%.0f")) { c.TeleportPenalty = penalty; dirty = true; }
+        Hint("A leg starts with a teleport to an attuned aetheryte when that beats the ride by this much. The teleport-aware ranking rung uses the same margin.");
     }
 
     private void DrawCombat(Configuration c, ref bool dirty)

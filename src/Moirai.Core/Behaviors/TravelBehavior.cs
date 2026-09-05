@@ -14,6 +14,9 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
     private bool _landing;      // a dismount has been issued at this dropoff and has not taken yet
     private long? _mountAskedMs; // when the current unbroken run of mount requests began
     private bool _walkLeg;      // C15: the mount never took within its budget; the leg is walked
+    private bool _teleportDecided; // C17: the aetheryte question is asked once per leg
+    private Aetheryte? _teleport;  // the aetheryte the leg starts from, until we stand there
+    private long _teleportAskedMs;
 
     public Vector3? CurrentDropoff { get; private set; }
     public bool RerollsExhausted => _rerolls >= MaxRerolls;
@@ -29,6 +32,28 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
             return new(new NoAction(), BehaviorStatus.Failed, "no landable point");
 
         var p = w.Player;
+
+        // C17: an attuned aetheryte whose route beats the direct path by the penalty starts the leg
+        // with a teleport (the ranking's A12 cost model, honored on the ground). Decided once per
+        // leg, never in combat; held until we stand at the aetheryte or the teleport is given up on.
+        if (!_teleportDecided)
+        {
+            _teleportDecided = true;
+            if (!p.InCombat && CheaperViaAetheryte(w, dropoff) is { } via)
+            {
+                _teleport = via;
+                _teleportAskedMs = w.NowMs;
+            }
+        }
+        if (_teleport is { } aetheryte)
+        {
+            var landed = Geometry.HorizontalDistance(p.Position, aetheryte.Position) <= cfg.TeleportArriveRadius;
+            if (!landed && w.NowMs - _teleportAskedMs < cfg.TeleportTimeoutMs)
+                return new(new TeleportTo(aetheryte.Id), BehaviorStatus.Running, "teleporting");
+            _teleport = null; // landed, or given up on: the leg goes on from wherever we stand
+            _stuck.Reset();
+        }
+
         var distToDrop = Vector3.Distance(p.Position, dropoff);
         var insideRing = fate.Contains(p.Position);
         var overDropoff = Geometry.HorizontalDistance(p.Position, dropoff) <= cfg.ArriveTolerance
@@ -97,6 +122,15 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
     // After a pause elsewhere (a stray fight) the sampler must not read the standstill as a stall
     public void Resume() => _stuck.Reset();
 
+    // Spec 7.2 rung 4: start the leg over from an aetheryte. The teleport is held like a C17 one.
+    public void RestartVia(Aetheryte aetheryte, long nowMs)
+    {
+        Reset();
+        _teleportDecided = true;
+        _teleport = aetheryte;
+        _teleportAskedMs = nowMs;
+    }
+
     public void Reset()
     {
         CurrentDropoff = null;
@@ -104,7 +138,26 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         _landing = false;
         _mountAskedMs = null;
         _walkLeg = false;
+        _teleportDecided = false;
+        _teleport = null;
         _stuck.Reset();
+    }
+
+    // C17/A12: the cheapest aetheryte to start from, or null when the direct path wins
+    private Aetheryte? CheaperViaAetheryte(WorldSnapshot w, Vector3 dropoff)
+    {
+        Aetheryte? best = null;
+        var bestCost = Vector3.Distance(w.Player.Position, dropoff);
+        foreach (var a in w.Aetherytes)
+        {
+            var cost = Vector3.Distance(a.Position, dropoff) + cfg.TeleportPenalty;
+            if (cost < bestCost)
+            {
+                bestCost = cost;
+                best = a;
+            }
+        }
+        return best;
     }
 
     // C3: randomized in-ring point resolved to the mesh floor; never the raw center

@@ -213,6 +213,8 @@ public sealed class Director(
         }
         if (step.Status == BehaviorStatus.Failed)
             return Recover(w);
+        if (step.Intent is TeleportTo && RewardLatch.IsPending)
+            return new(new Hold(1000), "waiting for fate rewards"); // D6: no teleport before the payout
         return new(step.Intent, step.Note);
     }
 
@@ -305,10 +307,11 @@ public sealed class Director(
                 var escape = _escape.Begin(w, contextFactory(w)); // C8/C14: held until its window is over
                 return new(escape.Intent, escape.Note);
             case RecoveryRung.ReturnToAetheryte:
+                // the same fate, a fresh leg from the nearest aetheryte; the ladder stands, so a
+                // later stall on this fate ends in D10 rather than in another loop through here
                 var nearest = w.Aetherytes.MinBy(a => Vector3.Distance(a.Position, w.Player.Position));
                 if (nearest is null) goto default;
-                CurrentFate = null;
-                Phase = RunPhase.SelectingFate;
+                travel.RestartVia(nearest, w.NowMs);
                 return new(new TeleportTo(nearest.Id), "recovery: returning to aetheryte");
             default:
                 return Exhausted(w);

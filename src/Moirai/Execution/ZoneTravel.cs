@@ -24,8 +24,12 @@ public static unsafe class ZoneTravel
             }
         }
         if (best == 0) return false;
+        return TeleportToAetheryte(best);
+    }
 
+    public static bool TeleportToAetheryte(uint aetheryteId)
+    {
         var telepo = Telepo.Instance();
-        return telepo != null && telepo->Teleport(best, 0);
+        return telepo != null && telepo->Teleport(aetheryteId, 0);
     }
 }

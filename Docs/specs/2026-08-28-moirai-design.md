@@ -126,7 +126,7 @@ Classification is ID-based from the Lumina `Fate` sheet — never by localized n
 
 ### 7.1 Movement
 
-vnavmesh for all pathing (`PathfindAndMoveCloseTo` with tolerance; floor/nearest-mesh queries for landable points). Mount when the leg exceeds a threshold and mounting is legal, asking for at most a bounded window before walking the leg (C15); fly when unlocked (the zone's aether currents attuned, C16) *and* the zone's data file permits (per-zone no-fly overrides exist because some zone geometry breaks flight pathing); sprint on foot. Landing targets are randomized points within the ring resolved to the mesh floor — never the raw center, which may be unlandable. Altitude-ceiling errors during flight fall back to teleporting.
+vnavmesh for all pathing (`PathfindAndMoveCloseTo` with tolerance; floor/nearest-mesh queries for landable points). Mount when the leg exceeds a threshold and mounting is legal, asking for at most a bounded window before walking the leg (C15); fly when unlocked (the zone's aether currents attuned, C16) *and* the zone's data file permits (per-zone no-fly overrides exist because some zone geometry breaks flight pathing); sprint on foot. Landing targets are randomized points within the ring resolved to the mesh floor — never the raw center, which may be unlandable. Altitude-ceiling errors during flight fall back to teleporting. A leg starts with a teleport when an attuned aetheryte's route beats the direct path by the teleport penalty (C17), the same cost model the A12 ranking uses; the teleport is held until the character stands at the aetheryte, or given up on after 20 s.
 
 ### 7.2 Recovery ladder
 
@@ -135,7 +135,7 @@ Bounded and escalating; every rung has a retry cap, and exhausting the ladder gi
 1. Re-path to the same destination: the running path is dropped first, so the next leg is issued as a fresh path (C13).
 2. Re-roll the destination (new landable point).
 3. Escape, held for a short window so the leg cannot overwrite it on the next tick (C14): mounted with flight, climb straight up; otherwise a sideways nudge of a few yalms with a jump (C8).
-4. Return to the nearest aetheryte and re-approach (needs the aetheryte projection; without it the rung falls through).
+4. Teleport to the nearest attuned aetheryte and re-approach the same FATE on a fresh leg; the ladder is not reset, so a later stall on that FATE abandons it (D10). Without an attuned aetheryte in the zone the rung falls through.
 5. Exhausted: the FATE is abandoned and skipped for the session, and selection goes on. Three exhaustions in a row without moving between them mean the character itself is wedged: stop with `StuckExhausted` (D10).
 
 Stuck detection: no meaningful movement over a sampling window while a path is running, with the sampler suppressed during the mount cast. A stall while mounted inside the ring is treated as a landing attempt before it counts as stuck, so the final descent never reads as a false positive.
@@ -252,7 +252,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - A9. Nearby override: inside or within ~50 y of an eligible ring → take it immediately.
 - A10. Post-completion grace window: prefer a chained/nearby spawn over a distant FATE for ~5 s.
 - A11. Tie-break by lowest FATE id (determinism).
-- A12. Teleport-cost model can prefer aetheryte + short hop over long direct flight.
+- A12. Teleport-cost model can prefer aetheryte + short hop over long direct flight. Aetherytes are the current zone's attuned ones, by row id, positioned from the sheet's `Level` link; the penalty is one setting shared with the C17 leg so ranking and travel never disagree.
 
 **Types**
 - B1. Collect: 7 items = full credit; batch hand-ins; partial hand-in when short.
@@ -287,6 +287,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - C14. The escape rung is held for its window (1.5 s) before the leg resumes with its stall sampler re-anchored; mounted with flight it climbs straight up. Without the hold the next travel tick overwrote it within half a second.
 - C15. Mounting is asked for at most 6 s in a row; then the leg is walked and the stall sampler starts fresh. A mount that took clears the budget, so a knock off the mount mid-leg mounts again. Without the budget a character who cannot mount stood still forever, the wait suppressing the sampler as a mount cast.
 - C16. Flight only where the zone's aether currents are all attuned, read from the game; C1's overrides apply on top. An airborne path a ground mount cannot follow fed the ladder on every leg.
+- C17. Teleport leg: at the start of a leg, an attuned aetheryte whose distance to the dropoff plus the teleport penalty is below the direct distance starts the leg with a teleport to it. Decided once per leg, never in combat; held with the stall sampler suppressed until the character stands within 25 y of the aetheryte, or given up on after 20 s (no gil, refused), after which the leg goes on from where it stands. A travel teleport is held while the reward latch is pending (D6).
 
 **Interrupts & lifecycle**
 - D1. Death overrides all states; accept return; teleport back if displaced; resume fresh.

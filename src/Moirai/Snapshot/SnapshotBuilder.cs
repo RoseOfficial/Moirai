@@ -10,7 +10,8 @@ namespace Moirai.Snapshot;
 
 // The one place game state is read. Everything downstream sees an immutable WorldSnapshot.
 public sealed class SnapshotBuilder(
-    Configuration cfg, NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance, IReadOnlyList<uint> trackedItems)
+    Configuration cfg, NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance,
+    AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems)
 {
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -75,7 +76,7 @@ public sealed class SnapshotBuilder(
             TerritoryId: territory,
             Player: player,
             Fates: fates,
-            Aetherytes: [],
+            Aetherytes: aetherytes.Get(territory),
             Enemies: enemies,
             Interactables: interactables,
             ItemCounts: items,

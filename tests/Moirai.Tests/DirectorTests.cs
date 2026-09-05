@@ -650,6 +650,63 @@ public class DirectorTests
         Assert.Equal("paused: TextAdvance is not loaded", output.Status);
     }
 
+    [Fact] // D6: a teleport the leg wants is held until the last fate's payout registers
+    public void D6_travel_teleport_is_held_while_rewards_are_pending()
+    {
+        var d = Sut();
+        d.Start();
+        d.RewardLatch.Arm(9);
+        var paidOut = TestData.Fate(id: 9, x: 0, z: 0, phase: FatePhase.Ended, progress: 100);
+        var far = TestData.Fate(id: 1, x: 2000, z: 0, radius: 20);
+        var aetheryte = new Aetheryte(5, new Vector3(1900, 0, 0));
+
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [paidOut, far], aetherytes: [aetheryte])).Status);
+        var held = d.Tick(TestData.World(fates: [paidOut, far], aetherytes: [aetheryte]));
+        Assert.IsType<Hold>(held.Intent);
+        Assert.Equal("waiting for fate rewards", held.Status);
+
+        var paid = d.Tick(TestData.World(fates: [far], aetherytes: [aetheryte])); // fate 9 left the table: paid out
+        Assert.IsType<TeleportTo>(paid.Intent);
+    }
+
+    // A wedged leg with an aetheryte too far to be worth a C17 teleport at the start
+    private static WorldSnapshot WedgedNearAetheryte(long ms, float x = 300)
+        => TestData.World(nowMs: ms, player: TestData.Player(x: x, z: 0, canMount: false),
+            fates: [TestData.Fate(id: 1, x: 100, z: 0, radius: 20)], aetherytes: [new Aetheryte(5, new Vector3(-500, 0, 0))]);
+
+    [Fact] // spec 7.2 rung 4: teleport to the nearest aetheryte and re-approach the same fate; a later stall abandons it
+    public void Rung_four_teleports_and_keeps_the_fate()
+    {
+        var d = Sut();
+        d.Start();
+        Assert.Equal("selected fate 1", d.Tick(WedgedNearAetheryte(0)).Status);
+
+        var back = DriveUntil(d, ms => WedgedNearAetheryte(ms), o => o.Status == "recovery: returning to aetheryte", 100);
+        Assert.Equal(1u, d.CurrentFate!.Id);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.Equal("teleporting", d.Tick(WedgedNearAetheryte(back + 100)).Status); // held, like any teleport leg
+
+        // the teleport never lands: after its timeout the leg resumes, stalls, and the ladder goes on to exhaustion
+        var gaveUp = DriveUntil(d, ms => WedgedNearAetheryte(ms), o => o.Status.StartsWith("recovery exhausted"), back + 200);
+        Assert.True(gaveUp > back + 20_000);
+        Assert.Equal(1, d.Ledger.Abandoned);
+    }
+
+    [Fact] // spec 7.2 rung 4: landed at the aetheryte, the leg goes on toward the same fate
+    public void Rung_four_leg_resumes_from_the_aetheryte_with_the_same_fate()
+    {
+        var d = Sut();
+        d.Start();
+        d.Tick(WedgedNearAetheryte(0));
+        var back = DriveUntil(d, ms => WedgedNearAetheryte(ms), o => o.Status == "recovery: returning to aetheryte", 100);
+        Assert.IsType<TeleportTo>(d.Tick(WedgedNearAetheryte(back + 100)).Intent);
+
+        var landed = d.Tick(WedgedNearAetheryte(back + 5000, x: -495));
+        Assert.Equal("moving", landed.Status);
+        Assert.Equal(1u, d.CurrentFate!.Id);
+        Assert.Equal(0, d.Ledger.Abandoned);
+    }
+
     [Fact] // C8/C1: mounted without flight, or in a no-fly zone, the escape is the ground one
     public void C8_mounted_without_flight_uses_the_ground_escape()
     {
