@@ -90,7 +90,7 @@ Selection is a **configurable priority ladder** compared criterion by criterion;
 - **TimeLeft**: more remaining time first, derived from the Eorzea-time model (24 Eorzea hours = 70 real minutes); unopened NPC FATEs (start time 0) assume a 900 s budget.
 - **Distance / DistanceTeleport**: straight-line distance, or `min(direct, nearest-aetheryte-to-FATE + teleport penalty)` with a configurable penalty (default 200) so a teleport-then-fly route can beat a long direct flight.
 
-Hard gates applied before ranking: time remaining below threshold (default 180 s) → skip; progress above threshold (default 80 %) → skip; zero-coordinate FATEs (not yet registered) → skip; blacklisted → skip; level above player + configured margin → skip; boss FATEs below their join threshold (§5) → skip. A nearby override (inside or within ~50 y of a ring) takes the nearest eligible FATE immediately.
+Hard gates applied before ranking: time remaining below threshold (default 180 s) → skip; progress above threshold (default 80 %) → skip; zero-coordinate FATEs (not yet registered) → skip; blacklisted → skip; died in this session (D9) → skip; level above player + configured margin → skip; boss FATEs below their join threshold (§5) → skip. A nearby override (inside or within ~50 y of a ring) takes the nearest eligible FATE immediately.
 
 Classification is ID-based from the Lumina `Fate` sheet — never by localized name. An event item (`EventItem`, `TurnInEventItem` or `ReqEventItem`) marks a collect FATE; otherwise the `Rule` column names collect (2), escort (3) and defend (4), and the plain kill rule (1) splits into battle and boss by the sheet's `Icon` column alone (60722 = boss). Higher rules are special content and fall back to the icon (B12).
 
@@ -99,7 +99,7 @@ Classification is ID-based from the Lumina `Fate` sheet — never by localized n
 ## 5. FATE type handling
 
 - **Battle** (default): engage the FATE's boss when one stands among adds (B13), otherwise the nearest FATE enemy; sticky targeting (keep target until dead/invalid); melee/ranged stop distances by job category; never path into hitboxes; while in combat, in-fight repositioning belongs to the dodge layer, not navigation.
-- **Boss**: join only at/above a progress threshold (default 0 %, higher configurable default for named special bosses) so the player never solo-tanks from zero. No navigation while the fight runs — the dodge layer owns movement.
+- **Boss**: join only at/above a progress threshold (default 0 %; a higher default for special bosses, the achievement and world bosses the sheet marks with its big-boss banner, B14) so the player never solo-tanks a special boss from zero. No navigation while the fight runs — the dodge layer owns movement.
 - **Continuations**: when a completed FATE chains, wait at the site for the follow-up; adopt it when it spawns; give up after 30 s.
 - **Defend**: peel logic — prefer enemies whose target is a protected friendly.
 - **Escort**: follow the objective NPC with follow/stop hysteresis; navigation owns movement (dodge-layer movement disabled); target scope locked to the FATE.
@@ -142,7 +142,7 @@ Stuck detection: no meaningful movement over a sampling window while a path is r
 
 ### 7.3 Death
 
-Accept the return prompt, wait through the revive, teleport back to the farming zone if displaced, and resume planning from scratch (current FATE forfeited, stats record a death — never a completion). A configurable deaths-per-session cap stops the run.
+Accept the return prompt, wait through the revive, teleport back to the farming zone if displaced, and resume planning from scratch (current FATE forfeited, stats record a death — never a completion). A FATE the player died inside is avoided for the rest of the session (D9). A configurable deaths-per-session cap stops the run.
 
 ### 7.4 Accounting
 
@@ -267,6 +267,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B11. NPC-start: a FATE still in its preparation phase, or with neither a start time nor progress, is unopened and therefore an NPC-start FATE whatever its sheet kind; the start-time field alone is not trusted because it can be set while a FATE still waits at its NPC. An unopened collect FATE opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC, and the Director re-dispatches when the current FATE's classification changes.
 - B12. Classification: the sheet's `Rule` column is not a kind enum. Rule 2 = collect, 3 = escort, 4 = defend; rule 1 covers both plain kill FATEs and bosses, and only the sheet `Icon` column (60722) tells a boss apart. Rules above 4 are special content (Diadem, Eureka, Bozja, Occult) and fall back to the icon. An event item marks collect whatever the rule, and a collect rule without an event item is still collect (B3).
 - B13. Boss with adds: the FATE sheet never names the objective (Revenge of the Worms is rule 1 with the plain kill icon, and Ulhuadshi's `BNpcBase` rank is 0 like its sandworms'), so the enemy whose max HP is at least twice the smallest in the FATE's pool is the objective and is engaged over the adds, after B7 peel and before whatever attacks the player. The combat backend is driven with the same order (RSR's AutoDuty entry point with the `HighMaxHP` targeting override; its default sorts by lowest HP, which in a boss fight is always an add), so the planner's pick and the backend's switches agree and B10's sticky rule holds.
+- B14. Special boss: the sheet has no kind for the achievement and world bosses. Lazy for You is rule 1 with the boss icon like Jack of All Trades, and its `SpecialFate` column is false (that column marks quest FATEs such as The Mandragoras). Every one of them opens with `ScreenImageAccept` row 37, the big-boss banner, where an ordinary FATE uses row 33: 72 rows, from Steel Reign and Lazy for You to The Serpentlord Seethes and Mascot Murder. A boss FATE with that banner is special and takes the special join threshold; a chain's battle or defend step opens with the banner too and keeps its own kind.
 
 **Movement**
 - C1. Per-zone no-fly override honored even when flight is unlocked.
@@ -291,6 +292,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - D6. Reward latch: no zone change/teleport until FATE payout registers.
 - D7. Every retry loop bounded; ladder exhaustion stops with a typed reason.
 - D8. Dependency lost mid-run → pause with reason if recoverable, stop if not.
+- D9. A FATE the player died in, or died inside the ring of on the way in, is not selected again in the same session, not even by the nearby override. A solo death leaves a boss at full health and progress at 0, so the ranking would send the player straight back (Lazy for You: three deaths to the cap in ten minutes, its 30-minute timer winning the TimeLeft rung every time). A death on the road does not condemn the FATE.
 
 **Yo-kai**
 - E1. Watch unequipped → equip if owned, else stop `WatchMissing`.

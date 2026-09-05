@@ -123,12 +123,12 @@ public class DirectorTests
         Assert.Equal(RunPhase.SelectingFate, d.Phase);
     }
 
-    [Fact] // D1/D2: death abandons the fate, counts once, resumes
+    [Fact] // D1/D2: a death on the road abandons the fate, counts once, and the fate is fair game again (D9)
     public void Death_abandons_counts_once_and_resumes()
     {
         var d = Sut();
         d.Start();
-        var fate = TestData.Fate(id: 1, x: 10, z: 0);
+        var fate = TestData.Fate(id: 1, x: 500, z: 0);
         d.Tick(TestData.World(fates: [fate]));
 
         var dead = TestData.World(player: TestData.Player(dead: true), fates: [fate]);
@@ -139,6 +139,37 @@ public class DirectorTests
 
         d.Tick(TestData.World(fates: [fate]));
         Assert.Equal(RunPhase.Traveling, d.Phase); // reselected and moving again
+    }
+
+    [Fact] // D9: a fate we died in is not selected again this session, even from inside its ring
+    public void D9_fate_that_killed_us_is_not_reselected()
+    {
+        var d = InFate(out var fate, out var at);
+        var dead = TestData.World(player: at with { IsDead = true }, fates: [fate]);
+        Assert.IsType<AcceptReturn>(d.Tick(dead).Intent);
+
+        // revived on the spot: the nearby override would otherwise take it straight back
+        var revived = TestData.World(player: at, fates: [fate]);
+        Assert.Equal("no eligible fates", d.Tick(revived).Status);
+        Assert.Equal(RunPhase.SelectingFate, d.Phase);
+
+        var other = TestData.Fate(id: 2, x: 500, z: 0);
+        Assert.Equal("selected fate 2", d.Tick(TestData.World(player: at, fates: [fate, other])).Status);
+    }
+
+    [Fact] // D9: dying inside the ring before the leg is over counts the same as dying in the fight
+    public void D9_death_inside_ring_before_arrival_condemns_the_fate()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60); // the ring covers the origin
+        d.Tick(TestData.World(fates: [fate]));
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+
+        var dead = TestData.World(player: TestData.Player(dead: true), fates: [fate]);
+        Assert.IsType<AcceptReturn>(d.Tick(dead).Intent);
+
+        Assert.Equal("no eligible fates", d.Tick(TestData.World(fates: [fate])).Status);
     }
 
     [Fact] // D1: death cap stops the run

@@ -59,4 +59,13 @@ public class SelectionGatesTests
     [Fact]
     public void Ended_fate_is_skipped()
         => Assert.Equal(SkipReason.WrongPhase, Eval(TestData.Fate(phase: FatePhase.Ended)));
+
+    [Fact] // D9: a fate the player died in is skipped for the session
+    public void D9_fate_that_killed_us_is_skipped()
+    {
+        var f = TestData.Fate(id: 218);
+        var w = TestData.World(fates: [f]);
+        Assert.Equal(SkipReason.KilledUs, SelectionGates.Evaluate(f, w, Cfg, deadly: new HashSet<uint> { 218 }));
+        Assert.Equal(SkipReason.None, SelectionGates.Evaluate(f, w, Cfg, deadly: new HashSet<uint> { 150 }));
+    }
 }

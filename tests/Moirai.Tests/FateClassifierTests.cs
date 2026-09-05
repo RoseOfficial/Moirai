@@ -54,4 +54,16 @@ public class FateClassifierTests
     [Fact] // a running fate that already has progress is open even if its start time is missing
     public void Progress_without_start_time_counts_as_open()
         => Assert.Equal(FateKind.Battle, Classify(0, 1, BattleIcon, FatePhase.Running, 0, 5));
+
+    // The Fate sheet's ScreenImageAccept column: the banner an ordinary fate opens with, and the big-boss one
+    private const uint PlainBanner = 33, BigBossBanner = 37;
+
+    [Theory] // B14: a boss that opens with the big-boss banner is a special boss; the banner alone makes nothing a boss
+    [InlineData(FateKind.Boss, BigBossBanner, true)]
+    [InlineData(FateKind.Boss, PlainBanner, false)]
+    [InlineData(FateKind.Boss, 0u, false)]           // sheet row unavailable
+    [InlineData(FateKind.Battle, BigBossBanner, false)] // a chain's battle step opens with the banner too
+    [InlineData(FateKind.Defend, BigBossBanner, false)]
+    public void B14_special_boss_is_a_boss_with_the_big_boss_banner(FateKind sheetKind, uint banner, bool expected)
+        => Assert.Equal(expected, FateClassifier.IsSpecialBoss(sheetKind, banner));
 }

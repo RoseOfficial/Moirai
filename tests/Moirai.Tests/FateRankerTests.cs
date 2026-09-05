@@ -78,4 +78,13 @@ public class FateRankerTests
         var w = TestData.World(player: TestData.Player(x: 120, y: 60, z: 100), fates: [under, better]);
         Assert.Equal(1u, FateRanker.PickBest(w, Cfg)!.Id);
     }
+
+    [Fact] // D9: a fate that killed us does not win the nearby override either
+    public void D9_deadly_fate_loses_the_nearby_override()
+    {
+        var under = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
+        var far = TestData.Fate(id: 2, x: 800, z: 800);
+        var w = TestData.World(fates: [under, far]);
+        Assert.Equal(2u, FateRanker.PickBest(w, Cfg, deadly: new HashSet<uint> { 1 })!.Id);
+    }
 }

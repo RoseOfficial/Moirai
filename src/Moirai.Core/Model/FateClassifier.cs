@@ -5,6 +5,16 @@ public static class FateClassifier
     // The Fate sheet's Icon column for a boss fate; the other kinds each have a Rule value of their own
     public const uint BossIcon = 60722;
 
+    // The Fate sheet's ScreenImageAccept row for the achievement and world bosses; an ordinary fate opens with row 33
+    public const uint SpecialBossBanner = 37;
+
+    // B14: the sheet has no kind for the achievement and world bosses (Lazy for You is rule 1 with the
+    // boss icon like any boss, and its SpecialFate column is false), but every one of them opens with
+    // the big-boss banner. The banner alone makes nothing a boss: a chain's battle and defend steps
+    // open with it too, and they keep their own kind.
+    public static bool IsSpecialBoss(FateKind sheetKind, uint screenImageAccept)
+        => sheetKind == FateKind.Boss && screenImageAccept == SpecialBossBanner;
+
     // B12: sheet-only kind. An event item is the strongest collect signal; otherwise the Rule column
     // names collect (2), escort (3) and defend (4), and the plain kill rule (1) is split into battle
     // and boss by the icon alone. Higher rules are special content and fall back to the icon too.

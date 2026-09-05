@@ -25,6 +25,7 @@ public sealed class Director(
     private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
     private readonly StrayAggroClear _aggro = aggro ?? new(new EngageConfig());
+    private readonly HashSet<uint> _deadly = []; // D9: fates we died in this session
     private IBehavior? _active;
     private FateKind _activeKind;
     private long? _lastFateEnd;
@@ -134,8 +135,13 @@ public sealed class Director(
         {
             _deathCounted = true;
             Ledger.RecordDeath();
-            if (CurrentFate is not null)
+            if (CurrentFate is { } f)
             {
+                // D9: a fate we died in, or died inside of on the way in, is not tried again this
+                // session: a solo death leaves a boss at full health, so the ranking would send us
+                // straight back. A death on the road is the road's doing, not the fate's.
+                if (Phase == RunPhase.InFate || f.Contains(w.Player.Position))
+                    _deadly.Add(f.Id);
                 Ledger.Record(FateOutcome.Abandoned); // D2: death is never a completion
                 CurrentFate = null;
             }
@@ -151,7 +157,7 @@ public sealed class Director(
 
     private DirectorOutput SelectFate(WorldSnapshot w)
     {
-        var pick = FateRanker.PickBest(w, selection, _lastFateEnd);
+        var pick = FateRanker.PickBest(w, selection, _lastFateEnd, _deadly);
         if (pick is null)
             return new(new Hold(cfg.IdleHoldMs), "no eligible fates");
         CurrentFate = pick;

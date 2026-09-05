@@ -3,6 +3,17 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.3.7 — 2026-09-05
+
+### Fixed
+- Special boss FATEs are recognized from the game's own data and are no longer joined from zero. The achievement and world-boss FATEs such as Lazy for You, Behemoth, and Odin open with the game's big-boss banner where an ordinary boss FATE does not, and Moirai now reads that banner from the FATE sheet, so they take the special boss join threshold at any level. Until now only bosses at level 60 and above counted as special, so a level 20 character was sent in against Lazy Laurence alone, at full health, three times in a row
+- A FATE the character dies in is not chosen again for the rest of the run. A solo death leaves a boss at full health and the FATE at 0%, so the ranking kept picking it straight back. A death on the road to a FATE does not rule the FATE out
+- The debug report shows each FATE's banner and whether Moirai treats it as a special boss
+
+### Changed
+- The settings hint under the boss thresholds says what a special boss is
+<!-- LATEST-END -->
+
 ## v0.3.6 — 2026-09-04
 
 ### Fixed
@@ -10,7 +21,6 @@ All notable changes to Moirai will be documented in this file.
 - The debug report shows the sheet icon next to the rule
 - A boss is fought over its adds. In Revenge of the Worms the sandworms were targeted while Ulhuadshi stood there: RotationSolver's default targeting picks the lowest-HP enemy, and Moirai accepted whatever it held. The FATE sheet does not name the objective, so an enemy with at least twice the max HP of the smallest in the FATE now counts as its boss. Moirai engages it first, and RotationSolver is switched on through its AutoDuty entry point with a highest-max-HP targeting order so the two agree. That entry point also stops RotationSolver switching itself off out of combat. A RotationSolver build without it gets the old chat command
 - The debug report shows each enemy's max HP
-<!-- LATEST-END -->
 
 ## v0.3.5 — 2026-09-04
 

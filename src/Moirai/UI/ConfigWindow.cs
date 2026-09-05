@@ -92,7 +92,8 @@ public sealed class ConfigWindow : Window
         if (ImGui.SliderInt("Boss join threshold (%)", ref bossJoin, 0, 90)) { c.BossJoinProgress = bossJoin; dirty = true; }
         var specialJoin = c.SpecialBossJoinProgress;
         if (ImGui.SliderInt("Special boss join threshold (%)", ref specialJoin, 0, 90)) { c.SpecialBossJoinProgress = specialJoin; dirty = true; }
-        Hint("Boss fates are joined only once their progress reaches the threshold, so you never solo-tank from zero.");
+        Hint("Boss fates are joined only once their progress reaches the threshold; 0% joins from the start.");
+        Hint("Special bosses are the achievement and world bosses with the big-boss banner, such as Lazy for You.");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Ranking ladder (compared top to bottom; the first difference decides)");

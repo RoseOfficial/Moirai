@@ -34,7 +34,7 @@ public static class DebugReport
             count++;
             sb.Append($"  #{fate.FateId} '{fate.Name}' state={fate.State} start={fate.StartTimeEpoch} dur={fate.Duration} left={fate.TimeRemaining} prog={fate.Progress} handIn={SafeHandIn(fate)} lvl={fate.Level}-{fate.MaxLevel} icon={fate.IconId} pos={Fmt(fate.Position)} r={fate.Radius:0}");
 
-            uint eventItem = 0, turnIn = 0, req = 0, rule = 0, icon = fate.IconId;
+            uint eventItem = 0, turnIn = 0, req = 0, rule = 0, icon = fate.IconId, banner = 0;
             try
             {
                 if (fate.GameData.ValueNullable is { } row)
@@ -44,8 +44,9 @@ public static class DebugReport
                     req = row.ReqEventItem.RowId;
                     rule = row.Rule;
                     icon = row.Icon;
+                    banner = row.ScreenImageAccept.RowId;
                 }
-                sb.Append($" | rule={rule} sheetIcon={icon} eventItem={eventItem} turnIn={turnIn} req={req}");
+                sb.Append($" | rule={rule} sheetIcon={icon} banner={banner} eventItem={eventItem} turnIn={turnIn} req={req}");
             }
             catch { sb.Append(" | sheet=unavailable"); }
 
@@ -61,10 +62,11 @@ public static class DebugReport
             var kind = phase is { } p
                 ? FateClassifier.Classify(collectItem, rule, icon, p, fate.StartTimeEpoch, fate.Progress).ToString()
                 : "dropped";
+            var special = FateClassifier.IsSpecialBoss(FateClassifier.FromSheet(collectItem, rule, icon), banner);
             var unopened = phase is { } q && FateClassifier.IsUnopened(q, fate.StartTimeEpoch, fate.Progress);
             var projected = snap?.FateById(fate.FateId);
             var timeLeft = projected is null ? "" : $" timeLeft={projected.EffectiveTimeLeft}";
-            sb.AppendLine($" | kind={kind} unopened={unopened} inSnapshot={projected is not null}{timeLeft}");
+            sb.AppendLine($" | kind={kind} special={special} unopened={unopened} inSnapshot={projected is not null}{timeLeft}");
         }
         sb.AppendLine($"  ({count} fates)");
 
