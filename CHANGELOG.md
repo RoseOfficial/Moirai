@@ -3,11 +3,19 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.3 — 2026-09-05
+
+### Fixed
+- Flying. Three things kept the character on the ground. The mount was asked for while vnavmesh was still moving the character, and a mount cast is interrupted by movement, so the ask never took and the leg was walked; the ask now stops the path first. Whether flight is allowed was worked out from the aether-current sheets, which is not the game's rule: the A Realm Reborn zones have no aether-current set of their own, so the check could keep them on the ground. It is now the game's own verdict, the same check it runs when a mounted player jumps, which also covers a mount's own flying condition. And four ARR zones were listed as no-fly on a guess about their geometry; the list is empty until a zone earns an entry with evidence from a run
+- A leg that had to be walked because the mount would not take asks for the mount again after twenty seconds while the rest of the leg is still long, instead of walking the whole way
+- A destination re-issued with the fly flag changed, the mount having taken mid-leg, is a fresh path rather than a no-op, so the ride does not stay on the ground
+- The debug report shows the game's flight status and whether the zone override allows flight
+<!-- LATEST-END -->
+
 ## v0.4.2 — 2026-09-05
 
 ### Added
 - Pause and resume. A Pause button on the overlay, or `/moirai pause`, stands movement, combat, and dodging down and keeps the session: the tally, the FATEs skipped this run, the zone rotation's place, and the yokai progress. Resume, or `/moirai resume`, picks the session back up from selection. Until now the only way to step away, to buy a minion by hand or answer a tell, was Stop, which forgot all of it
-<!-- LATEST-END -->
 
 ## v0.4.1 — 2026-09-05
 

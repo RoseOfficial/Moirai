@@ -25,6 +25,8 @@ public sealed class SnapshotBuilder(
         var cond = Svc.Condition;
 
         var territory = (ushort)Svc.ClientState.TerritoryType;
+        var mounted = cond[ConditionFlag.Mounted];
+        var flying = cond[ConditionFlag.InFlight];
         var companionTimeLeft = GameEx.CompanionTimeLeftSeconds();
         var watchEquipped = watchItemId != 0 && GameEx.IsItemEquipped(watchItemId);
         var watchOwned = watchEquipped || (watchItemId != 0 && GameEx.ItemCount(watchItemId) > 0);
@@ -35,8 +37,8 @@ public sealed class SnapshotBuilder(
             IsMelee: IsMeleeRole(lp),
             IsDead: lp.IsDead,
             InCombat: lp.StatusFlags.HasFlag(StatusFlags.InCombat),
-            IsMounted: cond[ConditionFlag.Mounted],
-            IsFlying: cond[ConditionFlag.InFlight],
+            IsMounted: mounted,
+            IsFlying: flying,
             IsCasting: cond[ConditionFlag.Casting] || cond[ConditionFlag.Casting87],
             IsBetweenAreas: cond[ConditionFlag.BetweenAreas] || cond[ConditionFlag.BetweenAreas51],
             IsJumping: cond[ConditionFlag.Jumping] || cond[ConditionFlag.Jumping61],
@@ -48,7 +50,7 @@ public sealed class SnapshotBuilder(
                         || cond[ConditionFlag.OccupiedInCutSceneEvent],
             IsLevelSynced: IsLevelSynced(lp, currentFate),
             CanMount: GameEx.CanMountIn(territory), // C12: a mount owned and a zone that allows it
-            CanFly: GameEx.CanFlyIn(territory),     // C16: the zone's currents attuned; C1's overrides apply on top
+            CanFly: GameEx.CanFlyHere(mounted, flying), // C16: the game's own verdict; C1's overrides apply on top
             TargetId: Svc.Targets.Target?.GameObjectId,
             CompanionSummoned: companionTimeLeft > 0,
             CompanionTimeLeftSeconds: companionTimeLeft,

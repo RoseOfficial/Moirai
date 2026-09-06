@@ -331,4 +331,36 @@ public class TravelBehaviorTests
         var knockedOff = TestData.World(nowMs: 7000, player: TestData.Player(x: 150, z: 0), fates: [fate]);
         Assert.IsType<MountUp>(sut.Tick(knockedOff, ctx).Intent);
     }
+
+    [Fact] // C15: a walked leg asks for the mount again after the retry window while it is still long
+    public void C15_walked_leg_asks_for_the_mount_again_after_the_window()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+        WorldSnapshot Walking(long ms, float x) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: x, z: 0), fates: [fate]);
+
+        Assert.IsType<MountUp>(sut.Tick(Walking(0, 600), ctx).Intent);
+        Assert.IsType<MountUp>(sut.Tick(Walking(3000, 600), ctx).Intent);
+        Assert.IsType<GoTo>(sut.Tick(Walking(6100, 600), ctx).Intent);        // budget spent: walking
+        Assert.IsType<GoTo>(sut.Tick(Walking(16_000, 560), ctx).Intent);      // inside the retry window: still walking
+        var again = sut.Tick(Walking(26_200, 520), ctx);                      // window over, leg still long: ask again
+        Assert.IsType<MountUp>(again.Intent);
+        Assert.Equal(BehaviorStatus.Running, sut.Tick(Walking(28_000, 520), ctx).Status); // the new ask is a legitimate standstill
+    }
+
+    [Fact] // C15: a walked leg that is nearly there does not stop to mount again
+    public void C15_walked_leg_near_the_end_keeps_walking()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 20);
+        var sut = new TravelBehavior(new MovementConfig());
+        var ctx = Ctx(fate);
+        WorldSnapshot Walking(long ms, float x) => TestData.World(nowMs: ms,
+            player: TestData.Player(x: x, z: 0), fates: [fate]);
+
+        Assert.IsType<MountUp>(sut.Tick(Walking(0, 100), ctx).Intent);
+        Assert.IsType<GoTo>(sut.Tick(Walking(6100, 100), ctx).Intent);
+        Assert.IsType<GoTo>(sut.Tick(Walking(26_200, 30), ctx).Intent); // window over, but the rest is a short walk
+    }
 }

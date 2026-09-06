@@ -14,6 +14,7 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
     private bool _landing;      // a dismount has been issued at this dropoff and has not taken yet
     private long? _mountAskedMs; // when the current unbroken run of mount requests began
     private bool _walkLeg;      // C15: the mount never took within its budget; the leg is walked
+    private long _walkSinceMs;  // C15: when the walked leg began, for the retry window
     private bool _teleportDecided; // C17: the aetheryte question is asked once per leg
     private Aetheryte? _teleport;  // the aetheryte the leg starts from, until we stand there
     private long _teleportAskedMs;
@@ -63,6 +64,9 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
 
         // C12: mount only when the leg is worth it and mounting is legal
         if (p.IsMounted) _walkLeg = false; // a mount that took earns a fresh budget
+        // C15: a walked leg asks again once the retry window is over, so a mount that failed once
+        // (a no-mount spot, an ask that landed mid-movement) is not a walk across the map
+        if (_walkLeg && w.NowMs - _walkSinceMs >= cfg.MountRetryMs) _walkLeg = false;
         var wantsMount = !p.IsMounted && p.CanMount && !p.InCombat && distToDrop > cfg.MountLegThreshold && !_walkLeg;
 
         // C15: a mount that never takes (no mount owned, a no-mount spot the game refuses) is
@@ -73,6 +77,7 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
             if (w.NowMs - _mountAskedMs >= cfg.MountAttemptMs)
             {
                 _walkLeg = true;
+                _walkSinceMs = w.NowMs;
                 wantsMount = false;
                 _stuck.Reset();
             }
@@ -139,6 +144,7 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         _landing = false;
         _mountAskedMs = null;
         _walkLeg = false;
+        _walkSinceMs = 0;
         _teleportDecided = false;
         _teleport = null;
         _stuck.Reset();

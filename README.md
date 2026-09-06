@@ -30,9 +30,8 @@ alongside Olympus and Komos.
   switched off.
 - Joins boss FATEs only once their progress passes a threshold, so you never
   solo-tank from zero.
-- Mounts when the leg is worth it and a mount is available, flies where the
-  zone's aether currents are attuned, and walks in zones whose geometry breaks
-  flight pathing.
+- Mounts when the leg is worth it and a mount is available, and flies wherever
+  the game lets the mount take off.
 - Teleports to an attuned aetheryte when that beats the ride by a margin you
   set, and ranks FATEs by the same teleport-aware distance.
 - Recovers from stuck states through a bounded ladder: re-path, a new landing

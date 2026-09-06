@@ -11,17 +11,21 @@ namespace Moirai.Execution;
 public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIpc dodge, MinionPurchaser purchaser, Configuration cfg)
 {
     private Vector3? _lastDest;
+    private bool _lastFly;
 
     public void Execute(Intent intent, WorldSnapshot w)
     {
         switch (intent)
         {
             case GoTo g:
-                var destChanged = _lastDest is null || Vector3.Distance(_lastDest.Value, g.Destination) > 0.5f;
+                // C18: the same destination into a running path is a no-op, so a change of the fly flag
+                // (the mount took mid-leg) counts as a new destination or the ride stays on the ground
+                var destChanged = _lastDest is null || Vector3.Distance(_lastDest.Value, g.Destination) > 0.5f || g.Fly != _lastFly;
                 if ((destChanged || !navmesh.PathIsRunning()) && Throttle.Try("moirai.nav", 500))
                 {
                     navmesh.MoveCloseTo(g.Destination, g.Fly && cfg.UseFlight, g.Tolerance);
                     _lastDest = g.Destination;
+                    _lastFly = g.Fly;
                 }
                 break;
 
@@ -36,7 +40,14 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIp
                 break;
 
             case MountUp:
-                if (Throttle.Try("moirai.mount", 3000)) GameEx.MountRoulette();
+                // C18: a mount cast is interrupted by movement, so the running path is dropped first and
+                // forgotten, and the leg's next GoTo is issued as a fresh path once the mount has taken
+                if (Throttle.Try("moirai.mount", 2500))
+                {
+                    navmesh.Stop();
+                    _lastDest = null;
+                    GameEx.MountRoulette();
+                }
                 break;
 
             case Dismount:

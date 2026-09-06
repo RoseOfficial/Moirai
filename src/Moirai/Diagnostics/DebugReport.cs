@@ -3,6 +3,7 @@ using System.Text;
 using Dalamud.Game.ClientState.Fates;
 using Moirai.Core.Model;
 using Moirai.Core.Planning;
+using Moirai.Data;
 using Moirai.Game;
 using Moirai.Snapshot;
 
@@ -24,7 +25,7 @@ public static class DebugReport
         sb.AppendLine($"zone={Svc.ClientState.TerritoryType} level={lp?.Level.ToString() ?? "?"} synced={snap?.Player.IsLevelSynced.ToString() ?? "?"} pos={Fmt(lp?.Position)}");
         sb.AppendLine($"phase={director?.Phase.ToString() ?? "none"} currentFate={currentId?.ToString() ?? "none"} status='{plugin.LastStatus}'");
         sb.AppendLine($"skipNpcStart={plugin.Config.SkipNpcStartFates} navmesh={plugin.NavmeshReady} combat={plugin.CombatBackendLoaded} combatActive={plugin.CombatBackendActive?.ToString() ?? "unknown"} inCombat={snap?.Player.InCombat.ToString() ?? "?"} snapshot={(snap is null ? "none" : "ok")}");
-        sb.AppendLine($"canMount={snap?.Player.CanMount.ToString() ?? "?"} canFly={snap?.Player.CanFly.ToString() ?? "?"} mounted={snap?.Player.IsMounted.ToString() ?? "?"}");
+        sb.AppendLine($"canMount={snap?.Player.CanMount.ToString() ?? "?"} canFly={snap?.Player.CanFly.ToString() ?? "?"} flightStatus={GameEx.FlightStatus()} zoneFlightAllowed={!ZoneData.NoFlyTerritories.Contains((ushort)Svc.ClientState.TerritoryType)} mounted={snap?.Player.IsMounted.ToString() ?? "?"}");
         sb.AppendLine($"dodge={snap?.DodgeReady.ToString() ?? "?"} danger={snap?.Danger.ToString() ?? "?"} textAdvance={snap?.TextAdvanceReady.ToString() ?? "?"}");
         sb.AppendLine($"yokai={plugin.Config.YokaiEnabled} minion={snap?.Player.ActiveMinionId?.ToString() ?? "none"} watchEquipped={snap?.Player.WatchEquipped.ToString() ?? "?"} watchOwned={snap?.Player.WatchOwned.ToString() ?? "?"} ownedMinions={snap?.OwnedMinions?.Count.ToString() ?? "?"}");
         sb.AppendLine($"rotation={(plugin.Config.RotationZones.Count == 0 ? "this zone only" : string.Join(",", plugin.Config.RotationZones))} quiet={plugin.Config.RotateWhenQuietSeconds}s");

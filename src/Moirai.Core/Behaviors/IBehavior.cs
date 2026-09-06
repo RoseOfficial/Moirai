@@ -22,6 +22,7 @@ public sealed class MovementConfig
     public float StuckMinMove { get; init; } = 2f;            // spec 7.2 sampler: less than this across the window is a standstill
     public long StuckWindowMs { get; init; } = 2000;
     public long MountAttemptMs { get; init; } = 6000;         // C15: asking to mount for longer than this walks the leg
+    public long MountRetryMs { get; init; } = 20_000;         // C15: a walked leg asks for the mount again after this while it is still long
     public float TeleportPenalty { get; init; } = 200f;       // C17/A12: an aetheryte route must beat the direct path by this
     public float TeleportArriveRadius { get; init; } = 25f;   // C17: standing this close to the aetheryte counts as landed
     public long TeleportTimeoutMs { get; init; } = 20_000;    // C17: a teleport that has not landed by then is given up on

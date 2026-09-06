@@ -46,14 +46,23 @@ public static unsafe class GameEx
         return ps != null && ps->NumOwnedMounts > 0;
     }
 
-    // C16: flight needs the zone's aether currents, every one of them attuned
-    public static bool CanFlyIn(ushort territoryId)
+    // C16: whether the character may take off here is the game's own verdict, the same check it
+    // runs when the mounted player jumps: the zone's currents or its unlock quest, and the mount's
+    // own flying condition. It is only answered from the saddle; on foot the flag the game sets for
+    // the zone at load stands in, for display and for the leg that has not mounted yet.
+    public static bool CanFlyHere(bool mounted, bool flying)
     {
-        var row = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>()?.GetRowOrDefault(territoryId);
-        var set = row?.AetherCurrentCompFlgSet.RowId ?? 0;
-        if (set == 0) return false;
+        if (flying) return true;
+        if (mounted) return Control.CanFly;
         var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
-        return ps != null && ps->IsAetherCurrentZoneComplete(set);
+        return ps != null && ps->CanFly;
+    }
+
+    // Diagnostics: the game's reason when the mounted character may not take off
+    public static string FlightStatus()
+    {
+        try { return Control.GetFlightAllowedStatus().ToString(); }
+        catch { return "?"; }
     }
 
     public static void LevelSyncIfNeeded()
