@@ -292,6 +292,13 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (director.Phase != RunPhase.Paused)
             _textAdvance.Reassert(); // it drops external control on its own after a zone change; a pause hands it back
+        if ((_purchaser.IsActive || _repairer.IsActive) && (GameEx.DutyPopped() || GameEx.InDuty()))
+        {
+            // D11: a duty outranks a purchase or a repair; the planner stands the run down next tick
+            // and asks for either again once the duty is over
+            _purchaser.Reset();
+            _repairer.Reset();
+        }
         if (_purchaser.IsActive)
         {
             // E9: a purchase is all game windows, so it runs every frame, outside the planner's busy
@@ -319,12 +326,15 @@ public sealed class Plugin : IDalamudPlugin
         if (snapshot is null)
             return;
 
+        var wasPaused = director.Phase == RunPhase.Paused;
         var output = _recorder is { } recorder
             ? recorder.Tick(director, snapshot, ZoneFlightAllowed(snapshot.TerritoryId))
             : director.Tick(snapshot);
         LastStatus = output.Status;
         Timeline.Observe(snapshot.NowEpoch, output.Status);
         _executor.Execute(output.Intent, snapshot);
+        if (!wasPaused && director.Phase == RunPhase.Paused)
+            _textAdvance.Release(); // D11: a pause the planner took for a duty hands TextAdvance back like one by hand
         if (director.Phase == RunPhase.Stopped)
         {
             _textAdvance.Release(); // a stop the planner decided (death cap, dependency lost, stuck)

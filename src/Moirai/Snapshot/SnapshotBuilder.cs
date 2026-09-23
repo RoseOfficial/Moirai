@@ -62,7 +62,8 @@ public sealed class SnapshotBuilder(
             ActiveMinionId: lp.CurrentMinion is { RowId: > 0 } minion ? minion.RowId : null, // §8
             WatchEquipped: watchEquipped,
             WatchOwned: watchOwned,
-            Gear: Gear());
+            Gear: Gear(),
+            InDuty: GameEx.InDuty()); // D11
 
         var fates = new List<FateSnapshot>();
         foreach (var fate in Svc.Fates)
@@ -105,7 +106,8 @@ public sealed class SnapshotBuilder(
             Danger: dodge.Installed && dodge.Danger(),
             OwnedMinions: OwnedMinions(),
             AutoBuyReady: !purchaser.HasFailed, // E9
-            RepairReady: !repairer.HasFailed);  // R5
+            RepairReady: !repairer.HasFailed,   // R5
+            DutyPopped: GameEx.DutyPopped());   // D11
     }
 
     // §7.5: the worn gear, rechecked once a second; it wears down over minutes, not ticks

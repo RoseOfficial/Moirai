@@ -53,6 +53,8 @@ public sealed class Director(
         {
             Phase = RunPhase.SelectingFate;
             StoppedBecause = null;
+            _startedInDuty = null;
+            _pausedForDuty = false;
         }
     }
 
@@ -65,12 +67,21 @@ public sealed class Director(
     public bool IsRunningOrPaused => Phase is not (RunPhase.Idle or RunPhase.Stopped);
 
     // §2.2 Paused: everything stands down and nothing is forgotten; the ticks that follow issue the
-    // stand-down intents (movement, then combat) and then nothing
+    // stand-down intents (movement, then combat) and then nothing. A pause by hand is never lifted
+    // by a duty ending, including one made while stood down for a duty (D11).
     public void Pause()
+    {
+        _pausedForDuty = false;
+        Pause(forDuty: false);
+    }
+
+    private void Pause(bool forDuty)
     {
         if (!IsRunningOrPaused || Phase == RunPhase.Paused) return;
         Phase = RunPhase.Paused;
         _pausedTicks = 0;
+        _pausedForDuty = forDuty;
+        _dutyClearSinceMs = null;
         Ledger.Pause();
         _escape.Reset();
         _aggro.Reset();
@@ -84,10 +95,33 @@ public sealed class Director(
         _active = null;
         travel.Reset();
         _ladder.Reset();
+        _pausedForDuty = false;
         Phase = RunPhase.SelectingFate;
     }
 
     private int _pausedTicks;
+    private bool? _startedInDuty;   // D11: a run begun inside a duty (a field operation's fates) farms there
+    private bool _pausedForDuty;    // D11: the pause is the duty's, lifted when it is over
+    private long? _dutyClearSinceMs;
+
+    // D11: a duty that pops, or one we are pulled into, is not the run's: it stands down until the
+    // duty is over, then picks up after a grace. Seen from outside the duty when the pop is caught,
+    // so the rotation and navigation are handed back before the duty begins.
+    private void WatchForDuty(WorldSnapshot w)
+    {
+        _startedInDuty ??= w.Player.InDuty;
+        var duty = w.DutyPopped || (w.Player.InDuty && _startedInDuty == false);
+        if (duty)
+        {
+            _dutyClearSinceMs = null;
+            if (Phase != RunPhase.Paused) Pause(forDuty: true);
+            return;
+        }
+        if (!_pausedForDuty || w.Player.IsBetweenAreas) return;
+        _dutyClearSinceMs ??= w.NowMs;
+        if (w.NowMs - _dutyClearSinceMs >= cfg.DutyResumeGraceMs)
+            Resume();
+    }
 
     public DirectorOutput Tick(WorldSnapshot w) => WithSprint(Decide(w), w);
 
@@ -106,14 +140,16 @@ public sealed class Director(
     {
         if (Phase is RunPhase.Idle or RunPhase.Stopped)
             return new(new NoAction(), Phase == RunPhase.Stopped ? $"stopped: {StoppedBecause}" : "idle");
+        WatchForDuty(w);
         if (Phase == RunPhase.Paused)
         {
             _pausedTicks++;
+            var why = _pausedForDuty ? "paused for a duty" : "paused";
             return _pausedTicks switch
             {
-                1 => new(new StopMoving(), "paused"),
-                2 => new(new SetCombat(false, CombatMode.Auto), "paused"),
-                _ => new(new NoAction(), "paused"),
+                1 => new(new StopMoving(), why),
+                2 => new(new SetCombat(false, CombatMode.Auto), why),
+                _ => new(new NoAction(), why),
             };
         }
 

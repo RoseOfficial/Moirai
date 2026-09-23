@@ -266,6 +266,17 @@ public static unsafe class GameEx
         return true;
     }
 
+    // D11: the duty finder's ready window, and being bound by a duty (a dungeon, a trial, a field operation)
+    public static bool DutyPopped() => ReadyAddon("ContentsFinderConfirm") != null;
+
+    public static bool InDuty()
+    {
+        var cond = Svc.Condition;
+        return cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty]
+               || cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty56]
+               || cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty95];
+    }
+
     private const uint RepairGeneralAction = 6;
     private const int ConditionPerPercent = 300; // an item's condition runs 0 to 30000
 

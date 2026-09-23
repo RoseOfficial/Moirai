@@ -58,6 +58,10 @@ alongside Olympus and Komos.
 - Keeps your chocobo companion summoned with Gysahl Greens, in the stance you
   pick, and tops up its timer before it lapses. Greens are never spent while
   mounted or in combat.
+- Steps aside for duties: when a duty you queued for pops, or you are pulled
+  into one, the run stands down, and it picks the session back up a few
+  seconds after you are back. A run started inside a field operation farms
+  there as usual, and a pause you made yourself stays until you resume.
 - `/moirai` opens the overlay, with the run's status, the current FATE, the
   session tally, elapsed time, and FATEs per hour; `/moirai help` lists chat
   commands. Pause stands everything down, hands NPC dialogue back to you, and

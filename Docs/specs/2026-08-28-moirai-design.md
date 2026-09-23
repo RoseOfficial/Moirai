@@ -79,6 +79,8 @@ Evaluated every tick before any planning, in priority order:
 3. **Unexpected combat** — in combat while not inside the current FATE (stray aggro, adds that followed): stop movement, target whatever is on us (or our companion), engage defensively until nothing is, stand the rotation down, then resume. Only strays are fought: the current FATE's own mobs are carried into the ring, and a mounted character keeps riding until the leash ends it. Inside a running FATE the same clear runs whenever a stray is on us and none of the FATE's enemies is; the FATE's behavior then starts over in its own mode.
 4. **Navmesh not ready** — hold all movement intents until vnavmesh reports ready.
 
+Before all of these, a duty the run did not start in (the duty finder's ready window, or being bound by a duty) stands the run down as a pause and picks it back up once the duty is over (D11).
+
 ---
 
 ## 4. FATE selection
@@ -313,6 +315,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - D7. Every retry loop bounded; ladder exhaustion abandons the FATE (D10), and a wedged character stops with a typed reason.
 - D8. Dependency lost mid-run → pause with the reason in the status line; resume when it is back; the combat backend or TextAdvance missing for the grace period (60 s) stops with `DependencyLost`. Until then the overlay only warned while not running, and a run with the backend unloaded stood in FATEs doing nothing.
 - D9. A FATE the player died in, or died inside the ring of on the way in, is not selected again in the same session, not even by the nearby override. A solo death leaves a boss at full health and progress at 0, so the ranking would send the player straight back (Lazy for You: three deaths to the cap in ten minutes, its 30-minute timer winning the TimeLeft rung every time). A death on the road does not condemn the FATE.
+- D11. Duties: the duty finder's ready window (`ContentsFinderConfirm`), or being bound by a duty (conditions 34, 56, 95) the run did not start in, stands the run down as a pause (movement, then combat, the TextAdvance control handed back, a purchase or a repair under way dropped), with the status "paused for a duty". The pause is lifted 5 s after neither holds and the character is not between areas, and the session picks up from selection; the time in the duty is not session time. A run begun inside a duty (a field operation's FATEs) is never stood down for it, and a pause made by hand, before or during the duty, is never lifted by the duty ending. The pop is usually caught in the open world, so the rotation and navigation are handed back before the duty begins; an ask accepted at once is caught on entry. Until then a run carried on inside the duty: it fought whatever attacked the character, walking to it, and tried to teleport back to the farming zone every few seconds.
 - D10. Ladder exhaustion abandons the FATE, counts it as abandoned, and skips it for the session (`Unreachable`); selection goes on. Three exhaustions in a row without the character moving more than 10 y between them mean the character is wedged, not the FATE: stop with `StuckExhausted`. Moving between exhaustions resets the count. Until then one unreachable FATE ended the whole run.
 
 **Zones**

@@ -3,13 +3,19 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.8 — 2026-09-23
+
+### Fixed
+- Queuing for a duty while farming. When the duty popped and you went in, the run carried on inside it: it fought whatever attacked you, walking to it, and tried to teleport back to the farming zone every few seconds. Now the run pauses the moment the duty finder's ready window comes up, or the moment you are pulled into a duty, handing movement, the rotation, dodging, and NPC dialogue back to you. A few seconds after you are back from the duty it picks the session back up from selection. The time spent in the duty does not count toward FATEs per hour
+- A run started inside a duty, such as the FATEs of a field operation, is never paused for it, and a pause you made yourself stays paused after a duty until you resume
+<!-- LATEST-END -->
+
 ## v0.4.7 — 2026-09-23
 
 ### Added
 - Gear repair. Long runs wear gear down, and a piece at 0% gives no stats. Between FATEs, once a piece drops below the threshold you set (30% by default), Moirai opens the Repair window, repairs everything, confirms, and closes it again. It mends what your crafter levels and Dark Matter allow: a piece up to ten levels above the class that repairs it, with its grade of Dark Matter or a higher one. A piece it cannot mend is named on the overlay, and a repair that does not help is tried once more and then left alone for the run. Menders are not visited. On by default, on the General tab
 - The run stops between FATEs when a piece of gear has broken and cannot be repaired, instead of fighting on without its stats until the death cap. On by default, on the General tab
 - The debug report shows the condition of each piece of gear, the Dark Matter you hold, and the Repair window's state
-<!-- LATEST-END -->
 
 ## v0.4.6 — 2026-09-23
 

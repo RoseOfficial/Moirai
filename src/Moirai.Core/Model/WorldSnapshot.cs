@@ -18,7 +18,8 @@ public sealed record WorldSnapshot(
     bool Danger = false,          // H2: the dodge layer is steering us or a marked zone is about to go off
     IReadOnlySet<uint>? OwnedMinions = null, // §8: Companion row ids unlocked; null when unknown
     bool AutoBuyReady = true,                // E9: the shell's purchaser has not failed this run
-    bool RepairReady = true)                 // R5: the shell's repairer has not failed this run
+    bool RepairReady = true,                 // R5: the shell's repairer has not failed this run
+    bool DutyPopped = false)                 // D11: the duty finder's ready window is up
 {
     public int CountOf(uint itemId) => ItemCounts.TryGetValue(itemId, out var n) ? n : 0;
 

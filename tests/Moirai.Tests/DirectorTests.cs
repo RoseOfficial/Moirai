@@ -1065,6 +1065,82 @@ public class DirectorTests
         Assert.NotEqual(RunPhase.Stopped, d.Phase);
     }
 
+    // A run that has picked fate 1 and is on its way, before a duty shows up
+    private static (Director D, FateSnapshot Fate) Underway()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 300, z: 0, radius: 20);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+        return (d, fate);
+    }
+
+    [Fact] // D11: a duty pop stands the run down, movement first and then combat, and keeps the session
+    public void D11_a_duty_pop_stands_the_run_down()
+    {
+        var (d, fate) = Underway();
+        var first = d.Tick(TestData.World(fates: [fate], dutyPopped: true));
+        Assert.IsType<StopMoving>(first.Intent);
+        Assert.Equal("paused for a duty", first.Status);
+        Assert.Equal(RunPhase.Paused, d.Phase);
+        Assert.False(Assert.IsType<SetCombat>(d.Tick(TestData.World(fates: [fate], dutyPopped: true)).Intent).Enabled);
+    }
+
+    [Fact] // D11: pulled into a duty without the pop being seen (accepted at once) stands down the same way
+    public void D11_entering_a_duty_stands_the_run_down()
+    {
+        var (d, _) = Underway();
+        Assert.IsType<StopMoving>(d.Tick(TestData.World(territory: 1036, player: TestData.Player(inDuty: true))).Intent);
+        Assert.Equal(RunPhase.Paused, d.Phase);
+    }
+
+    [Fact] // D11: a run begun inside a duty (a field operation's fates) farms there
+    public void D11_a_run_started_in_a_duty_is_not_stood_down()
+    {
+        var d = Sut();
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 300, z: 0, radius: 20);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(player: TestData.Player(inDuty: true), fates: [fate])).Status);
+    }
+
+    [Fact] // D11: once the duty is over the session picks up from selection after a grace, the duty's time not counted
+    public void D11_resumes_after_the_duty_with_a_grace()
+    {
+        var (d, fate) = Underway();
+        d.Tick(TestData.World(now: 10_000, nowMs: 0, player: TestData.Player(inDuty: true)));
+        d.Tick(TestData.World(now: 11_800, nowMs: 1_800_000, player: TestData.Player(inDuty: true)));
+        var back = TestData.World(now: 11_801, nowMs: 1_801_000, fates: [fate]);
+        Assert.Equal("paused for a duty", d.Tick(back).Status);             // the grace starts
+        Assert.Equal(RunPhase.Paused, d.Phase);
+        var later = back with { NowEpoch = 11_810, NowMs = 1_801_000 + new DirectorConfig().DutyResumeGraceMs };
+        Assert.Equal("selected fate 1", d.Tick(later).Status);
+        Assert.True(d.Ledger.ElapsedSeconds < 60);                           // the half hour in the duty is not session time
+    }
+
+    [Fact] // D11: a pause made by hand is not lifted by a duty ending
+    public void D11_a_pause_by_hand_stays_after_the_duty()
+    {
+        var (d, fate) = Underway();
+        d.Pause();
+        d.Tick(TestData.World(fates: [fate], dutyPopped: true));
+        var clear = TestData.World(nowMs: 60_000, fates: [fate]);
+        d.Tick(clear);
+        d.Tick(clear with { NowMs = 120_000 });
+        Assert.Equal(RunPhase.Paused, d.Phase);
+    }
+
+    [Fact] // D11: pausing by hand while stood down for a duty turns it into a pause by hand
+    public void D11_pausing_by_hand_during_the_duty_keeps_the_pause()
+    {
+        var (d, fate) = Underway();
+        d.Tick(TestData.World(fates: [fate], dutyPopped: true));
+        d.Pause();
+        var clear = TestData.World(nowMs: 60_000, fates: [fate]);
+        d.Tick(clear);
+        d.Tick(clear with { NowMs = 120_000 });
+        Assert.Equal(RunPhase.Paused, d.Phase);
+    }
+
     [Fact] // §11 Paused: the session clock stops for a pause, so fates per hour is not diluted by it
     public void Pause_is_not_session_time()
     {

@@ -9,4 +9,5 @@ public sealed class DirectorConfig
     public long DependencyGraceMs { get; init; } = 60_000; // D8: a plugin missing this long stops the run
     public bool Sprint { get; init; } = true;              // C20: sprint on long walks
     public float SprintOverYalms { get; init; } = 20f;     // C20: a walk longer than this asks for sprint
+    public long DutyResumeGraceMs { get; init; } = 5_000;  // D11: back from a duty this long before the session picks up
 }
