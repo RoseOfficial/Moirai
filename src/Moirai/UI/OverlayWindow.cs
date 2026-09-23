@@ -101,7 +101,6 @@ public sealed class OverlayWindow : Window
         RunPhase.SelectingFate => "selecting",
         RunPhase.Traveling => "traveling",
         RunPhase.InFate => "in fate",
-        RunPhase.WaitingContinuation => "waiting for continuation",
         RunPhase.Paused => "paused",
         RunPhase.Stopped => "stopped",
         _ => "idle",
@@ -114,11 +113,10 @@ public sealed class OverlayWindow : Window
         Core.Intents.StopReason.DeathCapReached => "death cap reached",
         Core.Intents.StopReason.OutOfGreens => "out of Gysahl Greens",
         Core.Intents.StopReason.DependencyLost => "a required plugin went away",
-        Core.Intents.StopReason.DataMissing => "missing data",
-        Core.Intents.StopReason.SessionComplete => "session complete",
         Core.Intents.StopReason.ZonesUnreachable => "none of the listed zones could be reached",
         Core.Intents.StopReason.AllYokaiCapped => "every listed yokai is at the cap",
         Core.Intents.StopReason.MinionsMissing => "minions not owned: buy them from Nohi at the Gold Saucer",
+        Core.Intents.StopReason.InternalError => "an internal error; the recording and /xllog have the details",
         _ => reason.ToString(),
     };
 }

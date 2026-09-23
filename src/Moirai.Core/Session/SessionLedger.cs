@@ -6,23 +6,26 @@ public enum FateOutcome { Completed, Failed, Abandoned }
 
 public sealed class SessionLedger
 {
-    private long? _startedEpoch;
-    private long _nowEpoch;
+    private long? _lastEpoch;
 
     public int Completed { get; private set; }
     public int Failed { get; private set; }
     public int Abandoned { get; private set; }
     public int Deaths { get; private set; }
 
-    // The session clock, from the first observed tick to the latest
-    public long ElapsedSeconds => _startedEpoch is { } started ? Math.Max(0, _nowEpoch - started) : 0;
+    // The session clock: the time between observed ticks, a pause excluded
+    public long ElapsedSeconds { get; private set; }
     public double CompletedPerHour => ElapsedSeconds > 0 ? Completed * 3600.0 / ElapsedSeconds : 0;
 
     public void Observe(long nowEpoch)
     {
-        _startedEpoch ??= nowEpoch;
-        _nowEpoch = nowEpoch;
+        if (_lastEpoch is { } last)
+            ElapsedSeconds += Math.Max(0, nowEpoch - last);
+        _lastEpoch = nowEpoch;
     }
+
+    // §11: a pause is not session time; the first tick after it starts the clock again
+    public void Pause() => _lastEpoch = null;
 
     // D2: outcome derives from the observed end phase, nothing else
     public static FateOutcome OutcomeFrom(FatePhase endPhase) => endPhase switch

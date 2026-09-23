@@ -53,8 +53,8 @@ alongside Olympus and Komos.
   mounted or in combat.
 - `/moirai` opens the overlay, with the run's status, the current FATE, the
   session tally, elapsed time, and FATEs per hour; `/moirai help` lists chat
-  commands. Pause stands everything down and keeps the session; Resume picks
-  it back up from selection.
+  commands. Pause stands everything down, hands NPC dialogue back to you, and
+  keeps the session; Resume picks it back up from selection.
 - `/moirai debug` copies a plain-text report of every FATE in the zone and how
   Moirai reads it. Paste it into a bug report.
 
@@ -64,8 +64,6 @@ alongside Olympus and Komos.
   menu index and fails loudly rather than guessing; the run then tells you
   what to buy.
 - No food, gear repair, or gemstone shopping.
-- Continuation chains are not wired yet, so a FATE's follow-up is found through
-  the normal selection rather than waited for.
 
 ## Requirements
 
@@ -109,10 +107,10 @@ the ready-to-install zip lands at `src/Moirai/bin/Release/Moirai/latest.zip`.
 - `/moirai debug` copies a plain-text report: every FATE in the zone as the
   game reports it and as Moirai reads it, what Moirai sees around the
   character, and a timeline of the last fifty status changes. Paste it in.
-- `/moirai record` saves the last minute of what Moirai saw and decided, tick
-  by tick, to the plugin's config folder as a small `.json.gz` file. A run that
-  stops on its own (stuck, death cap, a plugin gone) saves one without being
-  asked. Attach it: the file replays through Moirai's planner in the test
+- `/moirai record` saves the last six minutes of what Moirai saw and decided,
+  tick by tick, to the plugin's config folder as a small `.json.gz` file. A run
+  that stops on its own (stuck, death cap, a plugin gone, an internal error)
+  saves one without being asked. Attach it: the file replays through Moirai's planner in the test
   suite, so the exact decision can be reproduced and fixed without the game.
   It holds positions, ids, and counts, no names or chat. The General tab has
   a switch to turn recording off.

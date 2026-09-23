@@ -35,8 +35,14 @@ public sealed class Plugin : IDalamudPlugin
     private readonly MinionPurchaser _purchaser;
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
-    private Recorder? _recorder;   // §12: the last minute of the run, when the setting is on
+    private Recorder? _recorder;   // §12: the last six minutes of the run, when the setting is on
     private bool _savedOnStop;
+
+    // The planner ticks ten times a second, not every frame: its windows are measured in
+    // milliseconds and every intent is idempotent, and the recording's fixed number of frames then
+    // covers the same stretch of the run whatever the frame rate (§12)
+    private const long PlanIntervalMs = 100;
+    private long _nextPlanMs;
 
     public Configuration Config { get; }
     public Director? Director { get; private set; }
@@ -102,6 +108,7 @@ public sealed class Plugin : IDalamudPlugin
         }
         Timeline = new StatusTimeline();
         _savedOnStop = false;
+        _nextPlanMs = 0;
         _purchaser.Reset();
 
         Director = DirectorFactory.Create(settings, module: null, random, landing, w => ZoneFlightAllowed(w.TerritoryId)); // the settings pick the module
@@ -192,13 +199,32 @@ public sealed class Plugin : IDalamudPlugin
 
     public bool IsPaused => Director is { Phase: RunPhase.Paused };
 
-    public void PauseRun() => Director?.Pause();
+    // A pause hands TextAdvance back and drops a purchase under way, so NPCs can be talked to by
+    // hand; resume takes TextAdvance again, and the module asks for the purchase anew
+    public void PauseRun()
+    {
+        Director?.Pause();
+        if (!IsPaused) return;
+        if (_purchaser.IsActive) _purchaser.Reset();
+        _textAdvance.Release();
+    }
 
-    public void ResumeRun() => Director?.Resume();
+    public void ResumeRun()
+    {
+        if (!IsPaused) return;
+        Director!.Resume();
+        _textAdvance.Take();
+    }
 
     public void StopRun()
     {
         Director?.Stop(StopReason.UserRequested);
+        StandDown();
+    }
+
+    // Everything Moirai drives, handed back: the path, the rotation, the dodge AI, a purchase, TextAdvance
+    private void StandDown()
+    {
         _navmesh.Stop();
         _combat.Set(false, CombatMode.Auto);
         _combat.ResetCache();
@@ -238,20 +264,39 @@ public sealed class Plugin : IDalamudPlugin
         if (!Svc.ClientState.IsLoggedIn)
             return;
 
+        try
+        {
+            Step(director);
+        }
+        catch (Exception e)
+        {
+            Fail(e);
+        }
+    }
+
+    private void Step(Director director)
+    {
+        if (director.Phase != RunPhase.Paused)
+            _textAdvance.Reassert(); // it drops external control on its own after a zone change; a pause hands it back
+        if (_purchaser.IsActive)
+        {
+            // E9: a purchase is all game windows, so it runs every frame, outside the planner's busy
+            // guard; the planner keeps asking for it and its intent is a no-op until the purchase ends
+            _purchaser.Tick();
+            LastStatus = _purchaser.Status;
+            Timeline.Observe(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), LastStatus);
+            return;
+        }
+
+        var now = Environment.TickCount64;
+        if (now < _nextPlanMs)
+            return;
+        _nextPlanMs = now + PlanIntervalMs;
+
         var snapshot = _snapshots.Build(director.CurrentFate?.Id);
         if (snapshot is null)
             return;
 
-        _textAdvance.Reassert(); // it drops external control on its own after a zone change
-        if (_purchaser.IsActive)
-        {
-            // E9: a purchase is all game windows, so it runs here, outside the planner's busy guard;
-            // the planner keeps asking for it and its intent is a no-op until the purchase ends
-            _purchaser.Tick();
-            LastStatus = _purchaser.Status;
-            Timeline.Observe(snapshot.NowEpoch, LastStatus);
-            return;
-        }
         var output = _recorder is { } recorder
             ? recorder.Tick(director, snapshot, ZoneFlightAllowed(snapshot.TerritoryId))
             : director.Tick(snapshot);
@@ -266,6 +311,24 @@ public sealed class Plugin : IDalamudPlugin
                 _savedOnStop = true;
                 SaveRecording(why.ToString()); // the evidence, kept without being asked
             }
+        }
+    }
+
+    // Whatever a tick throws stops the run where it stands, instead of throwing again every frame
+    // while vnavmesh and the rotation carry on with their last orders. The recording keeps the tick
+    // that threw when the planner was the one to throw.
+    private void Fail(Exception e)
+    {
+        Svc.Log.Error(e, "[Moirai] a tick threw; the run is stopped");
+        Director?.Stop(StopReason.InternalError);
+        try { StandDown(); }
+        catch (Exception inner) { Svc.Log.Error(inner, "[Moirai] standing down after the error failed too"); }
+        LastStatus = $"stopped: {Recorder.ExceptionStatus(e)}";
+        Svc.Chat.PrintError("[Moirai] Stopped on an internal error; see /xllog.");
+        if (!_savedOnStop)
+        {
+            _savedOnStop = true;
+            SaveRecording(nameof(StopReason.InternalError));
         }
     }
 

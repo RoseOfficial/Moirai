@@ -38,6 +38,12 @@ public static class Replayer
                 results.Add(new ReplayResult(i, frame.Status, $"replay stopped: {e.Message}", frame.Intent, ""));
                 break;
             }
+            catch (Exception e)
+            {
+                // the planner threw: the recorded run ended here too when it threw the same way
+                results.Add(new ReplayResult(i, frame.Status, Recorder.ExceptionStatus(e), frame.Intent, ""));
+                break;
+            }
         }
         return results;
     }

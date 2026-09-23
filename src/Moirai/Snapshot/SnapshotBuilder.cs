@@ -93,7 +93,6 @@ public sealed class SnapshotBuilder(
             Interactables: interactables,
             ItemCounts: items,
             NavmeshReady: navmesh.IsReady(),
-            LifestreamBusy: false,
             Dialog: GameEx.DialogOpen(),
             CombatReady: combat.RotationSolverInstalled,
             TextAdvanceReady: textAdvance.Installed,
@@ -163,7 +162,6 @@ public sealed class SnapshotBuilder(
             MaxLevel: fate.Level,
             IsBonus: fate.HasBonus, // A6/A7: the game's own bonus marker
             IsSpecialBoss: specialBoss,
-            HasContinuation: false, // continuation chains land with the data layer
             StartTimeEpoch: fate.StartTimeEpoch,
             TimeRemainingSeconds: fate.TimeRemaining,
             EventItemId: eventItem,

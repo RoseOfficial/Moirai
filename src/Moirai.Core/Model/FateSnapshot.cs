@@ -12,7 +12,6 @@ public sealed record FateSnapshot(
     int MaxLevel,
     bool IsBonus,
     bool IsSpecialBoss,
-    bool HasContinuation,
     long StartTimeEpoch,
     long TimeRemainingSeconds,
     uint EventItemId,

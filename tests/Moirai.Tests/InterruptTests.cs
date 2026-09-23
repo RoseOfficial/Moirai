@@ -13,7 +13,6 @@ public class InterruptTests
         Assert.Equal(InterruptKind.Busy, Eval(TestData.World(player: TestData.Player(jumping: true))));
         Assert.Equal(InterruptKind.Busy, Eval(TestData.World(player: TestData.Player(beingMoved: true))));
         Assert.Equal(InterruptKind.Busy, Eval(TestData.World(player: TestData.Player(occupied: true))));
-        Assert.Equal(InterruptKind.Busy, Eval(TestData.World(lifestreamBusy: true)));
     }
 
     [Fact] // spec §3 precedence: busy outranks death (wait out transitions even while dead)

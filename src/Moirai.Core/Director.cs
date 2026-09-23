@@ -8,7 +8,7 @@ using Moirai.Core.Session;
 
 namespace Moirai.Core;
 
-public enum RunPhase { Idle, SelectingFate, Traveling, InFate, WaitingContinuation, Paused, Stopped }
+public enum RunPhase { Idle, SelectingFate, Traveling, InFate, Paused, Stopped }
 
 public sealed record DirectorOutput(Intent Intent, string Status);
 
@@ -22,7 +22,6 @@ public sealed class Director(
     CompanionUpkeep? companion = null,
     StrayAggroClear? aggro = null)
 {
-    private readonly ContinuationWatcher _continuation = new();
     private readonly RecoveryLadder _ladder = new();
     private readonly EscapeManeuver _escape = new();
     private readonly DependencyWatch _deps = new(cfg.DependencyGraceMs);
@@ -70,6 +69,7 @@ public sealed class Director(
         if (!IsRunningOrPaused || Phase == RunPhase.Paused) return;
         Phase = RunPhase.Paused;
         _pausedTicks = 0;
+        Ledger.Pause();
         _escape.Reset();
         _aggro.Reset();
     }
@@ -206,7 +206,6 @@ public sealed class Director(
             RunPhase.SelectingFate => SelectFate(w),
             RunPhase.Traveling => Travel(w),
             RunPhase.InFate => InFate(w),
-            RunPhase.WaitingContinuation => AwaitContinuation(w),
             _ => new(new NoAction(), "idle"),
         };
     }
@@ -308,22 +307,15 @@ public sealed class Director(
         var live = CurrentFate is null ? null : w.FateById(CurrentFate.Id);
         if (live is null || live.Phase is FatePhase.Ended or FatePhase.Failed)
         {
-            // a fate that vanished from the table after we fought it paid out as Ended
+            // a fate that vanished from the table after we fought it paid out as Ended. A chain's
+            // next step spawns at the site: the nearby override takes it while the grace holds
+            // distant fates off (B8: A9 and A10)
             var outcome = SessionLedger.OutcomeFrom(live?.Phase ?? FatePhase.Ended);
             Ledger.Record(outcome);
             _lastFateEnd = w.NowEpoch;
-            var finished = CurrentFate!;
-            CurrentFate = null;
             if (outcome == FateOutcome.Completed)
-            {
-                RewardLatch.Arm(finished.Id); // D6
-                if (finished.HasContinuation)
-                {
-                    _continuation.Arm(finished, w.NowEpoch); // B8
-                    Phase = RunPhase.WaitingContinuation;
-                    return new(new SetCombat(false, CombatMode.Auto), "waiting for continuation");
-                }
-            }
+                RewardLatch.Arm(CurrentFate!.Id); // D6
+            CurrentFate = null;
             Phase = RunPhase.SelectingFate;
             return new(new SetCombat(false, CombatMode.Auto), $"fate {outcome}");
         }
@@ -358,24 +350,6 @@ public sealed class Director(
     private bool FateEnemyOnUs(WorldSnapshot w)
         => CurrentFate is { } f
            && w.Enemies.Any(e => e.IsAlive && e.FateId == f.Id && e.IsAttackingPlayer);
-
-    private DirectorOutput AwaitContinuation(WorldSnapshot w)
-    {
-        var (state, adopted) = _continuation.Tick(w);
-        switch (state)
-        {
-            case ContinuationState.Adopted:
-                CurrentFate = adopted;
-                travel.Reset();
-                Phase = RunPhase.Traveling;
-                return new(new NoAction(), $"continuation fate {adopted!.Id}");
-            case ContinuationState.GaveUp:
-                Phase = RunPhase.SelectingFate;
-                return new(new NoAction(), "no continuation appeared");
-            default:
-                return new(new Hold(1000), "waiting for continuation");
-        }
-    }
 
     // §7.2: bounded, escalating, terminal (D7)
     private DirectorOutput Recover(WorldSnapshot w)

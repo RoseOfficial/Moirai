@@ -32,42 +32,6 @@ public class SessionTests
         Assert.False(latch.IsPending);
     }
 
-    [Fact] // B8: adopt a new fate at the same site
-    public void B8_adopts_continuation_at_same_site()
-    {
-        var done = TestData.Fate(id: 1, x: 100, z: 100, continuation: true);
-        var watcher = new ContinuationWatcher();
-        watcher.Arm(done, nowEpoch: 1_000);
-
-        var (waiting, _) = watcher.Tick(TestData.World(now: 1_005));
-        Assert.Equal(ContinuationState.Waiting, waiting);
-
-        var chain = TestData.Fate(id: 2, x: 110, z: 100);
-        var (adopted, fate) = watcher.Tick(TestData.World(now: 1_010, fates: [chain]));
-        Assert.Equal(ContinuationState.Adopted, adopted);
-        Assert.Equal(2u, fate!.Id);
-    }
-
-    [Fact] // B8: give up after 30 s
-    public void B8_gives_up_after_timeout()
-    {
-        var watcher = new ContinuationWatcher(timeoutSeconds: 30);
-        watcher.Arm(TestData.Fate(id: 1), nowEpoch: 1_000);
-        var (state, _) = watcher.Tick(TestData.World(now: 1_031));
-        Assert.Equal(ContinuationState.GaveUp, state);
-        Assert.Equal(ContinuationState.Idle, watcher.Tick(TestData.World(now: 1_032)).Item1);
-    }
-
-    [Fact] // B8: the old fate id itself is never adopted
-    public void B8_never_adopts_the_old_fate()
-    {
-        var done = TestData.Fate(id: 1, x: 100, z: 100);
-        var watcher = new ContinuationWatcher();
-        watcher.Arm(done, nowEpoch: 1_000);
-        var (state, _) = watcher.Tick(TestData.World(now: 1_005, fates: [done]));
-        Assert.Equal(ContinuationState.Waiting, state);
-    }
-
     [Fact] // overlay: elapsed time and completions per hour follow the observed clock
     public void Ledger_tracks_elapsed_time_and_completion_rate()
     {
@@ -82,5 +46,18 @@ public class SessionTests
 
         Assert.Equal(1_800, ledger.ElapsedSeconds);
         Assert.Equal(4.0, ledger.CompletedPerHour, 3);
+    }
+
+    [Fact] // §11 Paused: time spent paused is not session time, so the rate is not diluted by it
+    public void Ledger_does_not_count_a_pause()
+    {
+        var ledger = new SessionLedger();
+        ledger.Observe(1_000);
+        ledger.Observe(1_600);
+        ledger.Pause();
+        ledger.Observe(5_000); // the first tick after the resume starts the clock again
+        ledger.Observe(5_060);
+
+        Assert.Equal(660, ledger.ElapsedSeconds);
     }
 }

@@ -8,7 +8,7 @@ namespace Moirai.Core.Replay;
 // services, so every random draw and landing answer the planner consumed is in the frame (§12).
 public sealed class Recorder
 {
-    public const int DefaultCapacity = 3600; // a minute at the game's frame rate
+    public const int DefaultCapacity = 3600; // six minutes at the plugin's ten planner ticks a second
 
     private readonly RunSettings _settings;
     private readonly string _version;
@@ -36,14 +36,32 @@ public sealed class Recorder
     {
         _draws.Clear();
         _landings.Clear();
-        var output = director.Tick(world);
-        _frames.Enqueue(new Frame(world, zoneFlightAllowed, [.. _draws], [.. _landings], output.Status, output.Intent.ToString() ?? ""));
-        while (_frames.Count > _capacity)
-            _frames.Dequeue();
+        DirectorOutput output;
+        try
+        {
+            output = director.Tick(world);
+        }
+        catch (Exception e)
+        {
+            // the tick that threw is the one a crash report needs, so it is kept with the exception as its status
+            Keep(new Frame(world, zoneFlightAllowed, [.. _draws], [.. _landings], ExceptionStatus(e), ""));
+            throw;
+        }
+        Keep(new Frame(world, zoneFlightAllowed, [.. _draws], [.. _landings], output.Status, output.Intent.ToString() ?? ""));
         return output;
     }
 
     public Recording Snapshot() => new(_version, _settings, [.. _frames]);
+
+    // A thrown tick's status, the same in the recording and in its replay
+    public static string ExceptionStatus(Exception e) => $"exception: {e.GetType().Name}: {e.Message}";
+
+    private void Keep(Frame frame)
+    {
+        _frames.Enqueue(frame);
+        while (_frames.Count > _capacity)
+            _frames.Dequeue();
+    }
 
     private sealed class TapRandom(IRandomSource inner, List<double> log) : IRandomSource
     {

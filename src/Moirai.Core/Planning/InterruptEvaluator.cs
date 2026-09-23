@@ -14,7 +14,7 @@ public static class InterruptEvaluator
     {
         var p = w.Player;
         var occupied = p.IsOccupied && !(expectsDialog && w.Dialog != DialogKind.None);
-        if (p.IsCasting || p.IsBetweenAreas || p.IsJumping || p.IsBeingMoved || occupied || w.LifestreamBusy)
+        if (p.IsCasting || p.IsBetweenAreas || p.IsJumping || p.IsBeingMoved || occupied)
             return InterruptKind.Busy;
         if (p.IsDead)
             return InterruptKind.Dead;

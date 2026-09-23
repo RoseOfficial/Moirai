@@ -3,12 +3,23 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.5 — 2026-09-23
+
+### Fixed
+- An internal error no longer leaves the character running. If something in Moirai threw an error, it threw again every frame while vnavmesh and the rotation carried on with their last orders. The run now stops at the first error, stands movement, combat, and dodging down, says so in chat, and saves a recording that includes the moment it went wrong
+- Zone rotation and the Yo-kai zones reach a zone through any aetheryte you are attuned to there. Until now only the zone's main aetheryte was tried, so a zone where that one was not attuned was skipped after a minute even when another aetheryte there would have worked
+- Pause hands NPC dialogue back to you. TextAdvance stayed under Moirai's control while paused, so talking to an NPC by hand had its dialogue skipped and its rewards picked for you; it is now released on Pause and taken again on Resume. A minion purchase under way is dropped on Pause and asked for again after Resume
+- Time spent paused no longer counts toward the session's elapsed time, so FATEs per hour is not dragged down by a break
+
+### Changed
+- Recordings cover the last six minutes of a run instead of less than a minute. Moirai now decides ten times a second instead of on every frame, which is plenty for everything it does and means the recording's fixed size covers the same stretch of time at any frame rate. A stuck stop takes several minutes to build up, and until now the recording saved with it held only its tail
+<!-- LATEST-END -->
+
 ## v0.4.4 — 2026-09-23
 
 ### Fixed
 - Standing in a FATE with nothing to fight. The game only lists enemies near the character, so in a wide FATE the whole fight could be out of sight from the landing spot, and the run waited there until the FATE ended. With no enemy of the FATE in view it now walks to the center of the ring, looks around for a few seconds in case a new wave is about to spawn, then walks a circle inside the ring until an enemy shows up. A spot it cannot reach is skipped after a few seconds. Collect FATEs with nothing to pick up search the same way
 - Landing far from the fight. The landing spot was a random point in the ring. Once the FATE's enemies come into view on the way in, and none is near that spot, the run now lands a few yalms short of the enemy it will fight first, on its own side of it and inside the ring. Escort FATEs and FATEs still waiting at their NPC keep the random spot
-<!-- LATEST-END -->
 
 ## v0.4.3 — 2026-09-05
 

@@ -91,7 +91,7 @@ public sealed class ConfigWindow : Window
 
         var record = c.KeepRecording;
         if (ImGui.Checkbox("Keep a rolling recording for bug reports", ref record)) { c.KeepRecording = record; dirty = true; }
-        Hint("The last minute of what Moirai saw and decided, in memory only. /moirai record saves it, and a run that stops on its own saves it too. Applies on the next Start.");
+        Hint("The last six minutes of what Moirai saw and decided, in memory only. /moirai record saves it, and a run that stops on its own saves it too. Applies on the next Start.");
 
         ImGui.Separator();
         ImGui.TextColored(Muted, "Threshold and ladder changes apply on the next Start. Blacklist changes apply at the next selection.");
@@ -132,7 +132,7 @@ public sealed class ConfigWindow : Window
         ImGui.Separator();
         var quiet = c.RotateWhenQuietSeconds;
         if (ImGui.SliderInt("Move on after (s) without an eligible fate", ref quiet, 30, 600)) { c.RotateWhenQuietSeconds = quiet; dirty = true; }
-        Hint("Each zone's main aetheryte must be attuned; a zone that cannot be reached within a minute is skipped. Applies on the next Start.");
+        Hint("Each zone needs an attuned aetheryte; a zone that cannot be reached within a minute is skipped. Applies on the next Start.");
     }
 
     private static void DrawYokai(Configuration c, ref bool dirty)
@@ -376,7 +376,7 @@ public sealed class ConfigWindow : Window
         ImGui.TextColored(Muted, "/moirai stop       stop the run");
         ImGui.TextColored(Muted, "/moirai config     open settings");
         ImGui.TextColored(Muted, "/moirai debug      copy a debug report for bug reports");
-        ImGui.TextColored(Muted, "/moirai record     save the last minute of the run for bug reports");
+        ImGui.TextColored(Muted, "/moirai record     save the last six minutes of the run for bug reports");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Source and issues");
@@ -389,7 +389,7 @@ public sealed class ConfigWindow : Window
         ImGui.TextColored(Muted, "Paste it into a bug report: every fate in the zone, how Moirai reads it, and a status timeline.");
         if (ImGui.SmallButton("Save recording")) _plugin.SaveRecording("manual");
         ImGui.SameLine();
-        ImGui.TextColored(Muted, "Attach it to a bug report: the last minute of the run, replayable in Moirai's tests.");
+        ImGui.TextColored(Muted, "Attach it to a bug report: the last six minutes of the run, replayable in Moirai's tests.");
     }
 
     private static void Dependency(string name, bool ok, string okText, string badText)

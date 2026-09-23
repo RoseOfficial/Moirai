@@ -208,7 +208,7 @@ public class DirectorTests
     [Fact] // module stop propagates
     public void Module_stop_stops_the_run()
     {
-        var d = Sut(module: new QueueModule(new StopSession(StopReason.SessionComplete, "done")));
+        var d = Sut(module: new QueueModule(new StopSession(StopReason.ZonesUnreachable, "done")));
         d.Start();
         var output = d.Tick(TestData.World());
         Assert.IsType<StopRun>(output.Intent);
@@ -331,6 +331,18 @@ public class DirectorTests
         d.Tick(TestData.World(player: at, fates: [fate]));              // arrives
         Assert.Equal(RunPhase.InFate, d.Phase);
         return d;
+    }
+
+    [Fact] // B8: a chain's next step spawns at the site; the nearby override (A9) takes it while the grace (A10) holds distant fates off
+    public void B8_chain_follow_up_at_the_site_is_taken_next()
+    {
+        var d = InFate(out _, out var at);
+        var far = TestData.Fate(id: 3, x: 900, z: 900, progress: 70);
+        Assert.Equal("fate Completed", d.Tick(TestData.World(now: 10_000, player: at, fates: [far])).Status);
+        Assert.Equal("no eligible fates", d.Tick(TestData.World(now: 10_002, player: at, fates: [far])).Status);
+
+        var next = TestData.Fate(id: 2, x: 20, z: 0, radius: 60);
+        Assert.Equal("selected fate 2", d.Tick(TestData.World(now: 10_003, player: at, fates: [far, next])).Status);
     }
 
     [Fact] // B15: landed with none of the fate's enemies in view, the run heads for the ring center instead of standing there
@@ -966,6 +978,21 @@ public class DirectorTests
         Assert.Null(d.CurrentFate);
         Assert.Equal(1, d.Ledger.Completed); // nothing forgotten
         Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+    }
+
+    [Fact] // §11 Paused: the session clock stops for a pause, so fates per hour is not diluted by it
+    public void Pause_is_not_session_time()
+    {
+        var d = Sut();
+        d.Start();
+        d.Tick(TestData.World(now: 5_000));
+        d.Tick(TestData.World(now: 5_600));
+        d.Pause();
+        d.Tick(TestData.World(now: 6_000));
+        d.Resume();
+        d.Tick(TestData.World(now: 9_000));
+        d.Tick(TestData.World(now: 9_060));
+        Assert.Equal(660, d.Ledger.ElapsedSeconds);
     }
 
     [Fact] // a pause from inside a fate abandons nothing and stands combat down

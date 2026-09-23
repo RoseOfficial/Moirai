@@ -25,7 +25,7 @@ Chocobo companion management, consumables (food/potion), gear repair, bicolor ge
 
 ### Constraints
 
-- Dependencies (required): vnavmesh (navigation), a combat backend (see §6), Lifestream (teleport), TextAdvance (dialog). Optional: BossMod Reborn (dodging).
+- Dependencies (required): vnavmesh (navigation), a combat backend (see §6), TextAdvance (dialog). Optional: BossMod Reborn (dodging). Teleports go through the game's own `Telepo`, so Lifestream is not needed.
 - Reference material (autofate, AutoDuty, the pot0to FATE script) is all-rights-reserved. Concepts and observed facts only; no code is copied. The `reference/` folder is untracked.
 - Single plugin project; ECommons for IPC plumbing, throttling, and config.
 
@@ -64,7 +64,7 @@ Intents (the planner's entire output vocabulary): `GoTo(pos, fly, tolerance)`, `
 
 ### 2.3 Executor layer
 
-Thin adapters, one per concern, that turn intents into game/IPC calls: `MovementExecutor` (vnavmesh), `CombatExecutor` (backend of §6), `ActionExecutor` (mount/dismount/sync/interact/minion via `ActionManager`/`FateManager`/`TargetSystem`), `TravelExecutor` (Lifestream/Telepo). Executors own throttling (named throttles per action class), idempotence (re-issuing an in-flight intent is a no-op), and report per-intent outcome back into `PlanState` so the planner sees failures.
+Thin adapters, one per concern, that turn intents into game/IPC calls: `MovementExecutor` (vnavmesh), `CombatExecutor` (backend of §6), `ActionExecutor` (mount/dismount/sync/interact/minion via `ActionManager`/`FateManager`/`TargetSystem`), `TravelExecutor` (Telepo). Executors own throttling (named throttles per action class), idempotence (re-issuing an in-flight intent is a no-op), and report per-intent outcome back into `PlanState` so the planner sees failures.
 
 **Single-owner targeting rule:** exactly one system commands the target at any moment. When a collect turn-in or NPC interaction owns targeting, the combat backend is disengaged first; when combat owns it, nothing else issues `/target`-class actions. This rule prevents the target tug-of-war that plagues comparable tools.
 
@@ -74,7 +74,7 @@ Thin adapters, one per concern, that turn intents into game/IPC calls: `Movement
 
 Evaluated every tick before any planning, in priority order:
 
-1. **Busy guard** — no intent is executed while the player is casting, between areas, jumping, being moved, mid-mount/dismount animation, occupied by a game UI, or while Lifestream reports busy. The planner still observes; the executors hold. An open dialog (Talk, yes/no, hand-in window) is the exception while the NPC-start or collect behavior is active: those handle it themselves (B4).
+1. **Busy guard** — no intent is executed while the player is casting, between areas, jumping, being moved, mid-mount/dismount animation, or occupied by a game UI. The planner still observes; the executors hold. An open dialog (Talk, yes/no, hand-in window) is the exception while the NPC-start or collect behavior is active: those handle it themselves (B4).
 2. **Death** — overrides everything (§7.3).
 3. **Unexpected combat** — in combat while not inside the current FATE (stray aggro, adds that followed): stop movement, target whatever is on us (or our companion), engage defensively until nothing is, stand the rotation down, then resume. Only strays are fought: the current FATE's own mobs are carried into the ring, and a mounted character keeps riding until the leash ends it. Inside a running FATE the same clear runs whenever a stray is on us and none of the FATE's enemies is; the FATE's behavior then starts over in its own mode.
 4. **Navmesh not ready** — hold all movement intents until vnavmesh reports ready.
@@ -100,7 +100,7 @@ Classification is ID-based from the Lumina `Fate` sheet — never by localized n
 
 - **Battle** (default): engage the FATE's boss when one stands among adds (B13), otherwise the nearest FATE enemy; sticky targeting (keep target until dead/invalid); melee/ranged stop distances by job category; never path into hitboxes; while in combat, in-fight repositioning belongs to the dodge layer, not navigation. With none of the FATE's enemies in view (the game lists only what stands near the character), head for the ring center, look from there, then walk a circle inside the ring until one shows up (B15).
 - **Boss**: join only at/above a progress threshold (default 0 %; a higher default for special bosses, the achievement and world bosses the sheet marks with its big-boss banner, B14) so the player never solo-tanks a special boss from zero. No navigation while the fight runs — the dodge layer owns movement.
-- **Continuations**: when a completed FATE chains, wait at the site for the follow-up; adopt it when it spawns; give up after 30 s.
+- **Continuations**: a chain's next step spawns at the completed FATE's site, where the nearby override takes it while the post-completion grace holds distant FATEs off (B8). There is no separate wait.
 - **Defend**: peel logic — prefer enemies whose target is a protected friendly.
 - **Escort**: follow the objective NPC with follow/stop hysteresis; navigation owns movement (dodge-layer movement disabled); target scope locked to the FATE.
 - **Collect (hand-in)**: gather ground items owned by the FATE, hand in batches at the objective NPC (7 items = full credit; partial hand-in when short). Combat is disengaged for pickup/hand-in (single-owner rule), re-engaged for fighting. Dialog via TextAdvance with a manual addon fallback.
@@ -176,7 +176,7 @@ Vendor turn-ins (weapons, mount) remain manual. The module surfaces the active y
 Two kinds of knowledge, kept strictly apart:
 
 - **Game-derived facts** — FATE classification, event items, aetheryte lists/positions, zone metadata — read from Lumina Excel sheets at runtime, by row id. Nothing is matched by localized string.
-- **Curated knowledge** — per-zone flight overrides, categorized FATE blacklists (with a reason code: escort-pathing, mechanic-gimmick, terrain, tank-check), special-boss join thresholds, continuation chains, aetheryte wait spots, and the yokai table — shipped as versioned JSON files.
+- **Curated knowledge** — per-zone flight overrides, categorized FATE blacklists (with a reason code: escort-pathing, mechanic-gimmick, terrain, tank-check), special-boss join thresholds, aetheryte wait spots, and the yokai table — shipped as versioned JSON files.
 
 Curated files live in the plugin config directory, are hot-reloaded on change, and are updatable from the RoseOfficial repo via a manifest (per-file hash compare, download only what changed), so a patch-day fix is a data push, not a plugin release. A per-file user opt-out protects local edits. The plugin binary carries a baseline copy of every file for first run and offline use.
 
@@ -192,7 +192,7 @@ Curated files live in the plugin config directory, are hot-reloaded on change, a
 
 ## 11. Error handling and stop reasons
 
-A pause (§2.2 Paused, `/moirai pause`, the overlay button) stands movement and combat down over the next two ticks and keeps the session: the ledger, the session skips, the zone rotation's position, and the module's state. Resume picks up from selection; the FATE under way is not counted as anything. Every terminal stop carries a typed `StopReason` (`UserRequested`, `AllYokaiCapped`, `WatchMissing`, `StuckExhausted`, `DeathCapReached`, `DependencyLost`, `DataMissing`, …) surfaced in the overlay and log. Mid-run dependency loss (a required plugin unloads) pauses rather than stops when recoverable, with the reason displayed. No unbounded retry exists anywhere: every loop has a cap, every wait a timeout.
+A pause (§2.2 Paused, `/moirai pause`, the overlay button) stands movement and combat down over the next two ticks and keeps the session: the ledger, the session skips, the zone rotation's position, and the module's state. The session clock stops while paused, so the completion rate is not diluted by the pause; the shell hands TextAdvance back and drops a minion purchase under way, so NPCs can be talked to by hand, and takes TextAdvance again on resume. Resume picks up from selection; the FATE under way is not counted as anything. Every terminal stop carries a typed `StopReason` (`UserRequested`, `StuckExhausted`, `DeathCapReached`, `OutOfGreens`, `DependencyLost`, `ZonesUnreachable`, `AllYokaiCapped`, `MinionsMissing`, `InternalError`) surfaced in the overlay and log. An exception thrown by a tick stops the run with `InternalError`: the shell stands everything down and saves the recording, which keeps the tick that threw, instead of throwing again every frame while navigation and the rotation carry on with their last orders. Mid-run dependency loss (a required plugin unloads) pauses rather than stops when recoverable, with the reason displayed. No unbounded retry exists anywhere: every loop has a cap, every wait a timeout.
 
 ---
 
@@ -201,7 +201,7 @@ A pause (§2.2 Paused, `/moirai pause`, the overlay button) stands movement and 
 - **Unit tests (xUnit, `tests/Moirai.Tests`)** target the planner layer exclusively: FateSelector ranking and gates, module rotation logic, behavior transitions, recovery ladder escalation, interrupt precedence, accounting. Snapshots are constructed by builders; the edge-case catalog (Appendix A) is the test list.
 - **Executors and IPC adapters** are thin by design and verified in-game via dev-plugin loading; they contain no branching logic worth mocking.
 - CI runs the test suite on push.
-- **Replay.** The planner's only inputs are the snapshot, the random source, and the landing resolver, so a run is reproducible from a log of them. `Recorder` sits between the Director and those two services and keeps the newest frames of a run (a minute at the frame rate): each tick's snapshot, random draws, landing queries with their answers, zone flight flag, status, and intent, with the run's `RunSettings` and the plugin version. `/moirai record` writes it as gzipped JSON to the config directory, and a run that stops for any reason but the user's saves one on its own. `Replayer` rebuilds the Director from the recording's settings through `DirectorFactory`, the one place a Director is assembled and shared with the plugin, feeds every frame back, and lines up recorded and replayed status and intent; a frame that asks for an input the recording does not carry is reported as the divergence and ends the replay. Recordings dropped into `tests/Moirai.Tests/Recordings/` replay without divergence as part of the suite. The debug report carries a timeline of the last fifty status changes for the reader who does not need the frames.
+- **Replay.** The planner's only inputs are the snapshot, the random source, and the landing resolver, so a run is reproducible from a log of them. `Recorder` sits between the Director and those two services and keeps the newest 3,600 frames of a run: each tick's snapshot, random draws, landing queries with their answers, zone flight flag, status, and intent, with the run's `RunSettings` and the plugin version. The shell ticks the planner ten times a second rather than every frame (its windows are measured in milliseconds and every intent is idempotent), so the buffer covers six minutes whatever the frame rate; at the frame rate it had covered half a minute to a minute, less than a stuck stop takes to build up. A tick that throws is kept with the exception as its status, and the replay reports the same exception as that frame's output rather than crashing. `/moirai record` writes it as gzipped JSON to the config directory, and a run that stops for any reason but the user's saves one on its own. `Replayer` rebuilds the Director from the recording's settings through `DirectorFactory`, the one place a Director is assembled and shared with the plugin, feeds every frame back, and lines up recorded and replayed status and intent; a frame that asks for an input the recording does not carry is reported as the divergence and ends the replay. Recordings dropped into `tests/Moirai.Tests/Recordings/` replay without divergence as part of the suite. The debug report carries a timeline of the last fifty status changes for the reader who does not need the frames.
 
 ---
 
@@ -267,7 +267,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - B5. NPC-start: starter NPC may report FATE id 0 before starting — match by proximity + nameplate icon.
 - B6. Escort: follow hysteresis (start ~5 y, stop ~2.5 y); dodge-layer movement disabled; target scope locked to FATE.
 - B7. Defend: prefer enemies targeting protected friendlies.
-- B8. Continuation: wait at site, adopt successor by new id at same location, give up after 30 s.
+- B8. Continuation: a chain's next step spawns at the completed FATE's site, and the nearby override (A9) takes it while the post-completion grace (A10) holds distant FATEs off. Nothing in the snapshot marks a chain, so a wait-and-adopt watcher written for it never ran and was removed.
 - B9. Boss fights: no navigation while in combat; dodge layer owns movement.
 - B10. Never target the FATE's own friendly NPC in combat (hostility comes from the game's own can-attack test, never from NPC sub-kind). A held target that is not one of the FATE's enemies — another FATE's mob, the friendly, a corpse — is replaced with a FATE enemy while one exists and cleared only when none does; a FATE enemy the combat backend switched to is accepted as the sticky target, so the two never trade the target back and forth.
 - B11. NPC-start: a FATE still in its preparation phase, or with neither a start time nor progress, is unopened and therefore an NPC-start FATE whatever its sheet kind; the start-time field alone is not trusted because it can be set while a FATE still waits at its NPC. An unopened collect FATE opens at the same NPC it hands in to, so the starter search falls back to the FATE's objective NPC, and the Director re-dispatches when the current FATE's classification changes.
@@ -301,7 +301,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - D1. Death overrides all states; accept return; teleport back if displaced; resume fresh. The single-zone module remembers the zone the run started in and emits a zone change whenever the snapshot shows another, so a return to a home point elsewhere goes back to the farming zone, after any pending payout (D6). Until then the run farmed wherever it woke up, or idled in a city.
 - D2. Death never counts as completion; failed FATE never counts as completion.
 - D3. Unexpected combat outside the FATE → defensive clear, then resume. The clear stops movement, targets the nearest stray on us (sticky while it stays on us), closes to engage range on foot, and stands the rotation down once nothing is on us; the leg's stall sampler is re-anchored so the standstill is not a stuck. A stray is anything alive and attacking us or our companion that is not the current FATE's enemy: the FATE's own mobs are never fought outside the ring (the rotation cannot attack them there) and are carried in. Mounted, nothing is fought; the leg carries on and the leash ends it. Inside a running FATE combat past the ring edge (pulled mobs, knockbacks) is that FATE's own and the engage behavior walks back in (C5), but a stray on us while none of the FATE's enemies is gets the same clear, after which the FATE's behavior starts over so its own rotation mode comes back; a FATE enemy on us always outranks the stray.
-- D4. Busy guard: no intents while casting/between-areas/jumping/being-moved/occupied/Lifestream-busy.
+- D4. Busy guard: no intents while casting/between-areas/jumping/being-moved/occupied.
 - D5. Navmesh not ready → hold with the reason shown, keep observing, never stop: a mesh may still be building.
 - D6. Reward latch: no zone change/teleport until FATE payout registers.
 - D7. Every retry loop bounded; ladder exhaustion abandons the FATE (D10), and a wedged character stops with a typed reason.
@@ -313,7 +313,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - G1. The rotation's target is the starting zone when it is listed, otherwise the first listed zone; the module steers to the target whenever the snapshot shows another zone (which also covers D1 displacement).
 - G2. A zone with no eligible FATE for the quiet period (default 120 s) is left for the next listed zone, wrapping around.
 - G3. A single listed zone is a pin: quiet or not, the run stays.
-- G4. A zone change that has not landed within the move timeout (60 s; an unattuned aetheryte, a refused teleport) skips that zone for the next.
+- G4. A zone change that has not landed within the move timeout (60 s; no attuned aetheryte in the zone, a refused teleport) skips that zone for the next. The change teleports to the zone's first attuned aetheryte in map-list order; until then it asked for the main one alone, so a zone reachable through another attuned aetheryte was skipped.
 - G5. Every listed zone failing in a row stops with `ZonesUnreachable`; landing anywhere clears the count.
 - G6. The Director's idle clock starts when selection first comes up empty and resets on a pick or a zone change; the module hears it each tick. The reward latch (D6) holds every zone change.
 
@@ -340,7 +340,7 @@ Gate names verified against current plugin versions (2026-08).
 
 **vnavmesh**: `Nav.IsReady`, `Nav.BuildProgress`, `Path.IsRunning`, `Path.Stop`, `Path.MoveTo(List<Vector3>, bool fly)`, `SimpleMove.PathfindAndMoveTo(Vector3, bool)`, `SimpleMove.PathfindAndMoveCloseTo(Vector3, bool, float)`, `SimpleMove.PathfindInProgress`, `Query.Mesh.PointOnFloor(Vector3, bool, float)`, `Query.Mesh.NearestPoint(Vector3, float, float)`.
 
-**Lifestream**: `Lifestream.IsBusy()`, `Lifestream.AethernetTeleportById(uint)`, `/li <aetheryte>` command surface.
+**Lifestream** (not used; teleports go through the game's `Telepo`): `Lifestream.IsBusy()`, `Lifestream.AethernetTeleportById(uint)`, `/li <aetheryte>` command surface.
 
 **TextAdvance**: `TextAdvance.IsInExternalControl()`, `TextAdvance.EnableExternalControl(string owner, config)`, `TextAdvance.DisableExternalControl(string owner)`; config flags: TalkSkip, RequestFill, RequestHandin, RewardPick, CutsceneEsc, CutsceneSkipConfirm (QuestAccept/Complete and AutoInteract deliberately off). The config crosses Dalamud IPC as JSON, so a local class with the same field names (`EnableTalkSkip`, …, nullable bools) is enough. Control is taken at Start, re-asserted while running (TextAdvance drops it after a zone change), and released at Stop. TextAdvance never confirms the FATE-start `SelectYesno`; that is Moirai's (B4).
 

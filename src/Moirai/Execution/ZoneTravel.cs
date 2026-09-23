@@ -5,11 +5,14 @@ namespace Moirai.Execution;
 
 public static unsafe class ZoneTravel
 {
-    // Teleport to the primary aetheryte of a territory (lowest Order wins, matching the map list).
+    // Teleport to the first attuned aetheryte of a territory in map-list order (lowest Order), so a
+    // zone whose main aetheryte is not attuned is still reached through another. False when none
+    // there is attuned; the module's move timeout then skips the zone (G4).
     public static bool TeleportToTerritory(ushort territoryId)
     {
         var sheet = Svc.Data.GetExcelSheet<Aetheryte>();
-        if (sheet is null) return false;
+        var ui = UIState.Instance();
+        if (sheet is null || ui == null) return false;
 
         uint best = 0;
         var bestOrder = uint.MaxValue;
@@ -17,6 +20,7 @@ public static unsafe class ZoneTravel
         {
             if (!row.IsAetheryte) continue;
             if (row.Territory.RowId != territoryId) continue;
+            if (!ui->IsAetheryteUnlocked(row.RowId)) continue;
             if (row.Order < bestOrder)
             {
                 bestOrder = row.Order;

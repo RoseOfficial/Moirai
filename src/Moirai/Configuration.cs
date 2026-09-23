@@ -11,7 +11,7 @@ public sealed class Configuration : IPluginConfiguration
     public int DeathCap { get; set; } = 3;
     public bool SkipNpcStartFates { get; set; } = true;
     public bool SkipCollectFates { get; set; } // A14: collect fates left alone, open or not
-    public bool KeepRecording { get; set; } = true; // §12: the last minute of a run, for /moirai record
+    public bool KeepRecording { get; set; } = true; // §12: the last six minutes of a run, for /moirai record
 
     // Zones (G1–G5): empty means the zone the run starts in
     public List<ushort> RotationZones { get; set; } = [];

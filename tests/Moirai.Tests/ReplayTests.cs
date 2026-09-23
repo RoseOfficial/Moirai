@@ -161,6 +161,43 @@ public class ReplayTests
         }
     }
 
+    // Farms here, except on the given call, which throws
+    private sealed class ThrowingModule(int throwOnCall) : IFarmModule
+    {
+        private int _calls;
+        public ModuleDirective Next(WorldSnapshot w, ModuleContext ctx)
+            => ++_calls == throwOnCall ? throw new InvalidOperationException("boom") : new FarmHere();
+    }
+
+    private static Recording RecordCrash()
+    {
+        var settings = Defaults();
+        var recorder = new Recorder(settings, "test", new FixedRandom(0.5), new FlatGround());
+        var director = DirectorFactory.Create(settings, new ThrowingModule(throwOnCall: 2), recorder.Random, recorder.Landing);
+        director.Start();
+        recorder.Tick(director, TestData.World(nowMs: 0), zoneFlightAllowed: true);
+        Assert.Throws<InvalidOperationException>(() => recorder.Tick(director, TestData.World(nowMs: 100), zoneFlightAllowed: true));
+        return recorder.Snapshot();
+    }
+
+    [Fact] // §12: a tick that throws is still on file, with the exception as its status, so the saved recording holds the frame that caused it
+    public void Recorder_keeps_a_tick_that_threw()
+    {
+        var recording = RecordCrash();
+        Assert.Equal(2, recording.Frames.Count);
+        Assert.Equal("exception: InvalidOperationException: boom", recording.Frames[^1].Status);
+        Assert.Equal("", recording.Frames[^1].Intent);
+    }
+
+    [Fact] // §12: the replay reproduces a recorded exception as that frame's output instead of crashing
+    public void Replay_reproduces_a_recorded_exception()
+    {
+        var results = Replayer.Run(RecordCrash(), new ThrowingModule(throwOnCall: 2));
+        Assert.Equal(2, results.Count);
+        Assert.Null(Replayer.FirstDivergence(results));
+        Assert.Equal("exception: InvalidOperationException: boom", results[^1].ReplayedStatus);
+    }
+
     [Fact] // the plugin's buffer is bounded: only the newest frames survive
     public void Recorder_keeps_only_the_last_capacity_frames()
     {

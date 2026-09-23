@@ -9,11 +9,11 @@ public static class TestData
         uint id = 1, float x = 100, float z = 100, float radius = 60,
         int progress = 0, FatePhase phase = FatePhase.Running,
         FateKind kind = FateKind.Battle, int maxLevel = 50,
-        bool bonus = false, bool specialBoss = false, bool continuation = false,
+        bool bonus = false, bool specialBoss = false,
         long startTimeEpoch = 1_000, long timeRemaining = 600, uint eventItemId = 0,
         FateKind? sheetKind = null)
         => new(id, new Vector3(x, 0, z), radius, progress, phase, kind, maxLevel,
-               bonus, specialBoss, continuation, startTimeEpoch, timeRemaining, eventItemId,
+               bonus, specialBoss, startTimeEpoch, timeRemaining, eventItemId,
                sheetKind ?? (kind == FateKind.NpcStart ? (eventItemId != 0 ? FateKind.Collect : FateKind.Battle) : kind));
 
     public static PlayerSnapshot Player(
@@ -38,13 +38,13 @@ public static class TestData
         IReadOnlyList<EnemySnapshot>? enemies = null,
         IReadOnlyList<InteractableSnapshot>? interactables = null,
         IReadOnlyDictionary<uint, int>? items = null,
-        bool navmeshReady = true, bool lifestreamBusy = false,
+        bool navmeshReady = true,
         DialogKind dialog = DialogKind.None, bool combatReady = true, bool textAdvanceReady = true,
         bool dodgeReady = false, bool danger = false, IReadOnlySet<uint>? ownedMinions = null,
         bool autoBuyReady = true)
         => new(now, nowMs, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
-               items ?? new Dictionary<uint, int>(), navmeshReady, lifestreamBusy,
+               items ?? new Dictionary<uint, int>(), navmeshReady,
                dialog, combatReady, textAdvanceReady, dodgeReady, danger, ownedMinions, autoBuyReady);
 
     public static EnemySnapshot Enemy(
