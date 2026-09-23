@@ -31,7 +31,10 @@ alongside Olympus and Komos.
 - Joins boss FATEs only once their progress passes a threshold, so you never
   solo-tank from zero.
 - Mounts when the leg is worth it and a mount is available, and flies wherever
-  the game lets the mount take off.
+  the game lets the mount take off. Where you can fly it summons through the
+  Flying Mount Roulette, so the draw can always take off; the Movement tab can
+  switch to the plain roulette or a mount of your choice. Long walks on foot
+  use Sprint whenever it is ready.
 - Teleports to an attuned aetheryte when that beats the ride by a margin you
   set, and ranks FATEs by the same teleport-aware distance.
 - Recovers from stuck states through a bounded ladder: re-path, a new landing

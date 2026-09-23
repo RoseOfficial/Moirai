@@ -154,7 +154,7 @@ public sealed class Plugin : IDalamudPlugin
             ResummonBelowSeconds = Config.CompanionResummonBelowSeconds,
             StopWhenOutOfGreens = Config.CompanionStopWhenOutOfGreens,
         },
-        new DirectorConfig { DeathCap = Config.DeathCap },
+        new DirectorConfig { DeathCap = Config.DeathCap, Sprint = Config.Sprint },
         new RotationConfig { Zones = [.. Config.RotationZones], QuietSeconds = Config.RotateWhenQuietSeconds },
         new YokaiConfig
         {

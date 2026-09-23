@@ -27,6 +27,9 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIp
                     _lastDest = g.Destination;
                     _lastFly = g.Fly;
                 }
+                // C20: the planner marked this walk for sprint; pressed only when the game has it ready
+                if (g.Sprint && !w.Player.IsMounted && Throttle.Try("moirai.sprint", 1000))
+                    GameEx.SprintIfReady();
                 break;
 
             case StopMoving:
@@ -46,7 +49,9 @@ public sealed class IntentExecutor(NavmeshIpc navmesh, CombatIpc combat, DodgeIp
                 {
                     navmesh.Stop();
                     _lastDest = null;
-                    GameEx.MountRoulette();
+                    // C21: the flying roulette only where the character may take off (C16, with C1's overrides)
+                    var flyingWanted = cfg.UseFlight && w.Player.CanFly && !Data.ZoneData.NoFlyTerritories.Contains(w.TerritoryId);
+                    GameEx.Mount(cfg.Mount, cfg.MountId, flyingWanted);
                 }
                 break;
 

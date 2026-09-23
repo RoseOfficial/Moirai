@@ -15,6 +15,8 @@ public sealed class ConfigWindow : Window
 
     private readonly Plugin _plugin;
     private int _blacklistInput;
+    private List<(uint Id, string Name)>? _ownedMounts;
+    private string _mountFilter = "";
 
     public ConfigWindow(Plugin plugin)
         : base("Moirai Settings###MoiraiConfig")
@@ -289,11 +291,31 @@ public sealed class ConfigWindow : Window
             ImGui.TextColored(Muted, "No fates blacklisted.");
     }
 
-    private static void DrawMovement(Configuration c, ref bool dirty)
+    private void DrawMovement(Configuration c, ref bool dirty)
     {
         var flight = c.UseFlight;
         if (ImGui.Checkbox("Use flight", ref flight)) { c.UseFlight = flight; dirty = true; }
         Hint("Flight is still refused in zones whose geometry breaks flight pathing.");
+
+        ImGui.SetNextItemWidth(260);
+        if (ImGui.BeginCombo("Mount", MountChoiceLabel(c.Mount)))
+        {
+            foreach (var choice in Enum.GetValues<MountChoice>())
+                if (ImGui.Selectable(MountChoiceLabel(choice), choice == c.Mount)) { c.Mount = choice; dirty = true; }
+            ImGui.EndCombo();
+        }
+        if (c.Mount == MountChoice.Specific)
+            DrawMountPicker(c, ref dirty);
+        Hint(c.Mount switch
+        {
+            MountChoice.FlyingRoulette => "Only mounts that can fly are drawn where you can fly, so a leg never rides on the ground for the mount's sake. The plain roulette elsewhere.",
+            MountChoice.Roulette => "Any mount; one that cannot take off here rides the leg on the ground.",
+            _ => "Falls back to the flying roulette while the chosen mount is not owned by this character.",
+        });
+
+        var sprint = c.Sprint;
+        if (ImGui.Checkbox("Sprint on long walks", ref sprint)) { c.Sprint = sprint; dirty = true; }
+        Hint("Walks on foot longer than 20 yalms press Sprint whenever it is ready, never in combat. Applies on the next Start.");
 
         var mountLeg = c.MountLegThreshold;
         if (ImGui.SliderFloat("Mount when the leg exceeds (y)", ref mountLeg, 10f, 100f, "%.0f")) { c.MountLegThreshold = mountLeg; dirty = true; }
@@ -390,6 +412,34 @@ public sealed class ConfigWindow : Window
         if (ImGui.SmallButton("Save recording")) _plugin.SaveRecording("manual");
         ImGui.SameLine();
         ImGui.TextColored(Muted, "Attach it to a bug report: the last six minutes of the run, replayable in Moirai's tests.");
+    }
+
+    private static string MountChoiceLabel(MountChoice choice) => choice switch
+    {
+        MountChoice.FlyingRoulette => "Flying Mount Roulette where you can fly",
+        MountChoice.Roulette => "Mount Roulette",
+        _ => "A mount of my choice",
+    };
+
+    // The owned mounts are read when the list opens, not every frame; names are display only
+    private void DrawMountPicker(Configuration c, ref bool dirty)
+    {
+        ImGui.SetNextItemWidth(260);
+        var preview = c.MountId == 0 ? "(pick one)" : GameEx.MountName(c.MountId) ?? $"mount {c.MountId}";
+        if (!ImGui.BeginCombo("###mount-pick", preview))
+        {
+            _ownedMounts = null;
+            return;
+        }
+        _ownedMounts ??= GameEx.OwnedMounts();
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("###mount-filter", "filter", ref _mountFilter, 64);
+        foreach (var (id, name) in _ownedMounts)
+        {
+            if (_mountFilter.Length > 0 && !name.Contains(_mountFilter, StringComparison.CurrentCultureIgnoreCase)) continue;
+            if (ImGui.Selectable($"{name}###mount-{id}", id == c.MountId)) { c.MountId = id; dirty = true; }
+        }
+        ImGui.EndCombo();
     }
 
     private static void Dependency(string name, bool ok, string okText, string badText)

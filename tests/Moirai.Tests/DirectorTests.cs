@@ -345,6 +345,37 @@ public class DirectorTests
         Assert.Equal("selected fate 2", d.Tick(TestData.World(now: 10_003, player: at, fates: [far, next])).Status);
     }
 
+    // A walked leg toward a fate 300 y out: selects, then moves
+    private static GoTo WalkingLeg(DirectorConfig? cfg = null, PlayerSnapshot? player = null, float fateX = 300)
+    {
+        var d = Sut(cfg: cfg);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: fateX, z: 0, radius: 20);
+        var walker = player ?? TestData.Player(canMount: false);
+        d.Tick(TestData.World(player: walker, fates: [fate])); // selects
+        return Assert.IsType<GoTo>(d.Tick(TestData.World(player: walker, fates: [fate])).Intent);
+    }
+
+    [Fact] // C20: a walk on foot out of combat longer than the threshold asks for sprint
+    public void C20_long_walk_on_foot_asks_for_sprint()
+        => Assert.True(WalkingLeg().Sprint);
+
+    [Fact] // C20: a short walk does not spend it
+    public void C20_short_walk_does_not_sprint()
+        => Assert.False(WalkingLeg(fateX: 15).Sprint);
+
+    [Fact] // C20: never from the saddle
+    public void C20_no_sprint_when_mounted()
+        => Assert.False(WalkingLeg(player: TestData.Player(mounted: true, canFly: false)).Sprint);
+
+    [Fact] // C20: never in combat, where the recast is the rotation's to spend
+    public void C20_no_sprint_in_combat()
+        => Assert.False(WalkingLeg(player: TestData.Player(canMount: false, inCombat: true)).Sprint);
+
+    [Fact] // C20: the switch turns it off
+    public void C20_sprint_switch_off()
+        => Assert.False(WalkingLeg(cfg: new DirectorConfig { Sprint = false }).Sprint);
+
     [Fact] // B15: landed with none of the fate's enemies in view, the run heads for the ring center instead of standing there
     public void B15_in_fate_with_nothing_in_view_searches()
     {

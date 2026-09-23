@@ -87,7 +87,20 @@ public sealed class Director(
 
     private int _pausedTicks;
 
-    public DirectorOutput Tick(WorldSnapshot w)
+    public DirectorOutput Tick(WorldSnapshot w) => WithSprint(Decide(w), w);
+
+    // C20: whichever behavior walks, a walk on foot out of combat longer than the threshold asks
+    // for sprint; the executor uses it when the game has it ready. In combat the recast is the
+    // rotation's to spend.
+    private DirectorOutput WithSprint(DirectorOutput output, WorldSnapshot w)
+        => cfg.Sprint
+           && output.Intent is GoTo { Fly: false, Sprint: false } walk
+           && !w.Player.IsMounted && !w.Player.InCombat
+           && Geometry.HorizontalDistance(w.Player.Position, walk.Destination) > cfg.SprintOverYalms
+            ? output with { Intent = walk with { Sprint = true } }
+            : output;
+
+    private DirectorOutput Decide(WorldSnapshot w)
     {
         if (Phase is RunPhase.Idle or RunPhase.Stopped)
             return new(new NoAction(), Phase == RunPhase.Stopped ? $"stopped: {StoppedBecause}" : "idle");

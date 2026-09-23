@@ -12,7 +12,9 @@ namespace Moirai.Game;
 public static unsafe class GameEx
 {
     private const uint MountRouletteGeneralAction = 9;
+    private const uint FlyingMountRouletteGeneralAction = 24;
     private const uint JumpGeneralAction = 2;
+    private const uint SprintGeneralAction = 4;
     private const uint BlizzardAction = 142; // a hostile-only spell: castable on exactly the things the game calls enemies
 
     public static ushort GetFateId(IGameObject obj)
@@ -27,8 +29,63 @@ public static unsafe class GameEx
     public static uint GetNameplateIcon(IGameObject obj)
         => obj.Address == nint.Zero ? 0u : ((CSGameObject*)obj.Address)->NamePlateIconId;
 
-    public static void MountRoulette()
-        => ActionManager.Instance()->UseAction(ActionType.GeneralAction, MountRouletteGeneralAction);
+    // C21: the chosen mount while it is owned; otherwise the flying roulette where the character may
+    // fly and the game has it ready, so the draw is never a mount that cannot take off; else the
+    // plain roulette
+    public static void Mount(MountChoice choice, uint mountId, bool flyingWanted)
+    {
+        var am = ActionManager.Instance();
+        if (choice == MountChoice.Specific && mountId != 0 && IsMountOwned(mountId))
+        {
+            am->UseAction(ActionType.Mount, mountId);
+            return;
+        }
+        if (choice != MountChoice.Roulette && flyingWanted
+            && am->GetActionStatus(ActionType.GeneralAction, FlyingMountRouletteGeneralAction) == 0)
+        {
+            am->UseAction(ActionType.GeneralAction, FlyingMountRouletteGeneralAction);
+            return;
+        }
+        am->UseAction(ActionType.GeneralAction, MountRouletteGeneralAction);
+    }
+
+    public static bool IsMountOwned(uint mountId)
+    {
+        var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
+        return ps != null && ps->IsMountUnlocked(mountId);
+    }
+
+    // Display only (settings): the owned mounts by row id with their names, sorted by name
+    public static List<(uint Id, string Name)> OwnedMounts()
+    {
+        var owned = new List<(uint, string)>();
+        var sheet = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Mount>();
+        if (sheet is null) return owned;
+        foreach (var row in sheet)
+        {
+            if (row.RowId == 0 || !IsMountOwned(row.RowId)) continue;
+            if (MountName(row) is { } name) owned.Add((row.RowId, name));
+        }
+        owned.Sort((a, b) => string.Compare(a.Item2, b.Item2, StringComparison.CurrentCultureIgnoreCase));
+        return owned;
+    }
+
+    public static string? MountName(uint mountId)
+        => Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Mount>()?.GetRowOrDefault(mountId) is { } row ? MountName(row) : null;
+
+    private static string? MountName(Lumina.Excel.Sheets.Mount row)
+    {
+        var name = row.Singular.ExtractText();
+        return string.IsNullOrWhiteSpace(name) ? null : char.ToUpper(name[0]) + name[1..];
+    }
+
+    // C20: sprint only when the game has it ready, so a refusal is never queued
+    public static void SprintIfReady()
+    {
+        var am = ActionManager.Instance();
+        if (am->GetActionStatus(ActionType.GeneralAction, SprintGeneralAction) == 0)
+            am->UseAction(ActionType.GeneralAction, SprintGeneralAction);
+    }
 
     // The mount general action toggles dismount when already mounted.
     public static void DismountToggle()

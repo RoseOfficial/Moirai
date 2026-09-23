@@ -3,6 +3,9 @@ using Moirai.Core.Planning;
 
 namespace Moirai;
 
+// C21: which mount the executor asks for
+public enum MountChoice { FlyingRoulette, Roulette, Specific }
+
 public sealed class Configuration : IPluginConfiguration
 {
     public int Version { get; set; } = 2;
@@ -38,6 +41,9 @@ public sealed class Configuration : IPluginConfiguration
 
     // Movement (spec §7.1)
     public bool UseFlight { get; set; } = true;
+    public MountChoice Mount { get; set; } = MountChoice.FlyingRoulette; // C21
+    public uint MountId { get; set; }                                   // C21: the Mount row when one is chosen
+    public bool Sprint { get; set; } = true;                            // C20
     public float MountLegThreshold { get; set; } = 30f;
     public float ArriveTolerance { get; set; } = 4f;
     public float TeleportPenalty { get; set; } = 200f; // A12/C17: an aetheryte route must beat the direct path by this
