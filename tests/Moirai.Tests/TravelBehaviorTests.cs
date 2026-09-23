@@ -363,4 +363,91 @@ public class TravelBehaviorTests
         Assert.IsType<GoTo>(sut.Tick(Walking(6100, 100), ctx).Intent);
         Assert.IsType<GoTo>(sut.Tick(Walking(26_200, 30), ctx).Intent); // window over, but the rest is a short walk
     }
+
+    // A 60 y ring at the origin: FixedRandom(0.5, 0.5) puts the random dropoff at about (-31.8, 0, 0)
+    private static (TravelBehavior Sut, FateSnapshot Fate, Vector3 Random) RandomDropoff(
+        FateKind kind = FateKind.Battle, ILandingResolver? land = null)
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60, kind: kind);
+        var sut = new TravelBehavior(new MovementConfig());
+        sut.Tick(TestData.World(player: TestData.Player(x: 300, mounted: true), fates: [fate]), Ctx(fate, land: land));
+        return (sut, fate, sut.CurrentDropoff!.Value);
+    }
+
+    private static WorldSnapshot Approaching(FateSnapshot fate, params EnemySnapshot[] enemies)
+        => TestData.World(nowMs: 500, player: TestData.Player(x: 150, mounted: true), fates: [fate], enemies: enemies);
+
+    [Fact] // C19: the fate's enemies in view and none near the dropoff -> land next to the one the fight starts on
+    public void C19_dropoff_moves_next_to_the_fight()
+    {
+        var (sut, fate, random) = RandomDropoff();
+        var enemy = TestData.Enemy(id: 5, x: 20, z: 10);
+        var go = Assert.IsType<GoTo>(sut.Tick(Approaching(fate, enemy), Ctx(fate)).Intent);
+        var drop = sut.CurrentDropoff!.Value;
+        Assert.NotEqual(random, drop);
+        Assert.Equal(drop, go.Destination);
+        Assert.True(Geometry.HorizontalDistance(drop, enemy.Position) <= enemy.HitboxRadius + 6.01f);
+        Assert.True(drop.X > enemy.Position.X, "the dropoff sits on our side of the enemy");
+        Assert.True(fate.Contains(drop));
+    }
+
+    [Fact] // C19: an enemy already near the dropoff leaves it where it is
+    public void C19_dropoff_near_the_fight_is_kept()
+    {
+        var (sut, fate, random) = RandomDropoff();
+        sut.Tick(Approaching(fate, TestData.Enemy(id: 5, x: random.X + 8, z: 0), TestData.Enemy(id: 6, x: 40)), Ctx(fate));
+        Assert.Equal(random, sut.CurrentDropoff);
+    }
+
+    [Fact] // C19: an enemy past the ring's edge moves the dropoff only as far as the landing circle
+    public void C19_enemy_past_the_edge_keeps_the_dropoff_inside_the_ring()
+    {
+        var (sut, fate, _) = RandomDropoff();
+        sut.Tick(Approaching(fate, TestData.Enemy(id: 5, x: 80)), Ctx(fate));
+        var drop = sut.CurrentDropoff!.Value;
+        Assert.True(drop.X > 0);
+        Assert.True(Geometry.HorizontalDistance(drop, fate.Position) <= 60f * 0.75f + 0.01f);
+    }
+
+    [Fact] // C19: an escort or an unopened fate is not a fight first, so its dropoff stays random
+    public void C19_escort_and_npc_start_fates_keep_the_random_dropoff()
+    {
+        foreach (var kind in new[] { FateKind.Escort, FateKind.NpcStart })
+        {
+            var (sut, fate, random) = RandomDropoff(kind);
+            sut.Tick(Approaching(fate, TestData.Enemy(id: 5, x: 20)), Ctx(fate));
+            Assert.Equal(random, sut.CurrentDropoff);
+        }
+    }
+
+    [Fact] // C19: an enemy whose spot has no floor is tried once; the dropoff stays where it was
+    public void C19_enemy_without_a_floor_is_tried_once()
+    {
+        var land = new FloorOnce();
+        var (sut, fate, random) = RandomDropoff(land: land);
+        var enemy = TestData.Enemy(id: 5, x: 20);
+        sut.Tick(Approaching(fate, enemy), Ctx(fate, land: land));
+        sut.Tick(Approaching(fate, enemy), Ctx(fate, land: land));
+        Assert.Equal(random, sut.CurrentDropoff);
+        Assert.Equal(2, land.Queries); // the random dropoff, then the enemy's spot once
+    }
+
+    [Fact] // C19: once the landing has begun the dropoff stays put
+    public void C19_not_moved_once_landing()
+    {
+        var (sut, fate, random) = RandomDropoff();
+        var over = TestData.World(nowMs: 500, player: TestData.Player(x: random.X, z: random.Z, mounted: true), fates: [fate]);
+        Assert.IsType<Dismount>(sut.Tick(over, Ctx(fate)).Intent);
+        var seen = TestData.World(nowMs: 800, player: TestData.Player(x: random.X, z: random.Z, mounted: true), fates: [fate],
+            enemies: [TestData.Enemy(id: 5, x: 30)]);
+        Assert.IsType<Dismount>(sut.Tick(seen, Ctx(fate)).Intent);
+        Assert.Equal(random, sut.CurrentDropoff);
+    }
+}
+
+// Flat ground for the first query, nothing after it
+public sealed class FloorOnce : ILandingResolver
+{
+    public int Queries { get; private set; }
+    public Vector3? ResolveFloor(Vector3 near) => ++Queries == 1 ? near with { Y = 0 } : null;
 }

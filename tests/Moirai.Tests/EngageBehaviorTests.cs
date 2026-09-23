@@ -288,4 +288,93 @@ public class EngageBehaviorTests
             enemies: [TestData.Enemy(x: 5, y: 30, fateId: 1)]);
         Assert.IsType<SetCombat>(Sut().Tick(w, Ctx(fate)).Intent);
     }
+
+    private static WorldSnapshot Empty(long ms, float x, float z = 0, bool inCombat = false, FateKind kind = FateKind.Battle)
+        => TestData.World(nowMs: ms, player: TestData.Player(x: x, z: z, synced: true, inCombat: inCombat),
+            fates: [TestData.Fate(x: 0, z: 0, radius: 60, kind: kind)]);
+
+    [Fact] // B15: none of the fate's enemies in view -> head for the ring center rather than wait where we landed
+    public void B15_no_enemy_in_view_heads_for_the_ring_center()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var step = Sut().Tick(Empty(0, x: 40), Ctx(fate));
+        var go = Assert.IsType<GoTo>(step.Intent);
+        Assert.Equal(fate.Position, go.Destination);
+        Assert.False(go.Fly);
+    }
+
+    [Fact] // B15: at the center a short look around for the next wave, then a walk around the ring
+    public void B15_looks_from_the_center_then_patrols()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        Assert.IsType<Hold>(sut.Tick(Empty(0, x: 2), Ctx(fate)).Intent);
+        Assert.IsType<Hold>(sut.Tick(Empty(2_000, x: 2), Ctx(fate)).Intent);
+        var go = Assert.IsType<GoTo>(sut.Tick(Empty(3_000, x: 2), Ctx(fate)).Intent);
+        Assert.Equal(60f * 0.6f, Geometry.HorizontalDistance(go.Destination, fate.Position), 2);
+    }
+
+    [Fact] // B15: the walk starts on the far side from where the search began, the side we have not seen
+    public void B15_patrol_starts_opposite_where_the_search_began()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        Assert.IsType<GoTo>(sut.Tick(Empty(0, x: 40), Ctx(fate)).Intent); // to the center, from +X
+        sut.Tick(Empty(1_000, x: 1), Ctx(fate));                           // there: looking around
+        var go = Assert.IsType<GoTo>(sut.Tick(Empty(5_000, x: 1), Ctx(fate)).Intent);
+        Assert.True(go.Destination.X < -30f, $"first waypoint {go.Destination} is not on the far side");
+    }
+
+    [Fact] // B15: a reached waypoint hands on to the next one around the circle
+    public void B15_reached_waypoint_moves_on_around_the_ring()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        sut.Tick(Empty(0, x: 1), Ctx(fate));
+        var first = Assert.IsType<GoTo>(sut.Tick(Empty(3_000, x: 1), Ctx(fate)).Intent).Destination;
+        var there = Empty(4_000, x: first.X, z: first.Z);
+        var next = Assert.IsType<GoTo>(sut.Tick(there, Ctx(fate)).Intent).Destination;
+        Assert.NotEqual(first, next);
+        Assert.Equal(60f * 0.6f, Geometry.HorizontalDistance(next, fate.Position), 2);
+    }
+
+    [Fact] // B15: a waypoint we stop getting closer to (the center inside a rock) is given up for the next
+    public void B15_stalled_waypoint_is_skipped()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        Assert.Equal(fate.Position, Assert.IsType<GoTo>(sut.Tick(Empty(0, x: 40), Ctx(fate)).Intent).Destination);
+        Assert.Equal(fate.Position, Assert.IsType<GoTo>(sut.Tick(Empty(1_000, x: 40), Ctx(fate)).Intent).Destination);
+        var skipped = Assert.IsType<GoTo>(sut.Tick(Empty(3_500, x: 40), Ctx(fate)).Intent);
+        Assert.NotEqual(fate.Position, skipped.Destination);
+    }
+
+    [Fact] // B15: an enemy coming into view ends the search and the fight begins
+    public void B15_enemy_in_view_ends_the_search()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60);
+        var sut = Sut();
+        Assert.IsType<GoTo>(sut.Tick(Empty(0, x: 40), Ctx(fate)).Intent);
+        var w = TestData.World(nowMs: 500, player: TestData.Player(x: 30, synced: true), fates: [fate],
+            enemies: [TestData.Enemy(id: 7, x: -20)]);
+        Assert.True(Assert.IsType<SetCombat>(sut.Tick(w, Ctx(fate)).Intent).Enabled);
+        Assert.Equal(7uL, Assert.IsType<Engage>(sut.Tick(w, Ctx(fate)).Intent).TargetId);
+    }
+
+    [Fact] // B9/B15: in a boss fight the dodge layer owns movement, so there is no search while in combat
+    public void B15_no_search_during_boss_combat()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60, kind: FateKind.Boss);
+        var step = Sut().Tick(Empty(0, x: 40, inCombat: true, kind: FateKind.Boss), Ctx(fate));
+        Assert.IsType<Hold>(step.Intent);
+    }
+
+    [Fact] // B15: a collect fate with nothing to pick up and nothing in view searches the ring too
+    public void B15_collect_fate_searches_when_nothing_is_in_view()
+    {
+        var fate = TestData.Fate(x: 0, z: 0, radius: 60, kind: FateKind.Collect, eventItemId: 2001053);
+        var sut = new CollectBehavior(new EngageBehavior(new EngageConfig()));
+        var w = TestData.World(player: TestData.Player(x: 40, synced: true), fates: [fate]);
+        Assert.Equal(fate.Position, Assert.IsType<GoTo>(sut.Tick(w, Ctx(fate)).Intent).Destination);
+    }
 }

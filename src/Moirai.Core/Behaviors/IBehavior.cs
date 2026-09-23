@@ -26,6 +26,8 @@ public sealed class MovementConfig
     public float TeleportPenalty { get; init; } = 200f;       // C17/A12: an aetheryte route must beat the direct path by this
     public float TeleportArriveRadius { get; init; } = 25f;   // C17: standing this close to the aetheryte counts as landed
     public long TeleportTimeoutMs { get; init; } = 20_000;    // C17: a teleport that has not landed by then is given up on
+    public float LandNearFightRadius { get; init; } = 15f;    // C19: a dropoff this close to one of the fate's enemies is where the fight is
+    public float LandStandoff { get; init; } = 6f;            // C19: how far short of the enemy's hitbox the moved dropoff sits
 }
 
 public sealed record BehaviorContext(

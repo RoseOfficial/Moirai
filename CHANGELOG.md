@@ -3,6 +3,13 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.4 — 2026-09-23
+
+### Fixed
+- Standing in a FATE with nothing to fight. The game only lists enemies near the character, so in a wide FATE the whole fight could be out of sight from the landing spot, and the run waited there until the FATE ended. With no enemy of the FATE in view it now walks to the center of the ring, looks around for a few seconds in case a new wave is about to spawn, then walks a circle inside the ring until an enemy shows up. A spot it cannot reach is skipped after a few seconds. Collect FATEs with nothing to pick up search the same way
+- Landing far from the fight. The landing spot was a random point in the ring. Once the FATE's enemies come into view on the way in, and none is near that spot, the run now lands a few yalms short of the enemy it will fight first, on its own side of it and inside the ring. Escort FATEs and FATEs still waiting at their NPC keep the random spot
+<!-- LATEST-END -->
+
 ## v0.4.3 — 2026-09-05
 
 ### Fixed
@@ -10,7 +17,6 @@ All notable changes to Moirai will be documented in this file.
 - A leg that had to be walked because the mount would not take asks for the mount again after twenty seconds while the rest of the leg is still long, instead of walking the whole way
 - A destination re-issued with the fly flag changed, the mount having taken mid-leg, is a fresh path rather than a no-op, so the ride does not stay on the ground
 - The debug report shows the game's flight status and whether the zone override allows flight
-<!-- LATEST-END -->
 
 ## v0.4.2 — 2026-09-05
 

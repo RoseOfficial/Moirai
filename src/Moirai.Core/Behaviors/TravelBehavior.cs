@@ -8,8 +8,10 @@ namespace Moirai.Core.Behaviors;
 public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
 {
     public const int MaxRerolls = 8;
+    public const float DropoffRingFraction = 0.75f; // C3: dropoffs keep inside this share of the radius
 
     private readonly StuckDetector _stuck = new(cfg.StuckMinMove, cfg.StuckWindowMs);
+    private readonly HashSet<ulong> _aimedAt = []; // C19: enemies the dropoff was moved next to this leg
     private int _rerolls;
     private bool _landing;      // a dismount has been issued at this dropoff and has not taken yet
     private long? _mountAskedMs; // when the current unbroken run of mount requests began
@@ -55,6 +57,10 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
             _teleport = null; // landed, or given up on: the leg goes on from wherever we stand
             _stuck.Reset();
         }
+
+        // C19: land where the fight is, not wherever the random point fell
+        if (!_landing && NextToTheFight(w, fate, dropoff, ctx) is { } nearFight)
+            CurrentDropoff = dropoff = nearFight;
 
         var distToDrop = Vector3.Distance(p.Position, dropoff);
         var insideRing = fate.Contains(p.Position);
@@ -147,7 +153,36 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         _walkSinceMs = 0;
         _teleportDecided = false;
         _teleport = null;
+        _aimedAt.Clear();
         _stuck.Reset();
+    }
+
+    // C19: once the fate's enemies are in view on the way in and none stands near the dropoff, the
+    // dropoff moves next to the one the fight will start on, on our side of it and inside the ring.
+    // Each enemy is aimed at once per leg, so a spot with no floor is not asked about every tick.
+    // An escort or an unopened fate is not a fight first, and keeps its random point.
+    private Vector3? NextToTheFight(WorldSnapshot w, FateSnapshot fate, Vector3 dropoff, BehaviorContext ctx)
+    {
+        if (fate.Kind is FateKind.Escort or FateKind.NpcStart) return null;
+        var enemies = w.Enemies.Where(e => e.IsAlive && e.FateId == fate.Id).ToList();
+        if (enemies.Count == 0
+            || enemies.Any(e => Geometry.HorizontalDistance(e.Position, dropoff) <= cfg.LandNearFightRadius))
+            return null;
+
+        var p = w.Player.Position;
+        var first = TargetPicker.Choose(enemies.Where(e => !_aimedAt.Contains(e.Id)).ToList(), fate.Id, null, p);
+        if (first is null) return null;
+        _aimedAt.Add(first.Id);
+
+        var spot = first.Position;
+        var toUs = new Vector3(p.X - spot.X, 0, p.Z - spot.Z);
+        if (toUs.Length() > 0.01f)
+            spot += Vector3.Normalize(toUs) * MathF.Min(toUs.Length(), first.HitboxRadius + cfg.LandStandoff);
+        var fromCenter = new Vector3(spot.X - fate.Position.X, 0, spot.Z - fate.Position.Z);
+        var limit = fate.Radius * DropoffRingFraction;
+        if (fromCenter.Length() > limit)
+            spot = new Vector3(fate.Position.X, spot.Y, fate.Position.Z) + Vector3.Normalize(fromCenter) * limit;
+        return ctx.Landing.ResolveFloor(spot);
     }
 
     // C17/A12: the cheapest aetheryte to start from, or null when the direct path wins
@@ -173,7 +208,7 @@ public sealed class TravelBehavior(MovementConfig cfg) : IBehavior
         for (var i = 0; i < MaxRerolls; i++)
         {
             var angle = ctx.Random.NextDouble() * Math.PI * 2;
-            var r = fate.Radius * 0.75f * (float)Math.Sqrt(ctx.Random.NextDouble());
+            var r = fate.Radius * DropoffRingFraction * (float)Math.Sqrt(ctx.Random.NextDouble());
             var candidate = fate.Position + new Vector3(
                 (float)Math.Cos(angle) * r, 0, (float)Math.Sin(angle) * r);
             if (ctx.Landing.ResolveFloor(candidate) is { } grounded)

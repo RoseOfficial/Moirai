@@ -333,6 +333,29 @@ public class DirectorTests
         return d;
     }
 
+    [Fact] // B15: landed with none of the fate's enemies in view, the run heads for the ring center instead of standing there
+    public void B15_in_fate_with_nothing_in_view_searches()
+    {
+        var d = InFate(out var fate, out var at);
+        var output = d.Tick(TestData.World(player: at, fates: [fate]));
+        Assert.Equal(fate.Position, Assert.IsType<GoTo>(output.Intent).Destination);
+        Assert.StartsWith("no enemies in view", output.Status);
+    }
+
+    [Fact] // C19: through the Director, the fate's enemies coming into view on the way in move the dropoff next to them
+    public void C19_travel_lands_next_to_the_fight()
+    {
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
+        d.Tick(TestData.World(fates: [fate]));                          // selects
+        d.Tick(TestData.World(fates: [fate]));                          // travel: establishes dropoff
+        var enemy = TestData.Enemy(id: 5, fateId: 1, x: 50, z: 20);
+        var go = Assert.IsType<GoTo>(d.Tick(TestData.World(player: TestData.Player(x: 150, mounted: true), fates: [fate], enemies: [enemy])).Intent);
+        Assert.True(Geometry.HorizontalDistance(go.Destination, enemy.Position) <= enemy.HitboxRadius + 6.01f);
+    }
+
     [Fact] // D3: inside the fate, a stray on us with no fate enemy on us is cleared before the fate resumes
     public void D3_in_fate_stray_is_cleared_when_no_fate_enemy_is_on_us()
     {

@@ -9,10 +9,18 @@ public sealed class EngageConfig
     public float MeleeRange { get; init; } = 2.5f; // C10: larger breaks auto-attack
     public float RangedRange { get; init; } = 8f;
     public long DodgeSettleMs { get; init; } = 1000; // H3: after danger clears, before navigation takes over again
+    public float SearchCenterFraction { get; init; } = 0.25f; // B15: this close to the center, as a share of the radius, is there
+    public long SearchLookMs { get; init; } = 3000;           // B15: the wait at the center for a wave between spawns
+    public float SearchRadiusFraction { get; init; } = 0.6f;  // B15: the patrol circle, as a share of the radius
+    public int SearchPoints { get; init; } = 6;               // B15: waypoints around the patrol circle
+    public float SearchTolerance { get; init; } = 3f;         // B15: this close to a waypoint is there
+    public float SearchStallMove { get; init; } = 2f;         // B15: less than this across the window is not getting anywhere
+    public long SearchStallMs { get; init; } = 3000;          // B15: a waypoint not got closer to in this long is given up
 }
 
 public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
 {
+    private readonly RingSearch _search = new(cfg);
     private ulong? _sticky;
     private bool _combatOn;
     private long? _yieldUntilMs; // H2/H3: movement is the dodge layer's until then
@@ -71,11 +79,19 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
             && held.FateId == live.Id)
             _sticky = held.Id;
 
+        // B9: while a boss fight runs, the dodge layer owns movement
+        var bossInCombat = live.Kind == FateKind.Boss && p.InCombat;
+
         var chosen = TargetPicker.Choose(w.Enemies, live.Id, _sticky, p.Position);
         if (chosen is null)
-            return p.TargetId is null
-                ? new(new Hold(500), BehaviorStatus.Running, "no enemies yet")
-                : new(new ClearTarget(), BehaviorStatus.Running, "clearing stray target");
+        {
+            if (p.TargetId is not null)
+                return new(new ClearTarget(), BehaviorStatus.Running, "clearing stray target");
+            if (bossInCombat)
+                return new(new Hold(500), BehaviorStatus.Running, "no enemies in view");
+            return _search.Tick(w, live, ctx); // B15: never wait where we landed for a fight out of sight
+        }
+        _search.Reset(); // the next search starts from the center again
         _sticky = chosen.Id;
 
         if (!_combatOn)
@@ -91,9 +107,6 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
 
         var range = (p.IsMelee ? cfg.MeleeRange : cfg.RangedRange) + chosen.HitboxRadius;
         var dist = Vector3.Distance(p.Position, chosen.Position);
-
-        // B9: while a boss fight runs, the dodge layer owns movement
-        var bossInCombat = live.Kind == FateKind.Boss && p.InCombat;
         if (dist > range && !bossInCombat)
             return new(new GoTo(chosen.Position, false, range), BehaviorStatus.Running, "closing");
 
@@ -107,5 +120,6 @@ public sealed class EngageBehavior(EngageConfig cfg) : IBehavior
         _sticky = null;
         _combatOn = false;
         _yieldUntilMs = null;
+        _search.Reset();
     }
 }
