@@ -11,4 +11,5 @@ public enum StopReason
     AllYokaiCapped,   // E5: every listed yokai is at the cap
     MinionsMissing,   // E5: nothing farmable until minions are bought
     InternalError,    // the plugin shell caught an exception from a tick and stood everything down
+    GearBroken,       // R7: a piece of gear broke and no repair is coming
 }

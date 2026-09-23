@@ -12,11 +12,15 @@ namespace Moirai.Snapshot;
 public sealed class SnapshotBuilder(
     NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance, DodgeIpc dodge,
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
-    uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser)
+    uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser,
+    Execution.GearRepairer repairer, IReadOnlyList<uint> darkMatterGrades)
 {
     private const long OwnedRecheckMs = 1000;
+    private const long GearRecheckMs = 1000;
     private HashSet<uint> _ownedMinions = [];
     private long _ownedCheckedMs = long.MinValue / 2;
+    private IReadOnlyList<GearPiece> _gear = [];
+    private long _gearCheckedMs = long.MinValue / 2;
 
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -57,7 +61,8 @@ public sealed class SnapshotBuilder(
             CompanionStanceId: GameEx.CompanionStanceId(),
             ActiveMinionId: lp.CurrentMinion is { RowId: > 0 } minion ? minion.RowId : null, // §8
             WatchEquipped: watchEquipped,
-            WatchOwned: watchOwned);
+            WatchOwned: watchOwned,
+            Gear: Gear());
 
         var fates = new List<FateSnapshot>();
         foreach (var fate in Svc.Fates)
@@ -99,7 +104,20 @@ public sealed class SnapshotBuilder(
             DodgeReady: dodge.Installed,
             Danger: dodge.Installed && dodge.Danger(),
             OwnedMinions: OwnedMinions(),
-            AutoBuyReady: !purchaser.HasFailed); // E9
+            AutoBuyReady: !purchaser.HasFailed, // E9
+            RepairReady: !repairer.HasFailed);  // R5
+    }
+
+    // §7.5: the worn gear, rechecked once a second; it wears down over minutes, not ticks
+    private IReadOnlyList<GearPiece> Gear()
+    {
+        var now = Environment.TickCount64;
+        if (now - _gearCheckedMs >= GearRecheckMs)
+        {
+            _gearCheckedMs = now;
+            _gear = GameEx.EquippedGear(darkMatterGrades);
+        }
+        return _gear;
     }
 
     // §8: which of the event minions are unlocked, rechecked once a second

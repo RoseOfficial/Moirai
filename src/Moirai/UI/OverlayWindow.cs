@@ -78,6 +78,8 @@ public sealed class OverlayWindow : Window
 
         if (d.Companion?.Note is { } companionNote)
             ImGui.TextColored(Warn, $"Companion: {companionNote}");
+        if (d.Gear?.Note is { } gearNote)
+            ImGui.TextColored(Warn, $"Gear: {gearNote}");
 
         if (d.Module is Core.Modules.YokaiModule yokai && yokai.Status is { } ys)
         {
@@ -117,6 +119,7 @@ public sealed class OverlayWindow : Window
         Core.Intents.StopReason.AllYokaiCapped => "every listed yokai is at the cap",
         Core.Intents.StopReason.MinionsMissing => "minions not owned: buy them from Nohi at the Gold Saucer",
         Core.Intents.StopReason.InternalError => "an internal error; the recording and /xllog have the details",
+        Core.Intents.StopReason.GearBroken => "gear broke and cannot be repaired here; repair it and start again",
         _ => reason.ToString(),
     };
 }

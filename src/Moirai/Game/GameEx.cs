@@ -252,14 +252,70 @@ public static unsafe class GameEx
     // E9: the game's own callback surface for a window: a list of ints, the way the field scripts
     // drive menus and exchange windows (an entry index, or 0 / row / count for a purchase)
     public static bool FireAddonCallback(string name, params int[] values)
+        => FireAddonCallback(name, false, values);
+
+    // updateState: the window refreshes itself after the callback, as the Repair window's buttons do
+    public static bool FireAddonCallback(string name, bool updateState, params int[] values)
     {
         var addon = ReadyAddon(name);
         if (addon == null) return false;
         var atk = stackalloc AtkValue[values.Length];
         for (var i = 0; i < values.Length; i++)
             atk[i].SetInt(values[i]);
-        addon->FireCallback((uint)values.Length, atk, false);
+        addon->FireCallback((uint)values.Length, atk, updateState);
         return true;
+    }
+
+    private const uint RepairGeneralAction = 6;
+    private const int ConditionPerPercent = 300; // an item's condition runs 0 to 30000
+
+    // §7.5 R1: the self-repair window
+    public static void OpenRepair()
+        => ActionManager.Instance()->UseAction(ActionType.GeneralAction, RepairGeneralAction);
+
+    // The game holds this condition while it mends gear (and while it extracts materia)
+    public static bool Mending() => Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied39];
+
+    // §7.5: every equipped piece that takes wear (a piece a class repairs; the soul crystal does not),
+    // with its condition and whether self-repair can mend it now: the repairing class at the item's
+    // level less ten or better, and Dark Matter of the grade the item takes or a higher one. A piece
+    // with any condition left reads at least 1%, so 0% means broken.
+    public static List<GearPiece> EquippedGear(IReadOnlyList<uint> darkMatterGrades)
+    {
+        var gear = new List<GearPiece>();
+        var container = InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems);
+        var items = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Item>();
+        var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
+        if (container == null || items is null || ps == null) return gear;
+
+        var held = darkMatterGrades.Select(ItemCount).ToArray();
+        for (var i = 0; i < container->Size; i++)
+        {
+            var slot = container->GetInventorySlot(i);
+            if (slot == null || slot->ItemId == 0) continue;
+            if (items.GetRowOrDefault(slot->GetBaseItemId()) is not { } row || row.ClassJobRepair.RowId == 0) continue;
+            var condition = slot->Condition;
+            var percent = condition == 0 ? 0 : Math.Max(1, condition / ConditionPerPercent);
+            gear.Add(new GearPiece(percent, SelfRepairable(row, ps, darkMatterGrades, held)));
+        }
+        return gear;
+    }
+
+    private static bool SelfRepairable(
+        Lumina.Excel.Sheets.Item row, FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState* ps,
+        IReadOnlyList<uint> grades, int[] held)
+    {
+        if (row.ClassJobRepair.ValueNullable is not { } job || job.ExpArrayIndex < 0) return false;
+        if (ps->ClassJobLevels[job.ExpArrayIndex] < Math.Max(row.LevelEquip - 10, 1)) return false;
+        var needed = row.ItemRepair.ValueNullable?.Item.RowId ?? 0;
+        if (needed == 0) return false;
+        var from = -1;
+        for (var g = 0; g < grades.Count; g++)
+            if (grades[g] == needed) from = g;
+        if (from < 0) return ItemCount(needed) > 0; // a grade the list does not know: that exact item
+        for (var g = from; g < grades.Count; g++)
+            if (held[g] > 0) return true;
+        return false;
     }
 
     public static bool CloseAddon(string name)

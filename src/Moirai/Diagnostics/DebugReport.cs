@@ -31,6 +31,11 @@ public static class DebugReport
         sb.AppendLine($"rotation={(plugin.Config.RotationZones.Count == 0 ? "this zone only" : string.Join(",", plugin.Config.RotationZones))} quiet={plugin.Config.RotateWhenQuietSeconds}s");
         sb.AppendLine($"visible ui: {string.Join(", ", GameEx.VisibleAddonNames())}");
         sb.AppendLine($"purchase: {plugin.Purchaser.DebugState} status='{plugin.Purchaser.Status}'");
+        var gear = snap?.Player.Gear ?? [];
+        sb.AppendLine($"gear: repair={plugin.Config.RepairEnabled} below={plugin.Config.RepairBelowPercent}% stopWhenBroken={plugin.Config.StopWhenGearBroken} pieces={string.Join(" ", gear.Select(g => $"{g.ConditionPercent}%{(g.SelfRepairable ? "" : "(no self-repair)")}"))}");
+        sb.AppendLine($"darkMatter: {string.Join(" ", GearData.DarkMatterGrades.Select((id, i) => $"g{i + 1}={GameEx.ItemCount(id)}"))} repairer: {plugin.Repairer.DebugState} status='{plugin.Repairer.Status}' mending={GameEx.Mending()}");
+        foreach (var line in GameEx.AddonValues(Execution.GearRepairer.RepairAddon).Take(60))
+            sb.AppendLine($"  repair window {line}");
         foreach (var name in Execution.MinionPurchaser.MenuAddons.Concat(Execution.MinionPurchaser.ShopAddons).Append(Execution.MinionPurchaser.ShopDialogAddon))
         {
             var values = GameEx.AddonValues(name);

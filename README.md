@@ -51,6 +51,10 @@ alongside Olympus and Komos.
 - Accepts the return prompt on death, counts it, teleports back to the farming
   zone if the return put it elsewhere, and resumes; stops at a death cap you
   choose.
+- Repairs your gear with Dark Matter between FATEs once a piece drops below a
+  threshold you set, as far as your crafter levels and Dark Matter allow, and
+  stops the run rather than fight on with gear that broke and cannot be
+  repaired.
 - Keeps your chocobo companion summoned with Gysahl Greens, in the stance you
   pick, and tops up its timer before it lapses. Greens are never spent while
   mounted or in combat.
@@ -66,7 +70,7 @@ alongside Olympus and Komos.
 - Buying yokai minions from Nohi is off by default. Switched on, it works by
   menu index and fails loudly rather than guessing; the run then tells you
   what to buy.
-- No food, gear repair, or gemstone shopping.
+- No food, mender visits, or gemstone shopping. Gear is only self-repaired.
 
 ## Requirements
 

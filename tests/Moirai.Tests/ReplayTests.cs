@@ -134,6 +134,21 @@ public class ReplayTests
         Assert.IsType<YokaiModule>(DirectorFactory.CreateModule(back.Settings));
     }
 
+    [Fact] // §7.5/§12: a recording carries the gear settings and the worn gear, so a replay rebuilds the same upkeep
+    public void Recording_round_trips_gear_settings()
+    {
+        var settings = Defaults() with { Gear = new GearConfig { Enabled = true, RepairBelowPercent = 25, StopWhenBroken = true } };
+        var world = TestData.World(player: TestData.Player(gear: [new GearPiece(12, true), new GearPiece(0, false)]), repairReady: false);
+        var recording = new Recording("0.4.7", settings, [new Frame(world, true, [], [], "idle", "NoAction")]);
+
+        var back = RecordingFile.FromJson(RecordingFile.ToJson(recording));
+        Assert.Equal(RecordingFile.ToJson(recording), RecordingFile.ToJson(back));
+        Assert.Equal(25, back.Settings.Gear!.RepairBelowPercent);
+        Assert.Equal(new GearPiece(0, false), back.Frames[0].World.Player.Gear![1]);
+        Assert.False(back.Frames[0].World.RepairReady);
+        Assert.NotNull(DirectorFactory.Create(back.Settings, null, new FixedRandom(0.5), new FlatGround()).Gear);
+    }
+
     [Fact] // the debug report's timeline: one line per status change, newest kept
     public void Status_timeline_records_changes_only_and_keeps_the_newest()
     {

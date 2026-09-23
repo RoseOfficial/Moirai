@@ -1011,6 +1011,60 @@ public class DirectorTests
         Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
     }
 
+    private static Director WithGear(GearConfig cfg)
+    {
+        var engage = () => new EngageBehavior(new EngageConfig());
+        return new Director(new SingleZoneModule(), new SelectionConfig(), new DirectorConfig(),
+            new TravelBehavior(new MovementConfig()),
+            kind => engage(),
+            w => new BehaviorContext(null, true, new FixedRandom(0.5, 0.5), new FlatGround()),
+            gear: new GearUpkeep(cfg));
+    }
+
+    private static readonly GearPiece[] WornGear = [new GearPiece(10, true)];
+
+    [Fact] // R3: gear is looked after between fates, before the next pick
+    public void R3_repairs_gear_between_fates()
+    {
+        var d = WithGear(new GearConfig { Enabled = true });
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 300, z: 0, radius: 20);
+        var output = d.Tick(TestData.World(player: TestData.Player(gear: WornGear), fates: [fate]));
+        Assert.IsType<RepairGear>(output.Intent);
+        Assert.Equal("repairing gear", output.Status);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(now: 10_001, player: TestData.Player(gear: [new GearPiece(100, true)]), fates: [fate])).Status);
+    }
+
+    [Fact] // R3: never mid-leg, where the leg would be lost
+    public void R3_does_not_repair_while_traveling()
+    {
+        var d = WithGear(new GearConfig { Enabled = true });
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 300, z: 0, radius: 20);
+        d.Tick(TestData.World(player: TestData.Player(canMount: false), fates: [fate])); // selects with gear fine
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.IsNotType<RepairGear>(d.Tick(TestData.World(player: TestData.Player(canMount: false, gear: WornGear), fates: [fate])).Intent);
+    }
+
+    [Fact] // R7: a piece broken for good stops the run between fates when so configured
+    public void R7_broken_gear_stops_the_run_when_configured()
+    {
+        var d = WithGear(new GearConfig { Enabled = false, StopWhenBroken = true });
+        d.Start();
+        var output = d.Tick(TestData.World(player: TestData.Player(gear: [new GearPiece(0, true)])));
+        Assert.Equal(StopReason.GearBroken, Assert.IsType<StopRun>(output.Intent).Reason);
+        Assert.Equal(RunPhase.Stopped, d.Phase);
+    }
+
+    [Fact] // R7: without the switch, the run carries on
+    public void R7_broken_gear_does_not_stop_without_the_switch()
+    {
+        var d = WithGear(new GearConfig { Enabled = false, StopWhenBroken = false });
+        d.Start();
+        d.Tick(TestData.World(player: TestData.Player(gear: [new GearPiece(0, true)])));
+        Assert.NotEqual(RunPhase.Stopped, d.Phase);
+    }
+
     [Fact] // §11 Paused: the session clock stops for a pause, so fates per hour is not diluted by it
     public void Pause_is_not_session_time()
     {

@@ -16,6 +16,11 @@ public sealed class Configuration : IPluginConfiguration
     public bool SkipCollectFates { get; set; } // A14: collect fates left alone, open or not
     public bool KeepRecording { get; set; } = true; // §12: the last six minutes of a run, for /moirai record
 
+    // Gear (§7.5, R1–R7): self-repair with Dark Matter between fates
+    public bool RepairEnabled { get; set; } = true;
+    public int RepairBelowPercent { get; set; } = 30;
+    public bool StopWhenGearBroken { get; set; } = true;
+
     // Zones (G1–G5): empty means the zone the run starts in
     public List<ushort> RotationZones { get; set; } = [];
     public int RotateWhenQuietSeconds { get; set; } = 120;

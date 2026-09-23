@@ -38,6 +38,7 @@ public static class DirectorFactory
             },
             w => new BehaviorContext(null, zoneFlightAllowed?.Invoke(w) ?? true, random, landing),
             new CompanionUpkeep(settings.Companion),
-            new StrayAggroClear(settings.Engage));
+            new StrayAggroClear(settings.Engage),
+            settings.Gear is { } gear ? new GearUpkeep(gear) : null);
     }
 }

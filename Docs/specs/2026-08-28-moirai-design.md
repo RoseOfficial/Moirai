@@ -21,7 +21,7 @@ Moirai is named for the three Fates of Greek myth and ships under the RoseOffici
 
 ### Non-goals (v1, deliberately deferred)
 
-Chocobo companion management, consumables (food/potion), gear repair, bicolor gemstone shopping, Atma/relic collection modes, leveling mode, instance switching, retainer/GC housekeeping. All are proven bolt-ons in comparable tools and none block the Yo-kai use case.
+Chocobo companion management, consumables (food/potion), gear repair at a mender (self-repair with Dark Matter is in, §7.5), bicolor gemstone shopping, Atma/relic collection modes, leveling mode, instance switching, retainer/GC housekeeping. All are proven bolt-ons in comparable tools and none block the Yo-kai use case.
 
 ### Constraints
 
@@ -147,6 +147,10 @@ Accept the return prompt, wait through the revive, teleport back to the farming 
 ### 7.4 Accounting
 
 Completed, failed, and abandoned FATEs are counted distinctly. A failed FATE must never increment completion or quota counters.
+
+### 7.5 Gear
+
+Long runs wear the equipped gear down, and a piece at 0% gives no stats. The snapshot lists every equipped piece that takes wear (a piece some class repairs; the soul crystal does not) with its condition (the game's 0–30000 as a percent, any condition left reading at least 1%, so 0% means broken) and whether self-repair can mend it now: the repairing class at the item's level less ten or better, and Dark Matter of the grade the item takes or a higher one (Grades 1–8, item ids 5594–5598, 10386, 17837, 33916). A pure `GearUpkeep` asks for a repair between FATEs, in a settled moment, whenever a mendable piece is below the threshold (default 30%). The shell's repairer works the game's Repair window like the minion purchaser: general action 6 opens it, its Repair All (callback 0) and the yes/no follow, the game holds condition 39 while it mends, and callback −1 closes it; a step that stalls fails with a chat line and switches repair off for the run. Menders are not visited. With the stop switch on (default), a piece broken for good stops the run between FATEs rather than letting it die its way to the death cap (R1–R7).
 
 ---
 
@@ -324,6 +328,15 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - H2. Danger (Reborn's AI navigating, or a marked zone going off within 3 s) makes the engage behavior hand movement to the dodge layer and emit no path of its own, before the ring re-entry, so it never paths into a marker. Only while its combat switch is on, since the AI is on with it.
 - H3. After danger clears, a settle window (1 s) passes before movement is handed back to navigation, once.
 - H4. Without Reborn the danger flag is never set and nothing changes.
+
+**Gear**
+- R1. A piece below the repair threshold that self-repair can mend is repaired: the planner asks, the shell's repairer opens the Repair window, presses Repair All, confirms, waits out the mending, and closes the window. Gear at or above the threshold is left alone.
+- R2. A piece self-repair cannot mend (the repairing class more than ten levels below it, or no Dark Matter of its grade or higher) is not asked about; the overlay says why. Menders are not visited.
+- R3. Repairs happen between FATEs only (the selecting phase), never mid-leg or mid-fight, and never mounted, in combat, or over a cast.
+- R4. Bounded: a repair that did not bring the gear back above the threshold is tried once more after 30 s, then given up for the run with a note. Gear that comes back up, by a repair or by other means, restores the budget for the next time it wears down.
+- R5. A repairer step that stalls (10 s; 30 s for the mending) fails with a chat line, tries to close the window so the busy guard is not held, and switches repair off for the run (`RepairReady`).
+- R6. Switched off, nothing is repaired.
+- R7. A piece at 0% that no repair is coming for (repair off, not mendable, given up on, or the repairer failed) stops the run with `GearBroken` between FATEs when the stop switch is on; a broken piece a repair is coming for does not.
 
 **Yo-kai**
 - E1. Watch unequipped → equip if owned, else stop `WatchMissing`.

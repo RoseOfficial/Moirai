@@ -13,4 +13,5 @@ public sealed record RunSettings(
     CompanionConfig Companion,
     DirectorConfig Director,
     RotationConfig? Rotation = null,
-    YokaiConfig? Yokai = null);
+    YokaiConfig? Yokai = null,
+    GearConfig? Gear = null);

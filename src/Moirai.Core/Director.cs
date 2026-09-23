@@ -20,7 +20,8 @@ public sealed class Director(
     Func<FateKind, IBehavior> behaviorFactory,
     Func<WorldSnapshot, BehaviorContext> contextFactory,
     CompanionUpkeep? companion = null,
-    StrayAggroClear? aggro = null)
+    StrayAggroClear? aggro = null,
+    GearUpkeep? gear = null)
 {
     private readonly RecoveryLadder _ladder = new();
     private readonly EscapeManeuver _escape = new();
@@ -36,6 +37,7 @@ public sealed class Director(
     private ushort? _lastTerritory;
 
     public CompanionUpkeep? Companion => companion;
+    public GearUpkeep? Gear => gear;               // for the overlay's gear note
     public IFarmModule Module => module;           // for the overlay's module-specific lines
     public SelectionConfig Selection => selection; // for the debug report's per-fate skip reasons
     public SessionLedger Ledger { get; } = new();
@@ -177,6 +179,18 @@ public sealed class Director(
             }
             if (Phase != RunPhase.Traveling && companion.Tick(w) is { } upkeep)
                 return new(upkeep, upkeep is SetCompanionStance ? "setting companion stance" : "summoning companion");
+        }
+
+        // R3/R7: gear is looked after between fates, never mid-leg or mid-fight
+        if (gear is not null && Phase == RunPhase.SelectingFate)
+        {
+            if (gear.StopWhenBroken && gear.Broken(w))
+            {
+                Stop(StopReason.GearBroken);
+                return new(new StopRun(StopReason.GearBroken), "gear broken and no repair possible");
+            }
+            if (gear.Tick(w) is { } repair)
+                return new(repair, "repairing gear");
         }
 
         var idleSeconds = _idleSinceEpoch is { } idleSince ? w.NowEpoch - idleSince : 0;

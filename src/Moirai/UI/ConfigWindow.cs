@@ -96,6 +96,19 @@ public sealed class ConfigWindow : Window
         Hint("The last six minutes of what Moirai saw and decided, in memory only. /moirai record saves it, and a run that stops on its own saves it too. Applies on the next Start.");
 
         ImGui.Separator();
+        var repair = c.RepairEnabled;
+        if (ImGui.Checkbox("Repair gear with Dark Matter", ref repair)) { c.RepairEnabled = repair; dirty = true; }
+        Hint("Between FATEs, once a piece drops below the threshold, the Repair window mends what your crafter levels and Dark Matter allow: a piece up to ten levels above the class that repairs it, with its grade of Dark Matter or a higher one. Menders are not visited.");
+        if (c.RepairEnabled)
+        {
+            var below = c.RepairBelowPercent;
+            if (ImGui.SliderInt("Repair below (%)", ref below, 5, 90)) { c.RepairBelowPercent = below; dirty = true; }
+        }
+        var stopBroken = c.StopWhenGearBroken;
+        if (ImGui.Checkbox("Stop the run when gear breaks and cannot be repaired", ref stopBroken)) { c.StopWhenGearBroken = stopBroken; dirty = true; }
+        Hint("A piece at 0% gives no stats. The run stops between FATEs instead of dying its way to the death cap. Both apply on the next Start.");
+
+        ImGui.Separator();
         ImGui.TextColored(Muted, "Threshold and ladder changes apply on the next Start. Blacklist changes apply at the next selection.");
     }
 

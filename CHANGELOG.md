@@ -3,12 +3,19 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.7 — 2026-09-23
+
+### Added
+- Gear repair. Long runs wear gear down, and a piece at 0% gives no stats. Between FATEs, once a piece drops below the threshold you set (30% by default), Moirai opens the Repair window, repairs everything, confirms, and closes it again. It mends what your crafter levels and Dark Matter allow: a piece up to ten levels above the class that repairs it, with its grade of Dark Matter or a higher one. A piece it cannot mend is named on the overlay, and a repair that does not help is tried once more and then left alone for the run. Menders are not visited. On by default, on the General tab
+- The run stops between FATEs when a piece of gear has broken and cannot be repaired, instead of fighting on without its stats until the death cap. On by default, on the General tab
+- The debug report shows the condition of each piece of gear, the Dark Matter you hold, and the Repair window's state
+<!-- LATEST-END -->
+
 ## v0.4.6 — 2026-09-23
 
 ### Added
 - Sprint. Walks on foot longer than 20 yalms, whether a leg that had to be walked, the search around a FATE ring, or the way to an NPC or an item, now press Sprint whenever it is ready. Never while mounted and never in combat, where the rotation may want it. A switch on the Movement tab turns it off
 - A mount setting on the Movement tab. By default the mount is now summoned through the Flying Mount Roulette wherever you can fly, and through the plain Mount Roulette elsewhere. The plain roulette could draw a mount that cannot take off yet, and then the whole leg was ridden on the ground. You can also keep the plain roulette everywhere, or pick a mount by name; a picked mount this character does not own falls back to the roulette
-<!-- LATEST-END -->
 
 ## v0.4.5 — 2026-09-23
 
