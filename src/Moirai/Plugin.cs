@@ -63,6 +63,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         pluginInterface.Create<Svc>();
         Config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        if (Config.Migrate()) Config.Save();
 
         _navmesh = new NavmeshIpc();
         _combat = new CombatIpc();

@@ -3,12 +3,20 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.4.9 — 2026-09-23
+
+### Fixed
+- Walking off in the middle of a fight. Moving toward an enemy, searching the ring, or walking back into it all set a path that ran until it got where it was going, and nothing stopped it once the fight began. An enemy that came into range during the search was fought while the character walked on to the next search point, which is on the far side of the ring from the last fight, and a walk up to an enemy carried on to where it had been standing, cancelling casts on the way. The path is now stopped the moment the target is in range, and the character stands and fights
+- Searching the ring while still in combat. The search for enemies out of sight started whenever none of the FATE's enemies was in view, so every gap between kills, or an enemy going untargetable for a moment, sent the character to the center and around the ring while still fighting. The search now waits where it stands until combat ends
+- Walking back to the center after being knocked out of the ring. The walk back in went all the way to the center, which in a wide FATE is far from a fight at the edge, and an enemy standing just past the edge had the character walk out to it and back to the center over and over. It now walks back in to just inside the edge on the side it left from
+- Settings lists growing every session. Each time the plugin loaded, the saved FATE priority order and the Nohi menu path were added onto their defaults instead of replacing them, so the files grew by a copy every session and the Nohi path pressed its first entry twice. They are now read as saved; the priority order is put back as it was, and the Nohi path goes back to its default
+<!-- LATEST-END -->
+
 ## v0.4.8 — 2026-09-23
 
 ### Fixed
 - Queuing for a duty while farming. When the duty popped and you went in, the run carried on inside it: it fought whatever attacked you, walking to it, and tried to teleport back to the farming zone every few seconds. Now the run pauses the moment the duty finder's ready window comes up, or the moment you are pulled into a duty, handing movement, the rotation, dodging, and NPC dialogue back to you. A few seconds after you are back from the duty it picks the session back up from selection. The time spent in the duty does not count toward FATEs per hour
 - A run started inside a duty, such as the FATEs of a field operation, is never paused for it, and a pause you made yourself stays paused after a duty until you resume
-<!-- LATEST-END -->
 
 ## v0.4.7 — 2026-09-23
 

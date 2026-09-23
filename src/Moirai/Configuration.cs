@@ -1,5 +1,6 @@
 using Dalamud.Configuration;
 using Moirai.Core.Planning;
+using Newtonsoft.Json;
 
 namespace Moirai;
 
@@ -8,7 +9,7 @@ public enum MountChoice { FlyingRoulette, Roulette, Specific }
 
 public sealed class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
 
     // Session
     public int DeathCap { get; set; } = 3;
@@ -31,6 +32,7 @@ public sealed class Configuration : IPluginConfiguration
     public int YokaiCap { get; set; } = 10;
     public bool YokaiAutoEquipWatch { get; set; } = true;
     public bool YokaiAutoBuy { get; set; }                     // E9
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)] // see Migrate
     public List<int> YokaiNohiMenuPath { get; set; } = [0];    // E9: menu entry indices to reach the exchange
     public int YokaiShopIndexOffset { get; set; }              // E9: added to the roster position in the exchange list
 
@@ -40,6 +42,7 @@ public sealed class Configuration : IPluginConfiguration
     public int LevelMargin { get; set; } = 2;
     public int BossJoinProgress { get; set; } = 0;
     public int SpecialBossJoinProgress { get; set; } = 20;
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)] // see Migrate
     public List<SelectionCriterion> Priority { get; set; } = [.. DefaultPriority];
     public HashSet<uint> BlacklistedFates { get; set; } = [];
     public bool BonusOnly { get; set; } // A7: idle until a bonus fate is up
@@ -74,6 +77,19 @@ public sealed class Configuration : IPluginConfiguration
         order.AddRange(DefaultPriority.Where(c => !order.Contains(c)));
         order.AddRange(all.Where(c => !order.Contains(c)));
         return order;
+    }
+
+    // Until version 3 a load appended each saved list to its non-empty default instead of replacing
+    // it, so every session grew them by a copy of the default. The ladder keeps its order without
+    // the copies; the Nohi path goes back to its default, since the grown copy cannot be told from
+    // a path that starts at entry 0, and no path had been pinned from a debug report yet.
+    public bool Migrate()
+    {
+        if (Version >= 3) return false;
+        Priority = NormalizedPriority();
+        YokaiNohiMenuPath = [0];
+        Version = 3;
+        return true;
     }
 
     public void Save() => Svc.PluginInterface.SavePluginConfig(this);

@@ -462,7 +462,7 @@ public class DirectorTests
         var knockedOut = TestData.World(player: TestData.Player(x: 100, z: 0, inCombat: true, synced: true), fates: [fate]);
         var output = d.Tick(knockedOut);
         var go = Assert.IsType<GoTo>(output.Intent);
-        Assert.Equal(fate.Position, go.Destination);
+        Assert.Equal(new Vector3(65, 0, 0), go.Destination); // C5: just inside the edge on our side
     }
 
     [Fact] // spec 7.2: a travel standstill climbs the ladder until a new dropoff is rolled
