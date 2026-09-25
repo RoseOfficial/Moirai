@@ -245,4 +245,182 @@ public class GemstoneModuleTests
         var step = new GemstoneModule(Cfg()).Next(W(ranks: new SharedFateRanks([], 0, 3)), Between());
         Assert.Equal(StopReason.RanksUnreadable, Assert.IsType<StopSession>(step).Reason);
     }
+
+    [Fact] // S6: below the threshold nothing is bought; at it, a trip
+    public void S6_a_trip_only_at_the_threshold()
+    {
+        var m = new GemstoneModule(Cfg());
+        Assert.IsType<FarmHere>(m.Next(W(gems: 1399), Between()));
+        Assert.IsType<GoShopping>(m.Next(W(gems: 1400), Between()));
+    }
+
+    [Fact] // S6: never mid-fate
+    public void S6_no_trip_mid_fate()
+        => Assert.IsNotType<GoShopping>(new GemstoneModule(Cfg()).Next(W(gems: 1450), InFate()));
+
+    [Fact] // S7: the trader with the most affordable worth; every item in catalog order, riding map first
+    public void S7_picks_the_richest_trader_and_buys_in_catalog_order()
+    {
+        var m = new GemstoneModule(Cfg());
+        var trip = Assert.IsType<GoShopping>(m.Next(W(gems: 1400), Between())).Trip;
+        Assert.Equal(Tepli, trip.TraderId);
+        Assert.Equal([MapU, RollU, MinionU], trip.Purchases.Select(p => p.ItemId));
+        Assert.Equal("Tepli: Urqopacha Riding Map, Windswept Echoes, Alpaca Cria", m.Status!.Trip);
+    }
+
+    [Fact] // S7: an item that does not fit is skipped and a cheaper one after it still bought; the richer trader wins over the one here
+    public void S7_skips_what_does_not_fit_and_the_richer_trader_wins()
+    {
+        // Tepli: the map fits, then nothing else (90); Kunuhali: the map, not the roll, then the card (390)
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg(spendAt: 500)).Next(
+            W(territory: U, learned: [RollCity], gems: 500), Between())).Trip;
+        Assert.Equal(Kunuhali, trip.TraderId);
+        Assert.Equal([MapK, CardK], trip.Purchases.Select(p => p.ItemId));
+    }
+
+    [Fact] // S7: on equal worth the trader in the character's zone goes first
+    public void S7_ties_go_to_the_trader_here()
+    {
+        var ranks = Ranks(u: 2, k: 2); // only the riding maps are buyable: 90 at each zone trader
+        var fromU = Assert.IsType<GoShopping>(new GemstoneModule(Cfg(spendAt: 100)).Next(W(territory: U, ranks: ranks, gems: 100), Between())).Trip;
+        Assert.Equal(Tepli, fromU.TraderId);
+        var fromK = Assert.IsType<GoShopping>(new GemstoneModule(Cfg(spendAt: 100)).Next(W(territory: K, ranks: ranks, gems: 100), Between())).Trip;
+        Assert.Equal(Kunuhali, fromK.TraderId);
+    }
+
+    [Fact] // S7: learned items and items above the zone's rank are not bought
+    public void S7_buyable_means_not_learned_and_rank_met()
+    {
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(
+            W(ranks: Ranks(u: 4, k: 3), learned: [MapU, RollU], gems: 1400), Between())).Trip;
+        Assert.Equal(Tepli, trip.TraderId);
+        Assert.Equal([MinionU], trip.Purchases.Select(p => p.ItemId)); // Kunuhali's rank-4 stock waits for rank 4 there
+    }
+
+    [Fact] // S7: the city traders' stock waits for every zone at the top
+    public void S7_city_stock_waits_for_all_zones()
+    {
+        var zoneStock = new[] { MapU, RollU, MinionU, MapK, RollK, CardK };
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(W(learned: zoneStock, gems: 1400), Between())).Trip;
+        Assert.Equal(KajeelJa, trip.TraderId);
+        Assert.Equal([RollCity], trip.Purchases.Select(p => p.ItemId));
+    }
+
+    [Fact] // S7, review focus: a trip that leaves the gemstones above the threshold is followed by the next trader, not the same list
+    public void S7_the_next_trip_goes_to_the_next_trader()
+    {
+        var m = new GemstoneModule(Cfg());
+        Assert.Equal(Tepli, Assert.IsType<GoShopping>(m.Next(W(gems: 1400), Between())).Trip.TraderId);
+        var after = m.Next(W(learned: [MapU, RollU, MinionU], gems: 1400), Between());
+        Assert.Equal(Kunuhali, Assert.IsType<GoShopping>(after).Trip.TraderId);
+    }
+
+    [Fact] // S8: nothing to buy while ranking: Endwalker vouchers from Gadfrid, keeping 500 gemstones
+    public void S8_before_all_zones_vouchers_come_from_gadfrid_keeping_500()
+    {
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(
+            W(ranks: Ranks(u: 3, k: 3), learned: [MapU, MapK], gems: 1400), Between())).Trip;
+        Assert.Equal(Gadfrid, trip.TraderId);
+        Assert.Equal(new GemstonePurchase(EwVoucher, 9), trip.Purchases.Single());
+    }
+
+    [Fact] // S8: from the mount stage on every full hundred becomes Turali vouchers
+    public void S8_after_ranking_turali_vouchers_take_every_full_hundred()
+    {
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(W(learned: Collectibles, gems: 1450), Between())).Trip;
+        Assert.Equal(KajeelJa, trip.TraderId);
+        Assert.Equal(new GemstonePurchase(TuraliVoucher, 14), trip.Purchases.Single());
+    }
+
+    [Fact] // S8: the city trader in the character's zone sells the Turali vouchers first
+    public void S8_turali_vouchers_from_the_city_trader_here()
+    {
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(
+            W(territory: OtherCity, learned: Collectibles, gems: 1400), Between())).Trip;
+        Assert.Equal(Beryl, trip.TraderId);
+    }
+
+    [Fact] // S9: in the mount stage 500 Turali vouchers send the trip to Edelina, whatever the gemstones
+    public void S9_the_mount_trip_at_500_vouchers()
+    {
+        var items = new Dictionary<uint, int> { [TuraliVoucher] = 500 };
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(W(learned: Collectibles, items: items, gems: 10), Between())).Trip;
+        Assert.Equal(Edelina, trip.TraderId);
+        Assert.Equal(new GemstonePurchase(Whistle, 1), trip.Purchases.Single());
+    }
+
+    [Fact] // S9: with the switch off the vouchers stay
+    public void S9_no_mount_trip_with_the_switch_off()
+    {
+        var items = new Dictionary<uint, int> { [TuraliVoucher] = 500 };
+        Assert.IsType<FarmHere>(new GemstoneModule(Cfg(buyMount: false)).Next(W(learned: Collectibles, items: items, gems: 10), Between()));
+    }
+
+    [Fact] // S10: a quest-gated item is noted, never bought, and never holds the stage back
+    public void S10_quest_gated_items_do_not_hold_the_stage()
+    {
+        var m = new GemstoneModule(Cfg());
+        var rest = Collectibles.Where(i => i != CardK).ToArray();
+        var step = m.Next(W(learned: rest, quests: [], gems: 1400), Between());
+        Assert.Equal(GemstoneStage.Mount, m.Status!.Stage);
+        Assert.Equal(TuraliVoucher, Assert.IsType<GoShopping>(step).Trip.Purchases.Single().ItemId);
+        Assert.Contains("needs a quest: Otis Card", m.Status.Note);
+
+        m.Next(W(learned: rest, quests: [CardQuest]), Between());
+        Assert.Equal(GemstoneStage.Collecting, m.Status!.Stage); // the quest done, the card counts again
+    }
+
+    [Fact] // S11: an item its trader did not list is set aside for the session and never holds the stage back
+    public void S11_unlisted_items_are_set_aside()
+    {
+        var m = new GemstoneModule(Cfg());
+        var rest = Collectibles.Where(i => i != RollCity).ToArray();
+        var step = m.Next(W(learned: rest, unavailable: [RollCity], gems: 1400), Between());
+        Assert.Equal(GemstoneStage.Mount, m.Status!.Stage);
+        Assert.Equal(TuraliVoucher, Assert.IsType<GoShopping>(step).Trip.Purchases.Single().ItemId);
+        Assert.Contains("not listed by its trader: Morrow's Might", m.Status.Note);
+    }
+
+    [Fact] // S12: a trader whose trip failed is never planned again, and its stock no longer holds the stage
+    public void S12_a_failed_trader_is_skipped()
+    {
+        var m = new GemstoneModule(Cfg());
+        var trip = Assert.IsType<GoShopping>(m.Next(W(failed: [Tepli], gems: 1400), Between())).Trip;
+        Assert.Equal(Kunuhali, trip.TraderId);
+        m.Next(W(failed: [Tepli], learned: [MapK, RollK, CardK, RollCity]), Between());
+        Assert.Equal(GemstoneStage.Mount, m.Status!.Stage);
+        Assert.Contains("Tepli", m.Status.Note);
+    }
+
+    [Fact] // S13: at the cap with nowhere to spend the gemstones the run stops
+    public void S13_capped_with_nowhere_to_spend_stops()
+    {
+        var step = new GemstoneModule(Cfg()).Next(
+            W(learned: Collectibles, failed: [KajeelJa, Beryl, Gadfrid], gems: 1500), Between());
+        Assert.Equal(StopReason.GemstonesCapped, Assert.IsType<StopSession>(step).Reason);
+    }
+
+    [Fact] // S13: below the cap it farms on with a note
+    public void S13_nothing_to_spend_below_the_cap_is_a_note()
+    {
+        var m = new GemstoneModule(Cfg());
+        Assert.IsType<FarmHere>(m.Next(W(learned: Collectibles, failed: [KajeelJa, Beryl, Gadfrid], gems: 1450), Between()));
+        Assert.Contains("nothing to spend", m.Status!.Note);
+    }
+
+    [Fact] // S13: with shopping off there are no trips, and the cap is only noted
+    public void S13_shopping_off_never_shops_and_never_stops()
+    {
+        var m = new GemstoneModule(Cfg(shopping: false));
+        Assert.IsType<FarmHere>(m.Next(W(gems: 1500), Between()));
+        Assert.Contains("shopping is off", m.Status!.Note);
+    }
+
+    [Fact] // S13, review focus: with the voucher stacks full, the cap stops the run rather than losing gemstones
+    public void S13_a_full_voucher_stack_stops_at_the_cap()
+    {
+        var items = new Dictionary<uint, int> { [TuraliVoucher] = 999, [EwVoucher] = 999 };
+        var step = new GemstoneModule(Cfg()).Next(W(learned: [.. Collectibles, Whistle], items: items, gems: 1500), Between());
+        Assert.Equal(StopReason.GemstonesCapped, Assert.IsType<StopSession>(step).Reason);
+    }
 }

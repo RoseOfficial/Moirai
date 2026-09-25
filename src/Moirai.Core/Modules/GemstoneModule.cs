@@ -32,8 +32,10 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         var landed = w.SharedFate is { Reads: > 0 } ranks ? ranks : null;
         var stage = landed is null ? GemstoneStage.Reading : StageOf(w, landed);
         var gems = w.CountOf(cfg.GemstoneItemId);
+        var trip = landed is null || !cfg.Shopping ? null
+            : PlanMount(w, stage) ?? (gems >= cfg.SpendAt ? PlanSpend(w, landed, stage, gems) : null);
         Status = new GemstoneStatus(stage, w.TerritoryId, landed?.Of(w.TerritoryId), gems,
-            w.CountOf(cfg.TuraliVoucherItemId), null, null);
+            w.CountOf(cfg.TuraliVoucherItemId), trip is null ? null : Describe(trip), Note(w, landed, gems, trip));
 
         // S5: the ranks are the whole plan, so reads that never land end the run
         if (w.SharedFate is { } read && read.Failures >= cfg.ReadFailuresToStop)
@@ -44,6 +46,17 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         if (ReadDue(landed) && ctx.BetweenFates && (_readAgainAtEpoch is not { } at || w.NowEpoch >= at))
             return new ReadRanks();
         if (landed is null) return new FarmHere();
+
+        // S6/S9/S13: a trip between fates; at the cap with nothing to spend on, the run stops
+        if (trip is not null)
+        {
+            if (ctx.BetweenFates) return new GoShopping(trip);
+        }
+        else if (cfg.Shopping && gems >= cfg.GemstoneCap)
+        {
+            return new StopSession(StopReason.GemstonesCapped,
+                $"gemstones at {gems}/{cfg.GemstoneCap} with nothing left to buy or exchange them for");
+        }
 
         return Rotate(w, ctx, landed, stage); // S2/S3
     }
@@ -118,6 +131,99 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         }
         return _rotation.Next(w, ctx);
     }
+
+    // S7: wanted, not already in the bags, and the trader lists it at the ranks read
+    private bool Buyable(WorldSnapshot w, SharedFateRanks ranks, GemstoneItem i)
+        => StillWanted(w, i) && w.CountOf(i.ItemId) == 0 && GatesMet(ranks, i);
+
+    private bool GatesMet(SharedFateRanks ranks, GemstoneItem i)
+        => (i.RequiredRank == 0 || RankOf(ranks, TraderZone(i.TraderId)) >= i.RequiredRank)
+           && (!i.RequiresAllZonesMaxed || AllMaxed(ranks));
+
+    // S7/S8: the trader with the most gemstones' worth of buyable collectibles the gemstones cover,
+    // every item in catalog order that still fits; with nothing to buy anywhere, vouchers
+    private GemstoneTrip? PlanSpend(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
+    {
+        GemstoneTrip? best = null;
+        var bestTotal = 0;
+        foreach (var trader in HereFirst(w))
+        {
+            var left = gems;
+            var buys = new List<GemstonePurchase>();
+            foreach (var i in cfg.Items)
+            {
+                if (i.TraderId != trader.NpcId || i.Kind != GemstoneItemKind.Collectible || i.CurrencyItemId != cfg.GemstoneItemId) continue;
+                if (i.Cost > left || !Buyable(w, ranks, i)) continue;
+                buys.Add(new GemstonePurchase(i.ItemId, 1));
+                left -= i.Cost;
+            }
+            if (gems - left > bestTotal)
+            {
+                best = new GemstoneTrip(trader.NpcId, buys);
+                bestTotal = gems - left;
+            }
+        }
+        return best ?? VoucherTrip(w, ranks, stage, gems);
+    }
+
+    // S7: ties go to the trader in the character's zone, then to catalog order
+    private IEnumerable<GemstoneTrader> HereFirst(WorldSnapshot w)
+        => cfg.Traders.Where(t => t.TerritoryId == w.TerritoryId).Concat(cfg.Traders.Where(t => t.TerritoryId != w.TerritoryId));
+
+    // S8: nothing to buy, so the gemstones become vouchers: Turali ones where a city trader sells
+    // them (the one in this zone first), any other voucher on offer before that. Before the mount
+    // stage some gemstones are kept for the unlocks still to come; from it on every full hundred goes.
+    private GemstoneTrip? VoucherTrip(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
+    {
+        var offers = cfg.Items
+            .Where(i => i.Kind == GemstoneItemKind.Voucher && i.CurrencyItemId == cfg.GemstoneItemId && GatesMet(ranks, i)
+                        && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId))
+            .ToList();
+        var offer = offers.Where(i => i.ItemId == cfg.TuraliVoucherItemId)
+                        .OrderBy(i => TraderZone(i.TraderId) == w.TerritoryId ? 0 : 1)
+                        .FirstOrDefault()
+                    ?? offers.FirstOrDefault();
+        if (offer is null) return null;
+        var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0 : cfg.VoucherKeepBeforeMount;
+        var quantity = Math.Min((gems - keep) / offer.Cost, cfg.VoucherHoldCap - w.CountOf(offer.ItemId));
+        return quantity > 0 ? new GemstoneTrip(offer.TraderId, [new GemstonePurchase(offer.ItemId, quantity)]) : null;
+    }
+
+    // S9: in the mount stage the vouchers buy the mount, whatever the gemstones; one already in the
+    // bags is left to learning
+    private GemstoneTrip? PlanMount(WorldSnapshot w, GemstoneStage stage)
+    {
+        if (stage != GemstoneStage.Mount || MountItem() is not { } mount) return null;
+        if (w.CountOf(mount.CurrencyItemId) < mount.Cost || w.CountOf(mount.ItemId) > 0) return null;
+        return new GemstoneTrip(mount.TraderId, [new GemstonePurchase(mount.ItemId, 1)]);
+    }
+
+    private string Describe(GemstoneTrip trip)
+    {
+        var trader = cfg.Traders.FirstOrDefault(t => t.NpcId == trip.TraderId)?.Name ?? trip.TraderId.ToString();
+        var what = trip.Purchases.Select(p =>
+            (cfg.Items.FirstOrDefault(i => i.ItemId == p.ItemId)?.Name ?? p.ItemId.ToString()) + (p.Quantity > 1 ? $" x{p.Quantity}" : ""));
+        return $"{trader}: {string.Join(", ", what)}";
+    }
+
+    // The overlay's note: what is set aside and why, and a threshold that finds nothing to spend on
+    private string? Note(WorldSnapshot w, SharedFateRanks? ranks, int gems, GemstoneTrip? trip)
+    {
+        var notes = new List<string>();
+        var quests = Names(cfg.Items.Where(i => i.RequiredQuestId != 0 && !QuestDone(w, i) && !Learned(w, i.ItemId)));
+        if (quests.Count > 0) notes.Add("needs a quest: " + string.Join(", ", quests));
+        var unlisted = Names(cfg.Items.Where(i => Unavailable(w, i.ItemId)));
+        if (unlisted.Count > 0) notes.Add("not listed by its trader: " + string.Join(", ", unlisted));
+        var failed = cfg.Traders.Where(t => TraderFailed(w, t.NpcId)).Select(t => t.Name).ToList();
+        if (failed.Count > 0) notes.Add("trip failed, skipped this session: " + string.Join(", ", failed));
+        if (!cfg.Shopping && gems >= cfg.SpendAt) notes.Add($"shopping is off; gemstones {gems}/{cfg.GemstoneCap}");
+        else if (cfg.Shopping && ranks is not null && gems >= cfg.SpendAt && trip is null) notes.Add("nothing to spend the gemstones on");
+        return notes.Count == 0 ? null : string.Join("; ", notes);
+    }
+
+    private static List<string> Names(IEnumerable<GemstoneItem> items) => items.Select(i => i.Name).Distinct().ToList();
+
+    private ushort TraderZone(uint traderId) => cfg.Traders.FirstOrDefault(t => t.NpcId == traderId)?.TerritoryId ?? 0;
 
     private bool AllMaxed(SharedFateRanks ranks) => cfg.Zones.All(z => RankOf(ranks, z) >= cfg.MaxRank);
 
