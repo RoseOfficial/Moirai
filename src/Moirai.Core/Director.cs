@@ -232,18 +232,27 @@ public sealed class Director(
         var idleSeconds = _idleSinceEpoch is { } idleSince ? w.NowEpoch - idleSince : 0;
         // a settled moment for a summon or an equip: the same rule as the companion (F4/F9)
         var settled = Phase != RunPhase.Traveling && !w.Player.IsMounted && !w.Player.InCombat && !w.Player.IsCasting;
-        switch (module.Next(w, new ModuleContext(idleSeconds, settled)))
+        // S6/S15: no fate under way, for a trip or a read
+        var betweenFates = Phase == RunPhase.SelectingFate && settled;
+        switch (module.Next(w, new ModuleContext(idleSeconds, settled, Ledger.Completed, betweenFates)))
         {
             case EnsureWatch:
                 return new(new EquipWatch(), "equipping the Yo-kai Watch"); // E1
             case EnsureMinion m:
                 return new(new SummonMinion(m.MinionId), "summoning minion");   // E3
-            case BuyMinion b:
+            // S15: a purchase is taken between fates only; asked for mid-fate, the fate goes on
+            case BuyMinion b when Phase == RunPhase.SelectingFate:
                 if (RewardLatch.IsPending)
                     return new(new Hold(1000), "waiting for fate rewards"); // D6: the trip is a zone change
-                CurrentFate = null;
-                Phase = RunPhase.SelectingFate;
                 return new(new AcquireMinion(b.MinionId, b.MinionItemId, b.MedalCost), "buying minion"); // E9
+            case GoShopping s when Phase == RunPhase.SelectingFate:
+                if (RewardLatch.IsPending)
+                    return new(new Hold(1000), "waiting for fate rewards"); // S16: the trip is a zone change
+                return new(new ShopAtTrader(s.Trip), "shopping at a gemstone trader");
+            case ReadRanks when Phase == RunPhase.SelectingFate:
+                return new(new ReadSharedFate(), "reading Shared FATE ranks"); // S4
+            case EnsureLearned l:
+                return new(new LearnItem(l.ItemId), "learning a bought item"); // S14: the module asks in settled moments
             case MoveToTerritory t:
                 if (RewardLatch.IsPending)
                     return new(new Hold(1000), "waiting for fate rewards"); // D6

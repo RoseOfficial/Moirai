@@ -1,4 +1,5 @@
 using System.Numerics;
+using Moirai.Core.Model;
 
 namespace Moirai.Core.Intents;
 
@@ -27,6 +28,9 @@ public sealed record EquipWatch : Intent;                  // E1
 public sealed record AcquireMinion(uint MinionId, uint MinionItemId, int MedalCost) : Intent; // E9: the shell's purchaser
 public sealed record SetCompanionStance(uint StanceActionId) : Intent;
 public sealed record RepairGear : Intent; // R1: the shell's repairer mends what it can with Dark Matter
+public sealed record ReadSharedFate : Intent;                  // S4: the shell reads the Shared FATE window
+public sealed record ShopAtTrader(GemstoneTrip Trip) : Intent; // S6: the shell's gemstone shopper runs the trip
+public sealed record LearnItem(uint ItemId) : Intent;          // S14: use a bought collectible to learn it
 public sealed record AcceptReturn : Intent;
 public sealed record SetCombat(bool Enabled, CombatMode Mode) : Intent;
 public sealed record HandMovementTo(MovementOwner Owner) : Intent;

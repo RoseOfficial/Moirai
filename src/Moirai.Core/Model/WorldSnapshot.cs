@@ -19,7 +19,12 @@ public sealed record WorldSnapshot(
     IReadOnlySet<uint>? OwnedMinions = null, // §8: Companion row ids unlocked; null when unknown
     bool AutoBuyReady = true,                // E9: the shell's purchaser has not failed this run
     bool RepairReady = true,                 // R5: the shell's repairer has not failed this run
-    bool DutyPopped = false)                 // D11: the duty finder's ready window is up
+    bool DutyPopped = false,                 // D11: the duty finder's ready window is up
+    SharedFateRanks? SharedFate = null,      // S4: the Shared FATE reader's results; null until a read is tried
+    IReadOnlySet<uint>? LearnedItems = null, // S7/S14: catalog items this character has learned; null when unknown
+    IReadOnlySet<uint>? QuestsDone = null,   // S10: the catalog's gate quests that are complete; null when unknown
+    IReadOnlySet<uint>? FailedTraders = null,   // S12: traders whose trip failed this session
+    IReadOnlySet<uint>? UnavailableItems = null) // S11: items a trader's window did not list this session
 {
     public int CountOf(uint itemId) => ItemCounts.TryGetValue(itemId, out var n) ? n : 0;
 

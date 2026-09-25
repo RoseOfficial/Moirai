@@ -26,6 +26,17 @@ public sealed class SpyModule : IFarmModule
     }
 }
 
+// Asks for the same thing every tick and records what the Director told it
+public sealed class RepeatModule(ModuleDirective directive) : IFarmModule
+{
+    public List<ModuleContext> Seen { get; } = [];
+    public ModuleDirective Next(WorldSnapshot w, ModuleContext ctx)
+    {
+        Seen.Add(ctx);
+        return directive;
+    }
+}
+
 public class DirectorTests
 {
     private static Director Sut(
@@ -1182,5 +1193,84 @@ public class DirectorTests
         var outs = Drive(d, Wedged, 14_000);
         Assert.DoesNotContain(outs, o => o.Out.Status == "recovery: flying up");
         Assert.Contains(outs, o => o.Out.Status == "recovery: nudging sideways");
+    }
+
+    private static readonly GemstoneTrip AnyTrip = new(1048628, [new GemstonePurchase(43607, 1)]);
+
+    [Fact] // S15: a trip asked for on the way to a fate waits; the fate goes on
+    public void S15_a_trip_is_not_taken_mid_fate()
+    {
+        var d = Sut(module: new QueueModule(new FarmHere(), new GoShopping(AnyTrip)));
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 300, z: 0, radius: 20);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+        var next = d.Tick(TestData.World(fates: [fate]));
+        Assert.IsNotType<ShopAtTrader>(next.Intent);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.Equal(1u, d.CurrentFate!.Id);
+    }
+
+    [Fact] // S15: the Yo-kai buy waits for the fate to end too; until now it dropped the fate under way
+    public void S15_a_minion_buy_is_not_taken_mid_fate()
+    {
+        var d = Sut(module: new QueueModule(new FarmHere(), new BuyMinion(200, 15195, 1)));
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 300, z: 0, radius: 20);
+        Assert.Equal("selected fate 1", d.Tick(TestData.World(fates: [fate])).Status);
+        var next = d.Tick(TestData.World(fates: [fate]));
+        Assert.IsNotType<AcquireMinion>(next.Intent);
+        Assert.Equal(RunPhase.Traveling, d.Phase);
+        Assert.Equal(1u, d.CurrentFate!.Id);
+    }
+
+    [Fact] // S16: between fates a trip is an intent for the shell's shopper, held while a payout is pending
+    public void S16_a_trip_waits_for_the_payout()
+    {
+        var d = Sut(module: new RepeatModule(new GoShopping(AnyTrip)));
+        d.Start();
+        d.RewardLatch.Arm(9);
+        var held = d.Tick(TestData.World(fates: [TestData.Fate(id: 9, phase: FatePhase.Ended, progress: 100)]));
+        Assert.IsType<Hold>(held.Intent);
+        Assert.Equal("waiting for fate rewards", held.Status);
+
+        var shop = d.Tick(TestData.World());
+        Assert.Same(AnyTrip, Assert.IsType<ShopAtTrader>(shop.Intent).Trip);
+    }
+
+    [Fact] // S4/S14 at the Director: a read and a learn become intents for the shell
+    public void Gemstone_read_and_learn_become_intents()
+    {
+        var reads = Sut(module: new RepeatModule(new ReadRanks()));
+        reads.Start();
+        var read = reads.Tick(TestData.World());
+        Assert.IsType<ReadSharedFate>(read.Intent);
+        Assert.Equal("reading Shared FATE ranks", read.Status);
+
+        var learns = Sut(module: new RepeatModule(new EnsureLearned(43607)));
+        learns.Start();
+        Assert.Equal(43607u, Assert.IsType<LearnItem>(learns.Tick(TestData.World()).Intent).ItemId);
+    }
+
+    [Fact] // S4/S6: the module hears the completed count and whether no fate is under way
+    public void Module_hears_completions_and_between_fates()
+    {
+        var spy = new RepeatModule(new FarmHere());
+        var travel = new TravelBehavior(new MovementConfig());
+        var d = Sut(module: spy, travel: travel);
+        d.Start();
+        var fate = TestData.Fate(id: 1, x: 10, z: 0, radius: 60);
+        d.Tick(TestData.World(fates: [fate]));                  // selecting
+        d.Tick(TestData.World(fates: [fate]));                  // traveling
+        var drop = travel.CurrentDropoff!.Value;
+        var at = TestData.Player(x: drop.X, z: drop.Z, synced: true);
+        d.Tick(TestData.World(player: at, fates: [fate]));     // arrives
+        d.Tick(TestData.World(player: at));                     // the fate is gone: completed
+        d.Tick(TestData.World(player: at));                     // selecting again
+
+        Assert.True(spy.Seen[0].BetweenFates);
+        Assert.False(spy.Seen[1].BetweenFates);
+        Assert.Equal(0, spy.Seen[3].Completed);
+        Assert.Equal(1, spy.Seen[4].Completed);
+        Assert.True(spy.Seen[4].BetweenFates);
     }
 }
