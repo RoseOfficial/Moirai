@@ -149,6 +149,44 @@ public class ReplayTests
         Assert.NotNull(DirectorFactory.Create(back.Settings, null, new FixedRandom(0.5), new FlatGround()).Gear);
     }
 
+    private static GemstoneConfig GemstoneSettings(bool enabled = true) => new()
+    {
+        Enabled = enabled,
+        Zones = GemstoneCatalog.Zones,
+        Traders = GemstoneCatalog.Traders,
+        Items = GemstoneCatalog.Items,
+        GemstoneItemId = GemstoneCatalog.Gemstone,
+        MountItemId = GemstoneCatalog.TyaityaWhistle,
+        TuraliVoucherItemId = GemstoneCatalog.TuraliVoucher,
+        SpendAt = 1300,
+    };
+
+    [Fact] // gemstone design §5/§12: a recording carries the catalog and the snapshot's rank and shop fields
+    public void Recording_round_trips_gemstone_settings()
+    {
+        var settings = Defaults() with { Gemstones = GemstoneSettings() };
+        var world = TestData.World(sharedFate: new SharedFateRanks([new ZoneRank(1187, 3, 12, 40)], 2, 1),
+            learnedItems: new HashSet<uint> { 43607 }, questsDone: new HashSet<uint> { 70478 },
+            failedTraders: new HashSet<uint> { 1048628 }, unavailableItems: new HashSet<uint> { 44310 });
+        var recording = new Recording("0.5.0", settings, [new Frame(world, true, [], [], "idle", "NoAction")]);
+
+        var back = RecordingFile.FromJson(RecordingFile.ToJson(recording));
+        Assert.Equal(RecordingFile.ToJson(recording), RecordingFile.ToJson(back));
+        Assert.Equal(1300, back.Settings.Gemstones!.SpendAt);
+        Assert.Equal(GemstoneCatalog.Items.Count, back.Settings.Gemstones.Items.Count);
+        Assert.Equal(new ZoneRank(1187, 3, 12, 40), back.Frames[0].World.SharedFate!.Zones[0]);
+        Assert.Contains(44310u, back.Frames[0].World.UnavailableItems!);
+        Assert.IsType<GemstoneModule>(DirectorFactory.CreateModule(back.Settings));
+    }
+
+    [Fact] // the gemstone mode wins over the Yo-kai one when both are on; off, the others are chosen as before
+    public void Gemstone_mode_is_chosen_first()
+    {
+        var yokai = new YokaiConfig { Enabled = true, Roster = [new Yokai(200, "Jibanyan", 15168, [148])] };
+        Assert.IsType<GemstoneModule>(DirectorFactory.CreateModule(Defaults() with { Yokai = yokai, Gemstones = GemstoneSettings() }));
+        Assert.IsType<YokaiModule>(DirectorFactory.CreateModule(Defaults() with { Yokai = yokai, Gemstones = GemstoneSettings(enabled: false) }));
+    }
+
     [Fact] // the debug report's timeline: one line per status change, newest kept
     public void Status_timeline_records_changes_only_and_keeps_the_newest()
     {
