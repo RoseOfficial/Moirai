@@ -423,4 +423,34 @@ public class GemstoneModuleTests
         var step = new GemstoneModule(Cfg()).Next(W(learned: [.. Collectibles, Whistle], items: items, gems: 1500), Between());
         Assert.Equal(StopReason.GemstonesCapped, Assert.IsType<StopSession>(step).Reason);
     }
+
+    [Fact] // S14: a collectible in the bags is learned in a settled moment, whatever the stage
+    public void S14_learns_what_is_in_the_bags()
+    {
+        var items = new Dictionary<uint, int> { [MapU] = 1 };
+        var step = new GemstoneModule(Cfg()).Next(W(ranks: Ranks(u: 2, k: 2), items: items), Between());
+        Assert.Equal(MapU, Assert.IsType<EnsureLearned>(step).ItemId);
+    }
+
+    [Fact] // S14: an item in the bags is learned rather than bought again, and the trip plans around it
+    public void S14_an_item_in_the_bags_is_not_bought_again()
+    {
+        var m = new GemstoneModule(Cfg());
+        var items = new Dictionary<uint, int> { [RollU] = 1 };
+        var learned = new[] { MapU, MapK, RollK, CardK, RollCity }; // only Tepli has anything left
+        Assert.IsType<EnsureLearned>(m.Next(W(items: items, learned: learned, gems: 1400), Between()));
+        Assert.Equal("Tepli: Alpaca Cria", m.Status!.Trip); // the roll in the bags is not bought again
+    }
+
+    [Fact] // S14: not while unsettled, and an item that never takes is set aside after the grace
+    public void S14_learning_waits_for_settled_and_gives_up_after_the_grace()
+    {
+        var m = new GemstoneModule(Cfg());
+        var items = new Dictionary<uint, int> { [MapU] = 1 };
+        Assert.IsNotType<EnsureLearned>(m.Next(W(items: items, now: 1000), InFate()));
+        Assert.IsType<EnsureLearned>(m.Next(W(items: items, now: 1001), Between()));
+        Assert.IsType<EnsureLearned>(m.Next(W(items: items, now: 1010), Between()));
+        Assert.IsNotType<EnsureLearned>(m.Next(W(items: items, now: 1011), Between()));
+        Assert.Contains("could not learn: Urqopacha Riding Map", m.Status!.Note);
+    }
 }

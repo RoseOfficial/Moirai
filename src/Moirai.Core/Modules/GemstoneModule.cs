@@ -23,12 +23,16 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private long? _readAgainAtEpoch;
     private ZoneRotationModule? _rotation;
     private IReadOnlyList<ushort> _rotationZones = [];
+    private readonly HashSet<uint> _learnGivenUp = [];
+    private uint? _learning;
+    private long? _learnAskEpoch;
 
     public GemstoneStatus? Status { get; private set; }
 
     public ModuleDirective Next(WorldSnapshot w, ModuleContext ctx)
     {
         Observe(w, ctx);
+        var learn = Learn(w, ctx); // first, so an item set aside this call drops out of the stage and the note
         var landed = w.SharedFate is { Reads: > 0 } ranks ? ranks : null;
         var stage = landed is null ? GemstoneStage.Reading : StageOf(w, landed);
         var gems = w.CountOf(cfg.GemstoneItemId);
@@ -41,6 +45,8 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         if (w.SharedFate is { } read && read.Failures >= cfg.ReadFailuresToStop)
             return new StopSession(StopReason.RanksUnreadable,
                 "the Shared FATE window could not be read; /moirai debug with it open shows what it holds");
+
+        if (learn is not null) return learn; // S14
 
         // S1/S4/S5: the first read before anything else, then the rank-ups the completions predict
         if (ReadDue(landed) && ctx.BetweenFates && (_readAgainAtEpoch is not { } at || w.NowEpoch >= at))
@@ -81,6 +87,31 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         _failuresSeen = ranks.Failures;
     }
 
+    // S14: a collectible in the bags that is not learned yet is used in a settled moment, whatever
+    // the stage; one that never takes through the grace is set aside for the session (the E8 pattern)
+    private ModuleDirective? Learn(WorldSnapshot w, ModuleContext ctx)
+    {
+        var item = w.LearnedItems is null ? null : cfg.Items.FirstOrDefault(i =>
+            i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount
+            && w.CountOf(i.ItemId) > 0 && !Learned(w, i.ItemId) && !_learnGivenUp.Contains(i.ItemId));
+        if (item is null || !ctx.Settled)
+        {
+            _learnAskEpoch = null;
+            return null;
+        }
+        if (_learning != item.ItemId)
+        {
+            _learning = item.ItemId;
+            _learnAskEpoch = null;
+        }
+        _learnAskEpoch ??= w.NowEpoch;
+        if (w.NowEpoch - _learnAskEpoch < cfg.LearnGraceSeconds)
+            return new EnsureLearned(item.ItemId);
+        _learnGivenUp.Add(item.ItemId);
+        _learnAskEpoch = null;
+        return null;
+    }
+
     // S4: the first read; a rank-up the completions since the last read should have brought; or the
     // periodic check against credit the count missed. Never once every zone is at the top.
     private bool ReadDue(SharedFateRanks? landed)
@@ -108,10 +139,11 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         return GemstoneStage.FarmingOn;
     }
 
-    // S10-S12: an item counts toward its stage while this session can still get it: not learned, its
-    // quest done, listed by its trader, and the trader's trip not failed
+    // S10-S12, S14: an item counts toward its stage while this session can still get it: not learned,
+    // its quest done, listed by its trader, the trader's trip not failed, and not set aside unlearnable
     private bool StillWanted(WorldSnapshot w, GemstoneItem i)
-        => !Learned(w, i.ItemId) && QuestDone(w, i) && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId);
+        => !Learned(w, i.ItemId) && QuestDone(w, i) && !Unavailable(w, i.ItemId)
+           && !TraderFailed(w, i.TraderId) && !_learnGivenUp.Contains(i.ItemId);
 
     // S2/S3: while ranking, the zones below the top rank in turn; after that, all of them
     private ModuleDirective Rotate(WorldSnapshot w, ModuleContext ctx, SharedFateRanks ranks, GemstoneStage stage)
@@ -216,6 +248,8 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         if (unlisted.Count > 0) notes.Add("not listed by its trader: " + string.Join(", ", unlisted));
         var failed = cfg.Traders.Where(t => TraderFailed(w, t.NpcId)).Select(t => t.Name).ToList();
         if (failed.Count > 0) notes.Add("trip failed, skipped this session: " + string.Join(", ", failed));
+        var unlearnable = Names(cfg.Items.Where(i => _learnGivenUp.Contains(i.ItemId)));
+        if (unlearnable.Count > 0) notes.Add("could not learn: " + string.Join(", ", unlearnable));
         if (!cfg.Shopping && gems >= cfg.SpendAt) notes.Add($"shopping is off; gemstones {gems}/{cfg.GemstoneCap}");
         else if (cfg.Shopping && ranks is not null && gems >= cfg.SpendAt && trip is null) notes.Add("nothing to spend the gemstones on");
         return notes.Count == 0 ? null : string.Join("; ", notes);
