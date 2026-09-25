@@ -25,6 +25,10 @@ alongside Olympus and Komos.
   yokai's minion, farms its designated zones in turn, equips the watch when
   owned, moves on at the medal cap, and stops with a summary or a shopping
   list.
+- Farms Dawntrail gemstones: ranks every Dawntrail zone's Shared FATE to 4,
+  buys and learns what the gemstone traders sell whenever the gemstones near
+  the cap, turns the rest into vouchers, buys the Ty'aitya Whistle at 500
+  Turali vouchers, and keeps farming. On the Gemstones tab.
 - Handles battle, boss, defend, escort, and collect FATEs, and can open
   NPC-started FATEs. Collect FATEs and NPC-started FATEs can each be
   switched off.
@@ -74,7 +78,7 @@ alongside Olympus and Komos.
 - Buying yokai minions from Nohi is off by default. Switched on, it works by
   menu index and fails loudly rather than guessing; the run then tells you
   what to buy.
-- No food, mender visits, or gemstone shopping. Gear is only self-repaired.
+- No food or mender visits. Gear is only self-repaired.
 
 ## Requirements
 

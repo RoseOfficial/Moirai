@@ -3,6 +3,17 @@
 All notable changes to Moirai will be documented in this file.
 
 <!-- LATEST-START -->
+## v0.5.0 — 2026-09-25
+
+### Added
+- Dawntrail gemstones, a new mode on the Gemstones tab. It farms FATEs in the six Dawntrail zones until each one's Shared FATE rank reaches 4, reading the ranks from the Shared FATE window, which flashes open for a moment now and then. Whenever the gemstones near the 1,500 cap it goes shopping: it teleports to the gemstone trader with the most to sell, buys the riding maps, orchestrion rolls, minions, barding, cards, framer's kits and the parasol you do not have yet, and learns them. Items that need a quest you have not done are skipped and listed. With nothing left to buy, the spare gemstones become Bicolor Gemstone Vouchers, Turali ones once the city traders open. After every collectible is learned it saves Turali vouchers, buys the Ty'aitya Whistle from Edelina in Mor Dhona at 500, and then keeps farming until you stop it
+- The debug report shows the Shared FATE ranks as the game reports them, the gemstone shopper's state, and the values of any open exchange window
+
+### Fixed
+- Teleport shortcuts never happened. Aetheryte positions were read from a link in the game data that no longer points anywhere, so no aetheryte was ever seen: legs never started with a teleport, the teleport cost in FATE ranking never applied, and the recovery step that teleports to the nearest aetheryte was skipped. Positions now come from the map markers, so a long leg starts with a teleport when that is faster
+- A Yo-kai minion purchase could start in the middle of a FATE and abandon it. Purchases now wait until the FATE is over
+<!-- LATEST-END -->
+
 ## v0.4.9 — 2026-09-23
 
 ### Fixed
@@ -10,7 +21,6 @@ All notable changes to Moirai will be documented in this file.
 - Searching the ring while still in combat. The search for enemies out of sight started whenever none of the FATE's enemies was in view, so every gap between kills, or an enemy going untargetable for a moment, sent the character to the center and around the ring while still fighting. The search now waits where it stands until combat ends
 - Walking back to the center after being knocked out of the ring. The walk back in went all the way to the center, which in a wide FATE is far from a fight at the edge, and an enemy standing just past the edge had the character walk out to it and back to the center over and over. It now walks back in to just inside the edge on the side it left from
 - Settings lists growing every session. Each time the plugin loaded, the saved FATE priority order and the Nohi menu path were added onto their defaults instead of replacing them, so the files grew by a copy every session and the Nohi path pressed its first entry twice. They are now read as saved; the priority order is put back as it was, and the Nohi path goes back to its default
-<!-- LATEST-END -->
 
 ## v0.4.8 — 2026-09-23
 

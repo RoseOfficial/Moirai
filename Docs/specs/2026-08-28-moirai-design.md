@@ -21,7 +21,7 @@ Moirai is named for the three Fates of Greek myth and ships under the RoseOffici
 
 ### Non-goals (v1, deliberately deferred)
 
-Chocobo companion management, consumables (food/potion), gear repair at a mender (self-repair with Dark Matter is in, §7.5), bicolor gemstone shopping, Atma/relic collection modes, leveling mode, instance switching, retainer/GC housekeeping. All are proven bolt-ons in comparable tools and none block the Yo-kai use case.
+Chocobo companion management, consumables (food/potion), gear repair at a mender (self-repair with Dark Matter is in, §7.5), Atma/relic collection modes, leveling mode, instance switching, retainer/GC housekeeping. All are proven bolt-ons in comparable tools and none block the Yo-kai use case.
 
 ### Constraints
 
@@ -56,7 +56,7 @@ Once per tick, one component reads everything the planner may need and produces 
 Consumes `(WorldSnapshot, Configuration, PlanState)` and returns intents. No game calls, no statics, clock injected. Composed of:
 
 - **Director** — lifecycle (Idle / Running / Paused / Stopped-with-reason) and the interrupt ladder (§3). Delegates strategy to the active module and tactics to behaviors.
-- **Module (`IFarmModule`)** — strategy: which zone to farm, when to rotate, when the session is done. v1 ships `YokaiModule` (§8) and `SingleZoneModule`; `ZoneRotationModule` (Appendix A, G-series) farms a user's zone list in turn. The Director tells the module each tick how long selection has come up empty in the current zone (`ModuleContext.IdleSeconds`, G6).
+- **Module (`IFarmModule`)** — strategy: which zone to farm, when to rotate, when the session is done. v1 ships `YokaiModule` (§8) and `SingleZoneModule`; `ZoneRotationModule` (Appendix A, G-series) farms a user's zone list in turn; `GemstoneModule` (§8b) ranks the Dawntrail zones and shops their gemstone traders. The Director tells the module each tick how long selection has come up empty in the current zone (`ModuleContext.IdleSeconds`, G6).
 - **Behaviors** — tactical units, each a small explicit state machine with enter/tick/exit and bounded retries: `TravelBehavior`, `EngageBehavior`, `CollectBehavior`, `NpcStartBehavior`, `RecoverBehavior`, `IdleBehavior`. One behavior is active at a time; the Director owns transitions.
 - **FateSelector** — pure scoring over the snapshot's FATE projection (§4).
 
@@ -175,6 +175,10 @@ Rotation logic (pure, in the module; implemented in v0.4.0 as E1–E8):
 
 Vendor turn-ins (weapons, mount) remain manual. The module surfaces the active yokai's count and its notes in the overlay (§10).
 
+## 8b. Dawntrail gemstone module
+
+Designed in `Docs/specs/2026-09-25-moirai-gemstone-design.md`, whose Appendix S (S1–S16) is its edge-case catalog. The module works out a stage from the snapshot on every call. Ranking farms the Dawntrail zones below Shared FATE rank 4 as a zone rotation, the ranks read from the game's Shared FATE window by a shell task between FATEs (at the start, when the completions since the last read should have brought a rank-up, and every tenth completion). Collecting rotates all six zones and, whenever the gemstones reach a threshold near the 1,500 cap, sends the shell's shopper to the trader with the most to sell, buying the riding maps, orchestrion rolls, minions, barding, cards, framer's kits and parasol by item id; bought items are learned in settled moments. With nothing left to buy, gemstones become vouchers (Endwalker ones before the city traders open, Turali ones after). The Mount stage saves Turali vouchers and buys the Ty'aitya Whistle from Edelina at 500; Farming on then keeps farming and exchanging until stopped. Items a quest gates, a trader does not list, or a failed trader holds never hold a stage back, and a trip is only ever taken between FATEs.
+
 ---
 
 ## 9. Data layer
@@ -198,7 +202,7 @@ Curated files live in the plugin config directory, are hot-reloaded on change, a
 
 ## 11. Error handling and stop reasons
 
-A pause (§2.2 Paused, `/moirai pause`, the overlay button) stands movement and combat down over the next two ticks and keeps the session: the ledger, the session skips, the zone rotation's position, and the module's state. The session clock stops while paused, so the completion rate is not diluted by the pause; the shell hands TextAdvance back and drops a minion purchase under way, so NPCs can be talked to by hand, and takes TextAdvance again on resume. Resume picks up from selection; the FATE under way is not counted as anything. Every terminal stop carries a typed `StopReason` (`UserRequested`, `StuckExhausted`, `DeathCapReached`, `OutOfGreens`, `DependencyLost`, `ZonesUnreachable`, `AllYokaiCapped`, `MinionsMissing`, `InternalError`) surfaced in the overlay and log. An exception thrown by a tick stops the run with `InternalError`: the shell stands everything down and saves the recording, which keeps the tick that threw, instead of throwing again every frame while navigation and the rotation carry on with their last orders. Mid-run dependency loss (a required plugin unloads) pauses rather than stops when recoverable, with the reason displayed. No unbounded retry exists anywhere: every loop has a cap, every wait a timeout.
+A pause (§2.2 Paused, `/moirai pause`, the overlay button) stands movement and combat down over the next two ticks and keeps the session: the ledger, the session skips, the zone rotation's position, and the module's state. The session clock stops while paused, so the completion rate is not diluted by the pause; the shell hands TextAdvance back and drops a minion purchase under way, so NPCs can be talked to by hand, and takes TextAdvance again on resume. Resume picks up from selection; the FATE under way is not counted as anything. Every terminal stop carries a typed `StopReason` (`UserRequested`, `StuckExhausted`, `DeathCapReached`, `OutOfGreens`, `DependencyLost`, `ZonesUnreachable`, `AllYokaiCapped`, `MinionsMissing`, `InternalError`, `GearBroken`, `RanksUnreadable`, `GemstonesCapped`) surfaced in the overlay and log. An exception thrown by a tick stops the run with `InternalError`: the shell stands everything down and saves the recording, which keeps the tick that threw, instead of throwing again every frame while navigation and the rotation carry on with their last orders. Mid-run dependency loss (a required plugin unloads) pauses rather than stops when recoverable, with the reason displayed. No unbounded retry exists anywhere: every loop has a cap, every wait a timeout.
 
 ---
 
@@ -260,7 +264,7 @@ Baseline distilled from years of field fixes in comparable tools. Each item is a
 - A9. Nearby override: inside or within ~50 y of an eligible ring → take it immediately.
 - A10. Post-completion grace window: prefer a chained/nearby spawn over a distant FATE for ~5 s.
 - A11. Tie-break by lowest FATE id (determinism).
-- A12. Teleport-cost model can prefer aetheryte + short hop over long direct flight. Aetherytes are the current zone's attuned ones, by row id, positioned from the sheet's `Level` link; the penalty is one setting shared with the C17 leg so ranking and travel never disagree.
+- A12. Teleport-cost model can prefer aetheryte + short hop over long direct flight. Aetherytes are the current zone's attuned ones, by row id, positioned from the aetheryte's map marker (the sheet's `Level` links name rows the `Level` sheet no longer carries, so until v0.5.0 no aetheryte was ever seen), with the height from the mesh; the penalty is one setting shared with the C17 leg so ranking and travel never disagree.
 - A13. The pick is looked at again on the way. A FATE that no longer passes the gates (others pushed it past the progress cap, its time ran down, it was blacklisted) is dropped for a fresh selection, unless the character is already within the nearby radius, where the credit is quick; this is a change of pick, not an abandonment, and the ledger does not count it. An eligible FATE inside the nearby radius that is not the current one is switched to at once, as A9 would do at selection. Neither applies while a teleport is in flight (C17), since the character would land far from the newcomer. Until then travel committed to its pick until arrival.
 - A14. "Skip collect FATEs" leaves every collect FATE alone, open or not, judged by the sheet kind (`SheetKind`) rather than the opened-state kind, since an unopened collect FATE reads as NPC-start (B11). "Skip NPC-started FATEs" hides only FATEs still waiting at their starter NPC, so a collect FATE another player opened was taken (What's Your Poison, fate 601, event item 2001053) until this switch existed.
 - A15. "Skip NPC-started FATEs" covers kill FATEs waiting at a starter NPC and exempts collect FATEs, which open at their hand-in NPC (B11) and follow the collect switch: with collect on, an unopened collect FATE is opened first and then collected. Both switches are selection gates with their own skip reasons; the snapshot carries every FATE in the zone.
