@@ -453,4 +453,26 @@ public class GemstoneModuleTests
         Assert.IsNotType<EnsureLearned>(m.Next(W(items: items, now: 1011), Between()));
         Assert.Contains("could not learn: Urqopacha Riding Map", m.Status!.Note);
     }
+
+    [Fact] // S8, final review: vouchers keep enough back for the dearest item still to buy, so a low threshold never starves it
+    public void S8_vouchers_keep_back_enough_for_the_dearest_wanted_item()
+    {
+        var m = new GemstoneModule(Cfg(spendAt: 500));
+        var allButMinion = Collectibles.Where(i => i != MinionU).ToArray();
+        Assert.IsType<FarmHere>(m.Next(W(learned: allButMinion, gems: 650), Between())); // no exchange that drops below 700
+        Assert.Contains("saving for Alpaca Cria", m.Status!.Note);
+        var trip = Assert.IsType<GoShopping>(m.Next(W(learned: allButMinion, gems: 700), Between())).Trip;
+        Assert.Equal([MinionU], trip.Purchases.Select(p => p.ItemId));
+    }
+
+    [Fact] // S7/S14, final review: an item seen in the bags is never bought again this session, even before the learned check catches up
+    public void S14_an_item_used_before_the_learned_check_catches_up_is_not_bought_again()
+    {
+        var m = new GemstoneModule(Cfg());
+        uint[] learned = [MapU, MapK, RollK, CardK, RollCity];
+        Assert.IsType<EnsureLearned>(m.Next(W(items: new() { [RollU] = 1 }, learned: learned, gems: 1450), Between()));
+        // the roll was used: gone from the bags, but the learned check has not caught up yet
+        var trip = Assert.IsType<GoShopping>(m.Next(W(learned: learned, gems: 1450), Between())).Trip;
+        Assert.Equal([MinionU], trip.Purchases.Select(p => p.ItemId));
+    }
 }

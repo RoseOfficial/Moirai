@@ -24,6 +24,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private ZoneRotationModule? _rotation;
     private IReadOnlyList<ushort> _rotationZones = [];
     private readonly HashSet<uint> _learnGivenUp = [];
+    private readonly HashSet<uint> _seenInBags = []; // S7/S14: never bought again this session
     private uint? _learning;
     private long? _learnAskEpoch;
 
@@ -74,6 +75,12 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         if (ctx.Completed > _lastCompleted)
             _completedSinceRead[w.TerritoryId] = _completedSinceRead.GetValueOrDefault(w.TerritoryId) + ctx.Completed - _lastCompleted;
         _lastCompleted = ctx.Completed;
+
+        // S7/S14: a collectible once in the bags was bought (or brought) this session; used, it can
+        // read unlearned for a moment before the learned check catches up, and must not be bought again
+        foreach (var i in cfg.Items)
+            if (i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount && w.CountOf(i.ItemId) > 0)
+                _seenInBags.Add(i.ItemId);
 
         if (w.SharedFate is not { } ranks) return;
         if (ranks.Reads != _readsSeen)
@@ -164,9 +171,15 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         return _rotation.Next(w, ctx);
     }
 
-    // S7: wanted, not already in the bags, and the trader lists it at the ranks read
+    // S7: wanted, not in the bags this session, and the trader lists it at the ranks read
     private bool Buyable(WorldSnapshot w, SharedFateRanks ranks, GemstoneItem i)
-        => StillWanted(w, i) && w.CountOf(i.ItemId) == 0 && GatesMet(ranks, i);
+        => StillWanted(w, i) && !_seenInBags.Contains(i.ItemId) && GatesMet(ranks, i);
+
+    // S8: the dearest collectible the trader would sell now but the gemstones do not cover yet
+    private GemstoneItem? SavingFor(WorldSnapshot w, SharedFateRanks ranks)
+        => cfg.Items
+            .Where(i => i.Kind == GemstoneItemKind.Collectible && i.CurrencyItemId == cfg.GemstoneItemId && Buyable(w, ranks, i))
+            .MaxBy(i => i.Cost);
 
     private bool GatesMet(SharedFateRanks ranks, GemstoneItem i)
         => (i.RequiredRank == 0 || RankOf(ranks, TraderZone(i.TraderId)) >= i.RequiredRank)
@@ -204,7 +217,9 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
 
     // S8: nothing to buy, so the gemstones become vouchers: Turali ones where a city trader sells
     // them (the one in this zone first), any other voucher on offer before that. Before the mount
-    // stage some gemstones are kept for the unlocks still to come; from it on every full hundred goes.
+    // stage some gemstones are kept for the unlocks still to come, and never less than the dearest
+    // one the trader would sell now, or a low threshold would exchange away every step toward it;
+    // from the mount stage on every full hundred goes.
     private GemstoneTrip? VoucherTrip(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
     {
         var offers = cfg.Items
@@ -216,7 +231,8 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
                         .FirstOrDefault()
                     ?? offers.FirstOrDefault();
         if (offer is null) return null;
-        var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0 : cfg.VoucherKeepBeforeMount;
+        var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0
+            : Math.Max(cfg.VoucherKeepBeforeMount, SavingFor(w, ranks)?.Cost ?? 0);
         var quantity = Math.Min((gems - keep) / offer.Cost, cfg.VoucherHoldCap - w.CountOf(offer.ItemId));
         return quantity > 0 ? new GemstoneTrip(offer.TraderId, [new GemstonePurchase(offer.ItemId, quantity)]) : null;
     }
@@ -226,7 +242,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private GemstoneTrip? PlanMount(WorldSnapshot w, GemstoneStage stage)
     {
         if (stage != GemstoneStage.Mount || MountItem() is not { } mount) return null;
-        if (w.CountOf(mount.CurrencyItemId) < mount.Cost || w.CountOf(mount.ItemId) > 0) return null;
+        if (w.CountOf(mount.CurrencyItemId) < mount.Cost || _seenInBags.Contains(mount.ItemId)) return null;
         return new GemstoneTrip(mount.TraderId, [new GemstonePurchase(mount.ItemId, 1)]);
     }
 
@@ -251,7 +267,8 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         var unlearnable = Names(cfg.Items.Where(i => _learnGivenUp.Contains(i.ItemId)));
         if (unlearnable.Count > 0) notes.Add("could not learn: " + string.Join(", ", unlearnable));
         if (!cfg.Shopping && gems >= cfg.SpendAt) notes.Add($"shopping is off; gemstones {gems}/{cfg.GemstoneCap}");
-        else if (cfg.Shopping && ranks is not null && gems >= cfg.SpendAt && trip is null) notes.Add("nothing to spend the gemstones on");
+        else if (cfg.Shopping && ranks is not null && gems >= cfg.SpendAt && trip is null)
+            notes.Add(SavingFor(w, ranks) is { } target ? $"saving for {target.Name} ({target.Cost})" : "nothing to spend the gemstones on");
         return notes.Count == 0 ? null : string.Join("; ", notes);
     }
 
