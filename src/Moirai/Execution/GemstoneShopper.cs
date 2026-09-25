@@ -27,8 +27,10 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
     private const long StepTimeoutMs = 20_000;
     private const long TravelTimeoutMs = 45_000; // a teleport is a cast and a loading screen
     private const long WalkStallMs = 10_000;
+    private const long MeshWaitMs = 180_000;     // a city vnavmesh has not cached is built on arrival
     private const long CloseForceMs = 5_000;
     private const float Reach = 3f;
+    private const float InteractReach = 5f;      // near enough to talk once the path ends, as behind a counter
     private const float WalkFromYalms = 250f;    // farther than this from the trader, teleport first
     private const int EdelinaOtherItemsCost = 500; // her Wivre Horn and Fallen Angel Wings, in Endwalker vouchers
 
@@ -140,11 +142,22 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
     private void TickWalk(GemstoneTrip trip, TraderPlace place)
     {
         Status = $"walking to {TraderName(trip.TraderId)}";
+        var now = Environment.TickCount64;
+        if (!navmesh.IsReady())
+        {
+            // a mesh still loading or building holds the walk, and its stall clock with it
+            Status = $"waiting for the navmesh to walk to {TraderName(trip.TraderId)}";
+            _closerAtMs = now;
+            if (now - _stepStartedMs > MeshWaitMs) Fail("the navmesh was not ready");
+            return;
+        }
+
         var me = Svc.Objects.LocalPlayer?.Position ?? Vector3.Zero;
         var npc = GameEx.FindNpc(_npcIds);
         var dest = npc?.Position ?? Destination(place, me);
         var dist = Vector3.Distance(me, dest);
-        if (dist <= Reach)
+        var pathEnded = !navmesh.PathIsRunning();
+        if (dist <= Reach || (npc is not null && dist <= InteractReach && pathEnded))
         {
             navmesh.Stop();
             if (npc is null)
@@ -154,7 +167,6 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
             return;
         }
 
-        var now = Environment.TickCount64;
         if (dist < _closest - 1f)
         {
             _closest = dist;
@@ -165,7 +177,7 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
             Fail("the walk stopped getting closer");
             return;
         }
-        if (!navmesh.PathIsRunning() && Throttle.Try("moirai.gem.walk", 1000))
+        if (pathEnded && Throttle.Try("moirai.gem.walk", 1000))
             navmesh.MoveCloseTo(dest, false, Reach - 0.5f);
         if (Throttle.Try("moirai.gem.sprint", 1000))
             GameEx.SprintIfReady();

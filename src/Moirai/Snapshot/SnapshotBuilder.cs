@@ -23,8 +23,6 @@ public sealed class SnapshotBuilder(
     private long _ownedCheckedMs = long.MinValue / 2;
     private IReadOnlyList<GearPiece> _gear = [];
     private long _gearCheckedMs = long.MinValue / 2;
-    private IReadOnlySet<uint> _learned = new HashSet<uint>();
-    private long _learnedCheckedMs = long.MinValue / 2;
     private IReadOnlySet<uint> _questsDone = new HashSet<uint>();
     private long _questsCheckedMs = long.MinValue / 2;
 
@@ -154,19 +152,14 @@ public sealed class SnapshotBuilder(
         return _ownedMinions;
     }
 
-    // S7/S14: which catalog items this character has learned, rechecked once a second
+    // S7/S14: which catalog items this character has learned, rechecked on every build so an item
+    // used a moment ago reads as learned the tick its bag count drops (a few dozen cheap checks)
     private IReadOnlySet<uint> Learned()
     {
-        var now = Environment.TickCount64;
-        if (now - _learnedCheckedMs >= OwnedRecheckMs)
-        {
-            _learnedCheckedMs = now;
-            var learned = new HashSet<uint>();
-            foreach (var id in gemstoneItems)
-                if (GameEx.IsItemLearned(id)) learned.Add(id);
-            _learned = learned;
-        }
-        return _learned;
+        var learned = new HashSet<uint>();
+        foreach (var id in gemstoneItems)
+            if (GameEx.IsItemLearned(id)) learned.Add(id);
+        return learned;
     }
 
     // S10: which gate quests are complete, rechecked once a second

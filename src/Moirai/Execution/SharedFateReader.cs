@@ -14,12 +14,14 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
     public const string Addon = "FateProgress";
     private const long AttemptTimeoutMs = 10_000;
     private const long SettleMs = 1_500; // the agent fills a moment after the window opens
+    private const long CloseForceMs = 2_000; // then the window is closed outright
 
     private enum Step { Idle, Opening, Reading, Closing }
 
     private Step _step = Step.Idle;
     private long _startedMs;
     private long _openedMs;
+    private long _closingMs;
     private List<ZoneRank>? _captured;
 
     public SharedFateRanks? Result { get; private set; }
@@ -55,7 +57,8 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
         var now = Environment.TickCount64;
         if (now - _startedMs > AttemptTimeoutMs)
         {
-            Finish(landed: false);
+            // ranks copied are a read that landed, even when the window would not close
+            Finish(landed: _captured is not null);
             return;
         }
 
@@ -75,6 +78,7 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
                 if (now - _openedMs < SettleMs) break;
                 if (ReadAgent() is not { } read) break; // not filled yet; the attempt's timeout bounds the wait
                 _captured = read;
+                _closingMs = now;
                 _step = Step.Closing;
                 break;
 
@@ -84,14 +88,22 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
                     Finish(landed: true);
                     break;
                 }
-                if (Throttle.Try("moirai.sharedfate.close", 500)) GameEx.FireAddonCallback(Addon, true, -1);
+                // the window's cancel callback first; a window that ignores it is closed outright
+                if (now - _closingMs > CloseForceMs)
+                {
+                    if (Throttle.Try("moirai.sharedfate.closeforce", 500)) GameEx.CloseAddon(Addon);
+                }
+                else if (Throttle.Try("moirai.sharedfate.close", 500))
+                {
+                    GameEx.FireAddonCallback(Addon, true, -1);
+                }
                 break;
         }
     }
 
     private void Finish(bool landed)
     {
-        if (!landed && GameEx.AddonVisible(Addon)) GameEx.FireAddonCallback(Addon, true, -1);
+        if (GameEx.AddonVisible(Addon)) GameEx.CloseAddon(Addon);
         Result = landed
             ? new SharedFateRanks(_captured!, (Result?.Reads ?? 0) + 1, 0)
             : new SharedFateRanks(Result?.Zones ?? [], Result?.Reads ?? 0, (Result?.Failures ?? 0) + 1);
