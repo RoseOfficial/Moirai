@@ -34,6 +34,8 @@ public sealed class Plugin : IDalamudPlugin
     private readonly DodgeIpc _dodge;
     private readonly MinionPurchaser _purchaser;
     private readonly GearRepairer _repairer;
+    private readonly SharedFateReader _reader;
+    private readonly IShellTask[] _shellTasks; // ticked in this order, one at a time
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
     private Recorder? _recorder;   // §12: the last six minutes of the run, when the setting is on
@@ -58,6 +60,7 @@ public sealed class Plugin : IDalamudPlugin
     public bool DodgeLoaded => _dodge.Installed;
     public MinionPurchaser Purchaser => _purchaser;
     public GearRepairer Repairer => _repairer;
+    public SharedFateReader Reader => _reader;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -71,10 +74,12 @@ public sealed class Plugin : IDalamudPlugin
         _dodge = new DodgeIpc();
         _purchaser = new MinionPurchaser(_navmesh, Config);
         _repairer = new GearRepairer(_navmesh);
-        _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, _repairer, Config);
+        _reader = new SharedFateReader(GemstoneCatalog.Zones);
+        _shellTasks = [_reader, _purchaser, _repairer];
+        _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, _repairer, _reader, Config);
         _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(),
             [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds, _purchaser,
-            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.GateQuestIds);
+            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.GateQuestIds, _reader);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -114,8 +119,8 @@ public sealed class Plugin : IDalamudPlugin
         Timeline = new StatusTimeline();
         _savedOnStop = false;
         _nextPlanMs = 0;
-        _purchaser.Reset();
-        _repairer.Reset();
+        foreach (var task in _shellTasks) task.Reset();
+        _reader.NewSession();
 
         Director = DirectorFactory.Create(settings, module: null, random, landing, w => ZoneFlightAllowed(w.TerritoryId)); // the settings pick the module
         _executor.Reset();
@@ -225,14 +230,15 @@ public sealed class Plugin : IDalamudPlugin
 
     public bool IsPaused => Director is { Phase: RunPhase.Paused };
 
-    // A pause hands TextAdvance back and drops a purchase or a repair under way, so NPCs can be
-    // talked to by hand; resume takes TextAdvance again, and the planner asks for either anew
+    // A pause hands TextAdvance back and drops whatever the shell has under way (a purchase, a
+    // repair, a rank read, a trip), so NPCs can be talked to by hand; resume takes TextAdvance
+    // again, and the planner asks for it anew
     public void PauseRun()
     {
         Director?.Pause();
         if (!IsPaused) return;
-        if (_purchaser.IsActive) _purchaser.Reset();
-        if (_repairer.IsActive) _repairer.Reset();
+        foreach (var task in _shellTasks)
+            if (task.IsActive) task.Reset();
         _textAdvance.Release();
     }
 
@@ -258,8 +264,7 @@ public sealed class Plugin : IDalamudPlugin
         _combat.ResetCache();
         _dodge.SetAi(false);
         _dodge.Reset();
-        _purchaser.Reset();
-        _repairer.Reset();
+        foreach (var task in _shellTasks) task.Reset();
         _textAdvance.Release();
     }
 
@@ -307,27 +312,19 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (director.Phase != RunPhase.Paused)
             _textAdvance.Reassert(); // it drops external control on its own after a zone change; a pause hands it back
-        if ((_purchaser.IsActive || _repairer.IsActive) && (GameEx.DutyPopped() || GameEx.InDuty()))
+        if (_shellTasks.Any(t => t.IsActive) && (GameEx.DutyPopped() || GameEx.InDuty()))
         {
-            // D11: a duty outranks a purchase or a repair; the planner stands the run down next tick
-            // and asks for either again once the duty is over
-            _purchaser.Reset();
-            _repairer.Reset();
+            // D11: a duty outranks the shell's work; the planner stands the run down next tick and
+            // asks for it again once the duty is over
+            foreach (var task in _shellTasks) task.Reset();
         }
-        if (_purchaser.IsActive)
+        foreach (var task in _shellTasks)
         {
-            // E9: a purchase is all game windows, so it runs every frame, outside the planner's busy
-            // guard; the planner keeps asking for it and its intent is a no-op until the purchase ends
-            _purchaser.Tick();
-            LastStatus = _purchaser.Status;
-            Timeline.Observe(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), LastStatus);
-            return;
-        }
-        if (_repairer.IsActive)
-        {
-            // R1: the Repair window is worked the same way, every frame, while the planner waits
-            _repairer.Tick();
-            LastStatus = _repairer.Status;
+            // E9/R1/S4: the shell's work runs every frame, outside the planner's busy guard, while the
+            // planner waits; its intent is a no-op until the work ends
+            if (!task.IsActive) continue;
+            task.Tick();
+            LastStatus = task.Status;
             Timeline.Observe(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), LastStatus);
             return;
         }

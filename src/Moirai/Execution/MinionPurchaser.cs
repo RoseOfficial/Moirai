@@ -11,7 +11,7 @@ namespace Moirai.Execution;
 // minion's position in the shop, and every window's values go to the debug report so a report
 // with Nohi's menu open pins the indices. A step that does not finish in its time fails with a
 // chat line, and the failure switches auto-buy off for the run.
-public sealed class MinionPurchaser(NavmeshIpc navmesh, Configuration cfg)
+public sealed class MinionPurchaser(NavmeshIpc navmesh, Configuration cfg) : IShellTask
 {
     private enum Step { Idle, GoToZone, WalkToNohi, Interact, Menu, Shop, Close, Learn, Done, Failed }
 

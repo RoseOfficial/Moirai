@@ -8,7 +8,7 @@ namespace Moirai.Execution;
 // this runs per frame from the plugin, outside the planner's busy guard, like the minion purchaser.
 // A step that does not finish in its time fails with a chat line, and the failure switches repair
 // off for the run (R5).
-public sealed class GearRepairer(NavmeshIpc navmesh)
+public sealed class GearRepairer(NavmeshIpc navmesh) : IShellTask
 {
     private enum Step { Idle, Open, RepairAll, Confirm, Mending, Close, Done, Failed }
 

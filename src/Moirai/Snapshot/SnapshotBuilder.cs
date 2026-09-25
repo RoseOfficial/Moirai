@@ -14,7 +14,7 @@ public sealed class SnapshotBuilder(
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
     uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser,
     Execution.GearRepairer repairer, IReadOnlyList<uint> darkMatterGrades,
-    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> gateQuests)
+    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> gateQuests, Execution.SharedFateReader reader)
 {
     private const long OwnedRecheckMs = 1000;
     private const long GearRecheckMs = 1000;
@@ -119,6 +119,7 @@ public sealed class SnapshotBuilder(
             AutoBuyReady: !purchaser.HasFailed, // E9
             RepairReady: !repairer.HasFailed,   // R5
             DutyPopped: GameEx.DutyPopped(),    // D11
+            SharedFate: reader.Result,          // S4
             LearnedItems: Learned(),            // S7/S14
             QuestsDone: QuestsDone());          // S10
     }
