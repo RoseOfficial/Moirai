@@ -106,7 +106,7 @@ public sealed class SnapshotBuilder(
             TerritoryId: territory,
             Player: player,
             Fates: fates,
-            Aetherytes: aetherytes.Get(territory),
+            Aetherytes: aetherytes.Get(territory, lp.Position.Y),
             Enemies: enemies,
             Interactables: interactables,
             ItemCounts: items,
