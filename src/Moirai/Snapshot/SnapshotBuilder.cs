@@ -13,7 +13,8 @@ public sealed class SnapshotBuilder(
     NavmeshIpc navmesh, CombatIpc combat, TextAdvanceIpc textAdvance, DodgeIpc dodge,
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
     uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser,
-    Execution.GearRepairer repairer, IReadOnlyList<uint> darkMatterGrades)
+    Execution.GearRepairer repairer, IReadOnlyList<uint> darkMatterGrades,
+    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> gateQuests)
 {
     private const long OwnedRecheckMs = 1000;
     private const long GearRecheckMs = 1000;
@@ -21,6 +22,10 @@ public sealed class SnapshotBuilder(
     private long _ownedCheckedMs = long.MinValue / 2;
     private IReadOnlyList<GearPiece> _gear = [];
     private long _gearCheckedMs = long.MinValue / 2;
+    private IReadOnlySet<uint> _learned = new HashSet<uint>();
+    private long _learnedCheckedMs = long.MinValue / 2;
+    private IReadOnlySet<uint> _questsDone = new HashSet<uint>();
+    private long _questsCheckedMs = long.MinValue / 2;
 
     public WorldSnapshot? Build(uint? currentFateId)
     {
@@ -88,6 +93,12 @@ public sealed class SnapshotBuilder(
             if (f.EventItemId != 0 && !items.ContainsKey(f.EventItemId))
                 items[f.EventItemId] = GameEx.ItemCount(f.EventItemId);
 
+        // The gemstone catalog's items and vouchers, and the gemstones themselves, which are a
+        // currency rather than a bag item (gemstone design §5)
+        foreach (var id in gemstoneItems)
+            if (!items.ContainsKey(id)) items[id] = GameEx.ItemCount(id);
+        items[Moirai.Core.Modules.GemstoneCatalog.Gemstone] = GameEx.CurrencyCount(Moirai.Core.Modules.GemstoneCatalog.Gemstone);
+
         return new WorldSnapshot(
             NowEpoch: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             NowMs: Environment.TickCount64,
@@ -107,7 +118,9 @@ public sealed class SnapshotBuilder(
             OwnedMinions: OwnedMinions(),
             AutoBuyReady: !purchaser.HasFailed, // E9
             RepairReady: !repairer.HasFailed,   // R5
-            DutyPopped: GameEx.DutyPopped());   // D11
+            DutyPopped: GameEx.DutyPopped(),    // D11
+            LearnedItems: Learned(),            // S7/S14
+            QuestsDone: QuestsDone());          // S10
     }
 
     // §7.5: the worn gear, rechecked once a second; it wears down over minutes, not ticks
@@ -135,6 +148,36 @@ public sealed class SnapshotBuilder(
             _ownedMinions = owned;
         }
         return _ownedMinions;
+    }
+
+    // S7/S14: which catalog items this character has learned, rechecked once a second
+    private IReadOnlySet<uint> Learned()
+    {
+        var now = Environment.TickCount64;
+        if (now - _learnedCheckedMs >= OwnedRecheckMs)
+        {
+            _learnedCheckedMs = now;
+            var learned = new HashSet<uint>();
+            foreach (var id in gemstoneItems)
+                if (GameEx.IsItemLearned(id)) learned.Add(id);
+            _learned = learned;
+        }
+        return _learned;
+    }
+
+    // S10: which gate quests are complete, rechecked once a second
+    private IReadOnlySet<uint> QuestsDone()
+    {
+        var now = Environment.TickCount64;
+        if (now - _questsCheckedMs >= OwnedRecheckMs)
+        {
+            _questsCheckedMs = now;
+            var done = new HashSet<uint>();
+            foreach (var id in gateQuests)
+                if (GameEx.IsQuestComplete(id)) done.Add(id);
+            _questsDone = done;
+        }
+        return _questsDone;
     }
 
     private static FateSnapshot? Project(IFate fate)

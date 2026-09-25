@@ -249,6 +249,24 @@ public static unsafe class GameEx
 
     public static bool AddonReady(string name) => ReadyAddon(name) != null;
 
+    // On screen at all, ready or not: a window in its closing animation still counts as open
+    public static bool AddonVisible(string name)
+    {
+        var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName(name).Address;
+        return addon != null && addon->IsVisible;
+    }
+
+    // A window's raw values as unsigned ints, for the exchange layout (ExchangeRows); null when closed
+    public static uint[]? AddonUInts(string name)
+    {
+        var addon = ReadyAddon(name);
+        if (addon == null) return null;
+        var values = new uint[addon->AtkValuesCount];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = addon->AtkValues[i].UInt;
+        return values;
+    }
+
     // E9: the game's own callback surface for a window: a list of ints, the way the field scripts
     // drive menus and exchange windows (an entry index, or 0 / row / count for a purchase)
     public static bool FireAddonCallback(string name, params int[] values)
@@ -375,6 +393,33 @@ public static unsafe class GameEx
             return ((ushort)row.Territory.RowId, new System.Numerics.Vector3(row.X, row.Y, row.Z));
         }
         return null;
+    }
+
+    // Gemstones are held by the currency manager, not in a bag (gemstone design §5)
+    public static int CurrencyCount(uint itemId)
+    {
+        var cm = CurrencyManager.Instance();
+        return cm == null ? 0 : (int)cm->GetItemCount(itemId);
+    }
+
+    // S7/S14: whatever an item teaches (a minion, a mount, an orchestrion roll, a card, a riding map,
+    // a framer's kit, barding, a fashion accessory) is already learned
+    public static bool IsItemLearned(uint itemId)
+    {
+        var ui = FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance();
+        var row = FFXIVClientStructs.FFXIV.Component.Exd.ExdModule.GetItemRowById(itemId);
+        return ui != null && row != null && ui->IsItemActionUnlocked(row) == 1;
+    }
+
+    public static bool IsQuestComplete(uint questId) => QuestManager.IsQuestComplete(questId);
+
+    private const uint SharedFateMainCommand = 84;
+
+    // S4: the Shared FATE window, through the main command the game's own menu uses
+    public static void OpenSharedFate()
+    {
+        var ui = FFXIVClientStructs.FFXIV.Client.UI.UIModule.Instance();
+        if (ui != null) ui->ExecuteMainCommand(SharedFateMainCommand);
     }
 }
 

@@ -74,7 +74,7 @@ public sealed class Plugin : IDalamudPlugin
         _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, _repairer, Config);
         _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(),
             [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds, _purchaser,
-            _repairer, GearData.DarkMatterGrades);
+            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.GateQuestIds);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -179,6 +179,20 @@ public sealed class Plugin : IDalamudPlugin
             Enabled = Config.RepairEnabled,
             RepairBelowPercent = Config.RepairBelowPercent,
             StopWhenBroken = Config.StopWhenGearBroken,
+        },
+        new GemstoneConfig
+        {
+            Enabled = Config.GemstoneEnabled,
+            Zones = GemstoneCatalog.Zones,
+            Traders = GemstoneCatalog.Traders,
+            Items = GemstoneCatalog.Items,
+            GemstoneItemId = GemstoneCatalog.Gemstone,
+            SpendAt = Config.GemstoneSpendAt,
+            Shopping = Config.GemstoneShopping,
+            BuyMount = Config.GemstoneBuyWhistle,
+            MountItemId = GemstoneCatalog.TyaityaWhistle,
+            TuraliVoucherItemId = GemstoneCatalog.TuraliVoucher,
+            QuietSeconds = Config.RotateWhenQuietSeconds,
         });
 
     private static bool ZoneFlightAllowed(ushort territory) => !ZoneData.NoFlyTerritories.Contains(territory);

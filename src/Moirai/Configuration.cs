@@ -36,6 +36,14 @@ public sealed class Configuration : IPluginConfiguration
     public List<int> YokaiNohiMenuPath { get; set; } = [0];    // E9: menu entry indices to reach the exchange
     public int YokaiShopIndexOffset { get; set; }              // E9: added to the roster position in the exchange list
 
+    // Dawntrail gemstones (gemstone design S1-S16): rank the zones, buy the traders' collectibles
+    public bool GemstoneEnabled { get; set; }
+    public int GemstoneSpendAt { get; set; } = 1400;        // S6: a trip once the gemstones reach this
+    public bool GemstoneShopping { get; set; } = true;      // S13: off means ranks only
+    public bool GemstoneBuyWhistle { get; set; } = true;    // S9
+    public int GemstoneEdelinaMenuIndex { get; set; } = 1;  // "Bicolor Gemstone Vouchers", after "Purchase Luxuries"
+    public int GemstoneEdelinaRow { get; set; } = 1;        // the whistle's row in her exchange, until a report pins it
+
     // Selection gates and ranking (spec §4)
     public int MinTimeLeftSeconds { get; set; } = 180;
     public int MaxProgressPercent { get; set; } = 80;
