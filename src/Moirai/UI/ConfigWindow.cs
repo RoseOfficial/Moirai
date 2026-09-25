@@ -1,6 +1,7 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
+using Moirai.Core.Modules;
 using Moirai.Core.Planning;
 using Moirai.Data;
 using Moirai.Game;
@@ -49,6 +50,11 @@ public sealed class ConfigWindow : Window
             if (ImGui.BeginTabItem("Yo-kai"))
             {
                 DrawYokai(c, ref dirty);
+                ImGui.EndTabItem();
+            }
+            if (ImGui.BeginTabItem("Gemstones"))
+            {
+                DrawGemstones(c, ref dirty);
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Selection"))
@@ -153,7 +159,12 @@ public sealed class ConfigWindow : Window
     private static void DrawYokai(Configuration c, ref bool dirty)
     {
         var enabled = c.YokaiEnabled;
-        if (ImGui.Checkbox("Farm Yo-kai legendary medals", ref enabled)) { c.YokaiEnabled = enabled; dirty = true; }
+        if (ImGui.Checkbox("Farm Yo-kai legendary medals", ref enabled))
+        {
+            c.YokaiEnabled = enabled;
+            if (enabled) c.GemstoneEnabled = false; // one mode at a time
+            dirty = true;
+        }
         Hint("Works down the list in order: summons the yokai's minion, farms its zones in turn, and moves on at the cap. Overrides the Zones tab while on. Applies on the next Start.");
         if (!c.YokaiEnabled) return;
 
@@ -217,6 +228,65 @@ public sealed class ConfigWindow : Window
             if (ImGui.InputInt("Exchange list offset", ref offset)) { c.YokaiShopIndexOffset = offset; dirty = true; }
             Hint("Added to the minion's roster position when picking the exchange row; leave at 0 unless a report shows the list starts elsewhere.");
         }
+    }
+
+    private void DrawGemstones(Configuration c, ref bool dirty)
+    {
+        var enabled = c.GemstoneEnabled;
+        if (ImGui.Checkbox("Farm Dawntrail gemstones and unlock everything", ref enabled))
+        {
+            c.GemstoneEnabled = enabled;
+            if (enabled) c.YokaiEnabled = false; // one mode at a time
+            dirty = true;
+        }
+        Hint("Ranks every Dawntrail zone's Shared FATE to 4, buys and learns what the gemstone traders sell whenever the gemstones near the cap, turns the rest into vouchers, buys the Ty'aitya Whistle at 500 Turali vouchers, then keeps farming. The Shared FATE window flashes open for a moment when ranks are read. Overrides the Zones and Yo-kai tabs while on. Applies on the next Start.");
+        if (!c.GemstoneEnabled) return;
+
+        var spend = c.GemstoneSpendAt;
+        if (ImGui.SliderInt("Go shopping at (gemstones)", ref spend, 500, 1450)) { c.GemstoneSpendAt = spend; dirty = true; }
+        Hint("The hold is 1,500. A FATE pays around 16, so the default of 1,400 leaves room for a few more before a trip.");
+        var shopping = c.GemstoneShopping;
+        if (ImGui.Checkbox("Buy from the traders", ref shopping)) { c.GemstoneShopping = shopping; dirty = true; }
+        Hint("Off: ranks only; the gemstones are left for you to spend.");
+        var whistle = c.GemstoneBuyWhistle;
+        if (ImGui.Checkbox("Buy the Ty'aitya Whistle from Edelina", ref whistle)) { c.GemstoneBuyWhistle = whistle; dirty = true; }
+        Hint("Once every collectible is learned the gemstones become Turali vouchers, and 500 of them buy the mount in Mor Dhona.");
+        var menu = c.GemstoneEdelinaMenuIndex;
+        ImGui.SetNextItemWidth(160);
+        if (ImGui.InputInt("Edelina menu entry", ref menu)) { c.GemstoneEdelinaMenuIndex = Math.Max(0, menu); dirty = true; }
+        var row = c.GemstoneEdelinaRow;
+        ImGui.SetNextItemWidth(160);
+        if (ImGui.InputInt("Whistle row in her exchange", ref row)) { c.GemstoneEdelinaRow = Math.Max(0, row); dirty = true; }
+        Hint("Leave these unless a trip to Edelina fails: /moirai debug with her menu or exchange open lists the entries.");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted($"Gemstones {GameEx.CurrencyCount(GemstoneCatalog.Gemstone)}/1500   Turali vouchers {GameEx.ItemCount(GemstoneCatalog.TuraliVoucher)}   Endwalker vouchers {GameEx.ItemCount(GemstoneCatalog.EndwalkerVoucher)}");
+        if (_plugin.Reader.Result is { Reads: > 0 } ranks)
+        {
+            foreach (var z in ranks.Zones)
+                ImGui.TextUnformatted($"{ZoneNames.Name(z.TerritoryId)}: rank {z.Rank}{(z.Needed > 0 ? $"  {z.Progress}/{z.Needed}" : "")}");
+        }
+        else
+        {
+            ImGui.TextColored(Muted, "Ranks are read from the Shared FATE window once a run starts.");
+        }
+
+        ImGui.Separator();
+        var left = 0;
+        foreach (var trader in GemstoneCatalog.Traders)
+        {
+            var stock = GemstoneCatalog.Items.Where(i => i.TraderId == trader.NpcId && i.Kind != GemstoneItemKind.Voucher).ToList();
+            if (stock.Count == 0) continue;
+            ImGui.TextUnformatted(trader.Name);
+            foreach (var item in stock)
+            {
+                var learned = GameEx.IsItemLearned(item.ItemId);
+                if (!learned && item.Kind == GemstoneItemKind.Collectible) left += item.Cost;
+                var quest = item.RequiredQuestId != 0 && !GameEx.IsQuestComplete(item.RequiredQuestId) ? "  (needs a quest)" : "";
+                ImGui.TextColored(learned ? Good : Muted, $"  {item.Name}  {item.Cost}{quest}{(learned ? "  learned" : "")}");
+            }
+        }
+        ImGui.TextUnformatted($"Gemstones still needed for every collectible: {left}");
     }
 
     private void DrawSelection(Configuration c, ref bool dirty)

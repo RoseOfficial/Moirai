@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Text;
 using Dalamud.Game.ClientState.Fates;
 using Moirai.Core.Model;
+using Moirai.Core.Modules;
 using Moirai.Core.Planning;
 using Moirai.Data;
 using Moirai.Game;
@@ -36,12 +37,27 @@ public static class DebugReport
         sb.AppendLine($"darkMatter: {string.Join(" ", GearData.DarkMatterGrades.Select((id, i) => $"g{i + 1}={GameEx.ItemCount(id)}"))} repairer: {plugin.Repairer.DebugState} status='{plugin.Repairer.Status}' mending={GameEx.Mending()}");
         foreach (var line in GameEx.AddonValues(Execution.GearRepairer.RepairAddon).Take(60))
             sb.AppendLine($"  repair window {line}");
-        foreach (var name in Execution.MinionPurchaser.MenuAddons.Concat(Execution.MinionPurchaser.ShopAddons).Append(Execution.MinionPurchaser.ShopDialogAddon))
+        sb.AppendLine($"gemstones: mode={plugin.Config.GemstoneEnabled} held={GameEx.CurrencyCount(GemstoneCatalog.Gemstone)} inBags={GameEx.ItemCount(GemstoneCatalog.Gemstone)} turali={GameEx.ItemCount(GemstoneCatalog.TuraliVoucher)} endwalker={GameEx.ItemCount(GemstoneCatalog.EndwalkerVoucher)} spendAt={plugin.Config.GemstoneSpendAt} shopping={plugin.Config.GemstoneShopping} whistle={plugin.Config.GemstoneBuyWhistle}");
+        sb.AppendLine($"shared fate: {plugin.Reader.DebugState} {(plugin.Reader.Result is { } ranks ? string.Join(" ", ranks.Zones.Select(z => $"{z.TerritoryId}:r{z.Rank} {z.Progress}/{z.Needed}")) : "no read")}");
+        foreach (var line in Execution.SharedFateReader.AgentLines())
+            sb.AppendLine($"  agent {line}");
+        sb.AppendLine($"shopper: {plugin.Shopper.DebugState} status='{plugin.Shopper.Status}'");
+        sb.AppendLine($"learned: {string.Join(" ", GemstoneCatalog.Items.Where(i => i.Kind != GemstoneItemKind.Voucher).Select(i => $"{i.ItemId}={(GameEx.IsItemLearned(i.ItemId) ? "y" : "n")}"))}");
+
+        // every value of an open menu, exchange or Shared FATE window, so a report pins entries and rows
+        var windows = Execution.MinionPurchaser.MenuAddons
+            .Concat(Execution.MinionPurchaser.ShopAddons)
+            .Append(Execution.MinionPurchaser.ShopDialogAddon)
+            .Concat(Execution.GemstoneShopper.ShopAddons)
+            .Concat(Execution.GemstoneShopper.DialogAddons)
+            .Append(Execution.SharedFateReader.Addon)
+            .Distinct();
+        foreach (var name in windows)
         {
             var values = GameEx.AddonValues(name);
             if (values.Count == 0) continue;
             sb.AppendLine($"window {name} values:");
-            foreach (var line in values.Take(200))
+            foreach (var line in values.Take(name == Execution.GemstoneShopper.CurrencyShop ? 2000 : 200))
                 sb.AppendLine($"  {line}");
         }
 

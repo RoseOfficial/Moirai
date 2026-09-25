@@ -89,6 +89,17 @@ public sealed class OverlayWindow : Window
                 ImGui.TextColored(Warn, $"Yo-kai: {yokaiNote}");
         }
 
+        if (d.Module is Core.Modules.GemstoneModule gemstones && gemstones.Status is { } gs)
+        {
+            var rank = gs.Rank is { } r ? $"  rank {r.Rank}{(r.Needed > 0 ? $" {r.Progress}/{r.Needed}" : "")}" : "";
+            ImGui.TextColored(Good, $"{Stage(gs.Stage)}: {Data.ZoneNames.Name(gs.Zone)}{rank}");
+            ImGui.TextColored(Muted, $"gemstones {gs.Gemstones}/1500   Turali vouchers {gs.TuraliVouchers}");
+            if (gs.Trip is { } trip)
+                ImGui.TextColored(Muted, $"next trip: {trip}");
+            if (gs.Note is { } gemNote)
+                ImGui.TextColored(Warn, $"Gemstones: {gemNote}");
+        }
+
         if (d.StoppedBecause is { } why)
             ImGui.TextColored(Bad, $"Stopped: {Reason(why)}");
     }
@@ -108,6 +119,15 @@ public sealed class OverlayWindow : Window
         _ => "idle",
     };
 
+    private static string Stage(Core.Modules.GemstoneStage stage) => stage switch
+    {
+        Core.Modules.GemstoneStage.Reading => "reading ranks",
+        Core.Modules.GemstoneStage.Ranking => "ranking",
+        Core.Modules.GemstoneStage.Collecting => "collecting",
+        Core.Modules.GemstoneStage.Mount => "saving for the whistle",
+        _ => "farming on",
+    };
+
     private static string Reason(Core.Intents.StopReason reason) => reason switch
     {
         Core.Intents.StopReason.UserRequested => "stopped by you",
@@ -120,6 +140,8 @@ public sealed class OverlayWindow : Window
         Core.Intents.StopReason.MinionsMissing => "minions not owned: buy them from Nohi at the Gold Saucer",
         Core.Intents.StopReason.InternalError => "an internal error; the recording and /xllog have the details",
         Core.Intents.StopReason.GearBroken => "gear broke and cannot be repaired here; repair it and start again",
+        Core.Intents.StopReason.RanksUnreadable => "the Shared FATE window could not be read; /moirai debug with it open shows what it holds",
+        Core.Intents.StopReason.GemstonesCapped => "gemstones at the cap with nothing left to buy or exchange them for",
         _ => reason.ToString(),
     };
 }
