@@ -10,7 +10,7 @@ namespace Moirai.Execution;
 // an in-flight intent is a no-op, and every game call is throttled.
 public sealed class IntentExecutor(
     NavmeshIpc navmesh, CombatIpc combat, DodgeIpc dodge, MinionPurchaser purchaser, GearRepairer repairer,
-    SharedFateReader reader, Configuration cfg)
+    SharedFateReader reader, GemstoneShopper shopper, Configuration cfg)
 {
     private Vector3? _lastDest;
     private bool _lastFly;
@@ -130,6 +130,18 @@ public sealed class IntentExecutor(
 
             case ReadSharedFate:
                 reader.Begin(); // S4: idempotent while a read runs; ticked by the plugin
+                break;
+
+            case ShopAtTrader s:
+                shopper.Begin(s.Trip); // S6: idempotent while a trip runs; ticked by the plugin
+                break;
+
+            case LearnItem l:
+                if (!w.Player.IsMounted && Throttle.Try("moirai.learn", 2500))
+                {
+                    navmesh.Stop(); // an item use mid-path is interrupted
+                    GameEx.UseItem(l.ItemId); // S14
+                }
                 break;
 
             case AcquireMinion a:

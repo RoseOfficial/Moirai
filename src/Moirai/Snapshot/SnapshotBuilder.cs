@@ -14,7 +14,8 @@ public sealed class SnapshotBuilder(
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
     uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser,
     Execution.GearRepairer repairer, IReadOnlyList<uint> darkMatterGrades,
-    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> gateQuests, Execution.SharedFateReader reader)
+    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> gateQuests, Execution.SharedFateReader reader,
+    Execution.GemstoneShopper shopper)
 {
     private const long OwnedRecheckMs = 1000;
     private const long GearRecheckMs = 1000;
@@ -121,7 +122,9 @@ public sealed class SnapshotBuilder(
             DutyPopped: GameEx.DutyPopped(),    // D11
             SharedFate: reader.Result,          // S4
             LearnedItems: Learned(),            // S7/S14
-            QuestsDone: QuestsDone());          // S10
+            QuestsDone: QuestsDone(),           // S10
+            FailedTraders: shopper.FailedTraders.ToHashSet(),       // S12: copied, so a recorded frame keeps its value
+            UnavailableItems: shopper.UnavailableItems.ToHashSet()); // S11
     }
 
     // §7.5: the worn gear, rechecked once a second; it wears down over minutes, not ticks

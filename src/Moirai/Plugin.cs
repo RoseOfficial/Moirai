@@ -35,6 +35,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly MinionPurchaser _purchaser;
     private readonly GearRepairer _repairer;
     private readonly SharedFateReader _reader;
+    private readonly GemstoneShopper _shopper;
     private readonly IShellTask[] _shellTasks; // ticked in this order, one at a time
     private readonly IntentExecutor _executor;
     private readonly Snapshot.SnapshotBuilder _snapshots;
@@ -61,6 +62,7 @@ public sealed class Plugin : IDalamudPlugin
     public MinionPurchaser Purchaser => _purchaser;
     public GearRepairer Repairer => _repairer;
     public SharedFateReader Reader => _reader;
+    public GemstoneShopper Shopper => _shopper;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -75,11 +77,12 @@ public sealed class Plugin : IDalamudPlugin
         _purchaser = new MinionPurchaser(_navmesh, Config);
         _repairer = new GearRepairer(_navmesh);
         _reader = new SharedFateReader(GemstoneCatalog.Zones);
-        _shellTasks = [_reader, _purchaser, _repairer];
-        _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, _repairer, _reader, Config);
+        _shopper = new GemstoneShopper(_navmesh, Config);
+        _shellTasks = [_reader, _shopper, _purchaser, _repairer];
+        _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, _repairer, _reader, _shopper, Config);
         _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(),
             [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds, _purchaser,
-            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.GateQuestIds, _reader);
+            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.GateQuestIds, _reader, _shopper);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);
@@ -121,6 +124,7 @@ public sealed class Plugin : IDalamudPlugin
         _nextPlanMs = 0;
         foreach (var task in _shellTasks) task.Reset();
         _reader.NewSession();
+        _shopper.NewSession();
 
         Director = DirectorFactory.Create(settings, module: null, random, landing, w => ZoneFlightAllowed(w.TerritoryId)); // the settings pick the module
         _executor.Reset();
