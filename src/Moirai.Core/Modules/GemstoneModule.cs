@@ -208,34 +208,72 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
                 bestTotal = gems - left;
             }
         }
-        return best ?? VoucherTrip(w, ranks, stage, gems);
+        return best ?? ExchangeTrip(w, ranks, stage, gems);
     }
 
     // S7: ties go to the trader in the character's zone, then to catalog order
     private IEnumerable<GemstoneTrader> HereFirst(WorldSnapshot w)
         => cfg.Traders.Where(t => t.TerritoryId == w.TerritoryId).Concat(cfg.Traders.Where(t => t.TerritoryId != w.TerritoryId));
 
-    // S8: nothing to buy, so the gemstones become vouchers: Turali ones where a city trader sells
-    // them (the one in this zone first), any other voucher on offer before that. Before the mount
-    // stage some gemstones are kept for the unlocks still to come, and never less than the dearest
-    // one the trader would sell now, or a low threshold would exchange away every step toward it;
-    // from the mount stage on every full hundred goes.
-    private GemstoneTrip? VoucherTrip(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
+    // S8: nothing to buy, so the gemstones are exchanged for something that keeps their worth. Before
+    // the mount stage some gemstones are kept for the unlocks still to come, and never less than the
+    // dearest one the trader would sell now, or a low threshold would exchange away every step toward
+    // it; from the mount stage on every full hundred goes.
+    private GemstoneTrip? ExchangeTrip(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
+    {
+        var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0
+            : Math.Max(cfg.VoucherKeepBeforeMount, SavingFor(w, ranks)?.Cost ?? 0);
+        var spendable = gems - keep;
+        return VoucherOffer(w, ranks) is { } voucher ? Batch(w, voucher, spendable)
+            : MaterialOffer(w, ranks, spendable) is { } material ? Batch(w, material, spendable)
+            : null;
+    }
+
+    // S8: vouchers first: Turali ones where a city trader sells them (the one in this zone first), any
+    // other voucher on offer before that, while its stack has room
+    private GemstoneItem? VoucherOffer(WorldSnapshot w, SharedFateRanks ranks)
     {
         var offers = cfg.Items
             .Where(i => i.Kind == GemstoneItemKind.Voucher && i.CurrencyItemId == cfg.GemstoneItemId && GatesMet(ranks, i)
-                        && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId))
+                        && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId) && Room(w, i) > 0)
             .ToList();
-        var offer = offers.Where(i => i.ItemId == cfg.TuraliVoucherItemId)
-                        .OrderBy(i => TraderZone(i.TraderId) == w.TerritoryId ? 0 : 1)
-                        .FirstOrDefault()
-                    ?? offers.FirstOrDefault();
-        if (offer is null) return null;
-        var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0
-            : Math.Max(cfg.VoucherKeepBeforeMount, SavingFor(w, ranks)?.Cost ?? 0);
-        var quantity = Math.Min((gems - keep) / offer.Cost, cfg.VoucherHoldCap - w.CountOf(offer.ItemId));
-        return quantity > 0 ? new GemstoneTrip(offer.TraderId, [new GemstonePurchase(offer.ItemId, quantity)]) : null;
+        return offers.Where(i => i.ItemId == cfg.TuraliVoucherItemId)
+                   .OrderBy(i => TraderZone(i.TraderId) == w.TerritoryId ? 0 : 1)
+                   .FirstOrDefault()
+               ?? offers.FirstOrDefault();
     }
+
+    // S8, field report: no voucher shop open (Gadfrid wants rank 3 in every Endwalker zone, the city
+    // traders rank 4 in every Dawntrail one), so crafting materials from a zone trader, which the
+    // market board takes: the trader in this zone first, and at it the biggest stack held that the
+    // exchange fits in, else the material with the most room, so the bags fill a slot at a time
+    private GemstoneItem? MaterialOffer(WorldSnapshot w, SharedFateRanks ranks, int spendable)
+    {
+        foreach (var trader in HereFirst(w))
+        {
+            var stock = cfg.Items
+                .Where(i => i.TraderId == trader.NpcId && i.Kind == GemstoneItemKind.Material && i.CurrencyItemId == cfg.GemstoneItemId
+                            && GatesMet(ranks, i) && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId) && Room(w, i) > 0)
+                .ToList();
+            if (stock.Count == 0) continue;
+            return stock.Where(i => Room(w, i) >= spendable / i.Cost).OrderByDescending(i => w.CountOf(i.ItemId)).FirstOrDefault()
+                   ?? stock.OrderByDescending(i => Room(w, i)).First();
+        }
+        return null;
+    }
+
+    // S8: as many as the gemstones and the stack's room allow, split into exchanges the shop takes
+    private GemstoneTrip? Batch(WorldSnapshot w, GemstoneItem item, int spendable)
+    {
+        var quantity = Math.Min(spendable / item.Cost, Room(w, item));
+        if (quantity <= 0) return null;
+        var purchases = new List<GemstonePurchase>();
+        for (var left = quantity; left > 0; left -= cfg.MaxPerPurchase)
+            purchases.Add(new GemstonePurchase(item.ItemId, Math.Min(left, cfg.MaxPerPurchase)));
+        return new GemstoneTrip(item.TraderId, purchases);
+    }
+
+    private int Room(WorldSnapshot w, GemstoneItem i) => cfg.HoldCap - w.CountOf(i.ItemId);
 
     // S9: in the mount stage the vouchers buy the mount, whatever the gemstones; one already in the
     // bags is left to learning
@@ -249,8 +287,11 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private string Describe(GemstoneTrip trip)
     {
         var trader = cfg.Traders.FirstOrDefault(t => t.NpcId == trip.TraderId)?.Name ?? trip.TraderId.ToString();
-        var what = trip.Purchases.Select(p =>
-            (cfg.Items.FirstOrDefault(i => i.ItemId == p.ItemId)?.Name ?? p.ItemId.ToString()) + (p.Quantity > 1 ? $" x{p.Quantity}" : ""));
+        var what = trip.Purchases.GroupBy(p => p.ItemId).Select(g =>
+        {
+            var quantity = g.Sum(p => p.Quantity);
+            return (cfg.Items.FirstOrDefault(i => i.ItemId == g.Key)?.Name ?? g.Key.ToString()) + (quantity > 1 ? $" x{quantity}" : "");
+        });
         return $"{trader}: {string.Join(", ", what)}";
     }
 

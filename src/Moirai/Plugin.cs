@@ -82,7 +82,7 @@ public sealed class Plugin : IDalamudPlugin
         _executor = new IntentExecutor(_navmesh, _combat, _dodge, _purchaser, _repairer, _reader, _shopper, Config);
         _snapshots = new Snapshot.SnapshotBuilder(_navmesh, _combat, _textAdvance, _dodge, new Snapshot.AetheryteProjection(_navmesh),
             [CompanionData.GysahlGreensItemId, .. YokaiData.TrackedItemIds], YokaiData.WatchItemId, YokaiData.MinionIds, _purchaser,
-            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.GateQuestIds, _reader, _shopper);
+            _repairer, GearData.DarkMatterGrades, GemstoneData.TrackedItemIds, GemstoneData.LearnableItemIds, GemstoneData.GateQuestIds, _reader, _shopper);
 
         _overlay = new OverlayWindow(this);
         _configWindow = new ConfigWindow(this);

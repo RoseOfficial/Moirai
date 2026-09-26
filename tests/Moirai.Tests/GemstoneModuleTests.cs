@@ -11,6 +11,7 @@ public class GemstoneModuleTests
     private const uint Tepli = 1, Kunuhali = 2, KajeelJa = 3, Beryl = 4, Gadfrid = 5, Edelina = 6;
     private const uint MapU = 43607, RollU = 44312, MinionU = 43571, MapK = 43608, RollK = 44313, CardK = 43873, RollCity = 44310;
     private const uint CardQuest = 70478;
+    private const uint MatU1 = 44053, MatU2 = 44063, MatK = 44054;
 
     // Two zones, their traders, a city trader, and the voucher and mount traders: small enough to
     // reason about, shaped like the real catalog (a card sits at Kunuhali here, for the quest gate)
@@ -36,6 +37,9 @@ public class GemstoneModuleTests
             new(TuraliVoucher, "Turali Voucher", Beryl, 100, Gems, GemstoneItemKind.Voucher, RequiresAllZonesMaxed: true),
             new(EwVoucher, "Bicolor Voucher", Gadfrid, 100, Gems, GemstoneItemKind.Voucher),
             new(Whistle, "Ty'aitya Whistle", Edelina, 500, TuraliVoucher, GemstoneItemKind.Mount),
+            new(MatU1, "Silver Lobo Hide", Tepli, 3, Gems, GemstoneItemKind.Material, RequiredRank: 1),
+            new(MatU2, "Alpaca Fillet", Tepli, 3, Gems, GemstoneItemKind.Material, RequiredRank: 1),
+            new(MatK, "Hammerhead Crocodile Skin", Kunuhali, 3, Gems, GemstoneItemKind.Material, RequiredRank: 1),
         ],
         GemstoneItemId = Gems,
         MountItemId = Whistle,
@@ -392,11 +396,13 @@ public class GemstoneModuleTests
         Assert.Contains("Tepli", m.Status.Note);
     }
 
-    [Fact] // S13: at the cap with nowhere to spend the gemstones the run stops
+    // Every trader that takes gemstones, failed: nothing can absorb them
+    private static readonly uint[] AllGemTraders = [Tepli, Kunuhali, KajeelJa, Beryl, Gadfrid];
+
+    [Fact] // S13: at the cap with nowhere to spend the gemstones (no collectible, voucher or material) the run stops
     public void S13_capped_with_nowhere_to_spend_stops()
     {
-        var step = new GemstoneModule(Cfg()).Next(
-            W(learned: Collectibles, failed: [KajeelJa, Beryl, Gadfrid], gems: 1500), Between());
+        var step = new GemstoneModule(Cfg()).Next(W(learned: Collectibles, failed: AllGemTraders, gems: 1500), Between());
         Assert.Equal(StopReason.GemstonesCapped, Assert.IsType<StopSession>(step).Reason);
     }
 
@@ -404,8 +410,41 @@ public class GemstoneModuleTests
     public void S13_nothing_to_spend_below_the_cap_is_a_note()
     {
         var m = new GemstoneModule(Cfg());
-        Assert.IsType<FarmHere>(m.Next(W(learned: Collectibles, failed: [KajeelJa, Beryl, Gadfrid], gems: 1450), Between()));
+        Assert.IsType<FarmHere>(m.Next(W(learned: Collectibles, failed: AllGemTraders, gems: 1450), Between()));
         Assert.Contains("nothing to spend", m.Status!.Note);
+    }
+
+    [Fact] // S8, field report: with no voucher shop open (Gadfrid locked while ranking), crafting materials take the gemstones, 99 an exchange
+    public void S8_with_no_voucher_shop_materials_take_the_gemstones()
+    {
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(
+            W(territory: U, ranks: Ranks(u: 3, k: 3), learned: [MapU, MapK], failed: [Gadfrid], gems: 1400), Between())).Trip;
+        Assert.Equal(Tepli, trip.TraderId);
+        Assert.All(trip.Purchases, p => Assert.Equal(MatU1, p.ItemId));
+        Assert.All(trip.Purchases, p => Assert.InRange(p.Quantity, 1, 99));
+        Assert.Equal(300, trip.Purchases.Sum(p => p.Quantity)); // keeps 500 back, 3 gemstones each
+    }
+
+    [Fact] // S8: materials fill the biggest stack held that the quantity fits in, else the one with the most room
+    public void S8_materials_fill_the_biggest_stack_that_fits()
+    {
+        var ranking = Ranks(u: 3, k: 3);
+        var fits = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(W(territory: U, ranks: ranking, learned: [MapU, MapK],
+            failed: [Gadfrid], items: new() { [MatU2] = 500 }, gems: 1400), Between())).Trip;
+        Assert.All(fits.Purchases, p => Assert.Equal(MatU2, p.ItemId));
+
+        var nearlyFull = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(W(territory: U, ranks: ranking, learned: [MapU, MapK],
+            failed: [Gadfrid], items: new() { [MatU2] = 800 }, gems: 1400), Between())).Trip;
+        Assert.All(nearlyFull.Purchases, p => Assert.Equal(MatU1, p.ItemId)); // 199 of room does not take 300
+    }
+
+    [Fact] // S8: materials come from the trader in the character's zone
+    public void S8_materials_from_the_trader_here()
+    {
+        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(
+            W(territory: K, ranks: Ranks(u: 3, k: 3), learned: [MapU, MapK], failed: [Gadfrid], gems: 1400), Between())).Trip;
+        Assert.Equal(Kunuhali, trip.TraderId);
+        Assert.All(trip.Purchases, p => Assert.Equal(MatK, p.ItemId));
     }
 
     [Fact] // S13: with shopping off there are no trips, and the cap is only noted
@@ -416,10 +455,10 @@ public class GemstoneModuleTests
         Assert.Contains("shopping is off", m.Status!.Note);
     }
 
-    [Fact] // S13, review focus: with the voucher stacks full, the cap stops the run rather than losing gemstones
+    [Fact] // S13, review focus: with the voucher and material stacks full, the cap stops the run rather than losing gemstones
     public void S13_a_full_voucher_stack_stops_at_the_cap()
     {
-        var items = new Dictionary<uint, int> { [TuraliVoucher] = 999, [EwVoucher] = 999 };
+        var items = new Dictionary<uint, int> { [TuraliVoucher] = 999, [EwVoucher] = 999, [MatU1] = 999, [MatU2] = 999, [MatK] = 999 };
         var step = new GemstoneModule(Cfg()).Next(W(learned: [.. Collectibles, Whistle], items: items, gems: 1500), Between());
         Assert.Equal(StopReason.GemstonesCapped, Assert.IsType<StopSession>(step).Reason);
     }

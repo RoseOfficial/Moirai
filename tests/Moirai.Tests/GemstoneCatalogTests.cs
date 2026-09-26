@@ -22,10 +22,20 @@ public class GemstoneCatalogTests
     {
         foreach (var trader in GemstoneCatalog.Traders.Where(t => GemstoneCatalog.Zones.Contains(t.TerritoryId)))
         {
-            var stock = GemstoneCatalog.Items.Where(i => i.TraderId == trader.NpcId).ToList();
+            var stock = GemstoneCatalog.Items.Where(i => i.TraderId == trader.NpcId && i.Kind == GemstoneItemKind.Collectible).ToList();
             Assert.Equal(2, stock[0].RequiredRank);
             Assert.All(stock.Skip(1), i => Assert.Equal(4, i.RequiredRank));
         }
+    }
+
+    [Fact] // S8, field report: every zone trader sells crafting materials from rank 1, 3 gemstones each (17 in all)
+    public void Zone_traders_sell_materials_from_rank_1()
+    {
+        var materials = GemstoneCatalog.Items.Where(i => i.Kind == GemstoneItemKind.Material).ToList();
+        Assert.Equal(17, materials.Count);
+        Assert.All(materials, i => Assert.Equal((3, 1, GemstoneCatalog.Gemstone), (i.Cost, i.RequiredRank, i.CurrencyItemId)));
+        foreach (var trader in GemstoneCatalog.Traders.Where(t => GemstoneCatalog.Zones.Contains(t.TerritoryId)))
+            Assert.Contains(materials, i => i.TraderId == trader.NpcId);
     }
 
     [Fact] // S9: the whistle costs 500 Turali vouchers at Edelina

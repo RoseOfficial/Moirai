@@ -1,6 +1,6 @@
 namespace Moirai.Core.Modules;
 
-public enum GemstoneItemKind { Collectible, Voucher, Mount }
+public enum GemstoneItemKind { Collectible, Voucher, Mount, Material }
 
 // A trader by ENpc id (the ENpcResident and ENpcBase ids are the same); the name is for display only
 public sealed record GemstoneTrader(uint NpcId, string Name, ushort TerritoryId);
@@ -34,7 +34,8 @@ public sealed class GemstoneConfig
     public uint MountItemId { get; init; }
     public uint TuraliVoucherItemId { get; init; }                    // S8: preferred once the city traders sell it
     public int VoucherKeepBeforeMount { get; init; } = 500;           // S8
-    public int VoucherHoldCap { get; init; } = 999;                   // a voucher stack's limit
+    public int HoldCap { get; init; } = 999;                          // a voucher or material stack's limit
+    public int MaxPerPurchase { get; init; } = 99;                    // S8: the most one exchange takes
     public int ReadEveryCompletions { get; init; } = 10;              // S4
     public int ReadRetrySeconds { get; init; } = 60;                  // S5
     public int ReadFailuresToStop { get; init; } = 3;                 // S5

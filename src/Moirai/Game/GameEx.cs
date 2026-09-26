@@ -413,6 +413,13 @@ public static unsafe class GameEx
 
     public static bool IsQuestComplete(uint questId) => QuestManager.IsQuestComplete(questId);
 
+    // Free slots across the four bag pages, for a purchase that needs a new stack
+    public static int EmptyBagSlots()
+    {
+        var im = InventoryManager.Instance();
+        return im == null ? 0 : (int)im->GetEmptySlotsInBag();
+    }
+
     private const uint SharedFateMainCommand = 84;
 
     // S4: the Shared FATE window, through the main command the game's own menu uses

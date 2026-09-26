@@ -42,7 +42,7 @@ public static class DebugReport
         foreach (var line in Execution.SharedFateReader.AgentLines())
             sb.AppendLine($"  agent {line}");
         sb.AppendLine($"shopper: {plugin.Shopper.DebugState} status='{plugin.Shopper.Status}'");
-        sb.AppendLine($"learned: {string.Join(" ", GemstoneCatalog.Items.Where(i => i.Kind != GemstoneItemKind.Voucher).Select(i => $"{i.ItemId}={(GameEx.IsItemLearned(i.ItemId) ? "y" : "n")}"))}");
+        sb.AppendLine($"learned: {string.Join(" ", GemstoneCatalog.Items.Where(i => i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount).Select(i => $"{i.ItemId}={(GameEx.IsItemLearned(i.ItemId) ? "y" : "n")}"))}");
 
         // every value of an open menu, exchange or Shared FATE window, so a report pins entries and rows
         var windows = Execution.MinionPurchaser.MenuAddons

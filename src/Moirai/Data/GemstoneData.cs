@@ -30,6 +30,10 @@ public static class GemstoneData
     public static IReadOnlyList<uint> TrackedItemIds { get; } =
         GemstoneCatalog.Items.Select(i => i.ItemId).Distinct().ToList();
 
+    // S7/S14: the items that teach something, checked for being learned in every snapshot
+    public static IReadOnlyList<uint> LearnableItemIds { get; } =
+        GemstoneCatalog.Items.Where(i => i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount).Select(i => i.ItemId).ToList();
+
     // S10: the quests some items need, checked into every snapshot
     public static IReadOnlyList<uint> GateQuestIds { get; } =
         GemstoneCatalog.Items.Where(i => i.RequiredQuestId != 0).Select(i => i.RequiredQuestId).Distinct().ToList();

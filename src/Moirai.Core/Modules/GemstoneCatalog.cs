@@ -81,9 +81,35 @@ public static class GemstoneCatalog
         City(44256, "Neon Parasol", Beryl, 500),
         new(TuraliVoucher, "Turali Bicolor Gemstone Voucher", Beryl, 100, Gemstone, GemstoneItemKind.Voucher, RequiresAllZonesMaxed: true),
 
+        // Gadfrid trades only once the character has Shared FATE rank 3 in all six Endwalker zones
+        // (Achievement 3022-3027; his shop's own talk says so), which the snapshot cannot see: a
+        // locked shop fails the trip and he is skipped for the session
         new(EndwalkerVoucher, "Bicolor Gemstone Voucher", Gadfrid, 100, Gemstone, GemstoneItemKind.Voucher),
         new(TyaityaWhistle, "Ty'aitya Whistle", Edelina, 500, TuraliVoucher, GemstoneItemKind.Mount),
+
+        // S8: crafting materials, the zone traders' rank-1 stock (SpecialShop 1770737-1770753), the
+        // gemstones' last sink when no voucher shop is open
+        Material(44053, "Silver Lobo Hide", Tepli),
+        Material(44063, "Alpaca Fillet", Tepli),
+        Material(44067, "Megamaguey Pineapple", Tepli),
+        Material(44054, "Hammerhead Crocodile Skin", Kunuhali),
+        Material(44064, "Swampmonk Thigh", Kunuhali),
+        Material(44068, "Poison Frog Secretions", Kunuhali),
+        Material(44069, "Lesser Apollyon Shell", Kunuhali),
+        Material(44055, "Br'aax Hide", RralWuruq),
+        Material(44065, "Branchbearer Fruit", RralWuruq),
+        Material(44070, "Ty'aitya Wingblade", RralWuruq),
+        Material(44027, "Rroneek Fleece", Mitepe),
+        Material(44106, "Rroneek Chuck", Mitepe),
+        Material(44066, "Nopalitender Tuna", Mitepe),
+        Material(44071, "Tumbleclaw Weeds", Mitepe),
+        Material(44072, "Alexandrian Axe Beak Wing", Toashana),
+        Material(44056, "Gomphotherium Skin", Toashana),
+        Material(44057, "Gargantua Hide", ClerkPx0029),
     ];
+
+    private static GemstoneItem Material(uint id, string name, uint trader)
+        => new(id, name, trader, 3, Gemstone, GemstoneItemKind.Material, RequiredRank: 1);
 
     private static GemstoneItem Map(uint id, string name, uint trader)
         => new(id, name, trader, 90, Gemstone, GemstoneItemKind.Collectible, RequiredRank: 2);

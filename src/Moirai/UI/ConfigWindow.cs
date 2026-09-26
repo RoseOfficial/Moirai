@@ -275,7 +275,7 @@ public sealed class ConfigWindow : Window
         var left = 0;
         foreach (var trader in GemstoneCatalog.Traders)
         {
-            var stock = GemstoneCatalog.Items.Where(i => i.TraderId == trader.NpcId && i.Kind != GemstoneItemKind.Voucher).ToList();
+            var stock = GemstoneCatalog.Items.Where(i => i.TraderId == trader.NpcId && i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount).ToList();
             if (stock.Count == 0) continue;
             ImGui.TextUnformatted(trader.Name);
             foreach (var item in stock)

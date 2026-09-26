@@ -14,7 +14,7 @@ public sealed class SnapshotBuilder(
     AetheryteProjection aetherytes, IReadOnlyList<uint> trackedItems,
     uint watchItemId, IReadOnlyList<uint> minionIds, Execution.MinionPurchaser purchaser,
     Execution.GearRepairer repairer, IReadOnlyList<uint> darkMatterGrades,
-    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> gateQuests, Execution.SharedFateReader reader,
+    IReadOnlyList<uint> gemstoneItems, IReadOnlyList<uint> learnableItems, IReadOnlyList<uint> gateQuests, Execution.SharedFateReader reader,
     Execution.GemstoneShopper shopper)
 {
     private const long OwnedRecheckMs = 1000;
@@ -157,7 +157,7 @@ public sealed class SnapshotBuilder(
     private IReadOnlySet<uint> Learned()
     {
         var learned = new HashSet<uint>();
-        foreach (var id in gemstoneItems)
+        foreach (var id in learnableItems)
             if (GameEx.IsItemLearned(id)) learned.Add(id);
         return learned;
     }

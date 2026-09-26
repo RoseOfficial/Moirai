@@ -101,9 +101,14 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
         var limit = _step == Step.Travel ? TravelTimeoutMs : StepTimeoutMs;
         if (_step != Step.Walk && Environment.TickCount64 - _stepStartedMs > limit)
         {
-            Fail(_step == Step.Shop
-                ? "the exchange did not go through; its values may have moved in a patch"
-                : $"{_step} timed out");
+            Fail(_step switch
+            {
+                Step.Shop => "the exchange did not go through; its values may have moved in a patch",
+                // Gadfrid needs Shared FATE rank 3 in every Endwalker zone, Kajeel Ja and Beryl rank 4
+                // in every Dawntrail one; their talk says so and no shop follows
+                Step.Interact => "the shop did not open; it may still be locked for this character",
+                _ => $"{_step} timed out",
+            });
             return;
         }
 
@@ -268,6 +273,12 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
 
         var shop = ShopAddons.FirstOrDefault(GameEx.AddonReady);
         if (shop is null) return;
+        // an item not held yet needs a free bag slot, or the count never moves
+        if (GameEx.ItemCount(purchase.ItemId) == 0 && GameEx.EmptyBagSlots() == 0)
+        {
+            Fail("the bags are full");
+            return;
+        }
         if (RowFor(shop, trip, purchase) is not { } row) return;
         if (Throttle.Try("moirai.gem.buy", 2500))
         {

@@ -44,7 +44,7 @@ The other three stages rotate all six zones.
 
 ## 4. Shared FATE ranks
 
-**Reader (shell).** `SharedFateReader` performs one read per request: it opens the Shared FATE window through main command 84, waits 1.5 s for the agent to fill, copies rank and progress for each Dawntrail zone it carries (with the FATEs the next rank takes from `FateProgressUI`), and closes the window with callback −1. One attempt is bounded at 10 s and ends either with the zones or with a failure. The window is on screen for a second or two.
+**Reader (shell).** `SharedFateReader` performs one read per request: it opens the Shared FATE window through main command 84, waits for the agent to carry all six zones (they fill one by one; after 5 s it takes what is there, a zone still missing being one the character lacks, left out of the read), copies rank and progress for each Dawntrail zone it carries (with the FATEs the next rank takes from `FateProgressUI`), and closes the window with callback −1. One attempt is bounded at 10 s and ends either with the zones or with a failure. The window is on screen for a second or two.
 
 **Read policy (planner).** The module asks for a read (`ReadRanks` → intent `ReadSharedFate`) only between FATEs, in a settled moment:
 
@@ -84,7 +84,9 @@ The trip is held while a payout is pending (D6), since it is a zone change. The 
 
 **What.** An item is buyable when it is not learned, has not been in the bags this session (an item just used can read unlearned for a moment, and is never bought twice), its gates are met, it is not unavailable this session, its trader has not failed, and the gemstones cover it. The trip goes to the trader with the largest total of affordable buyable items; ties go to the trader in the current zone, then to catalog order. At that trader the list is every buyable item in catalog order (each zone trader's riding map comes first, since it speeds up the farming in its zone) that the gemstones left still cover: an item that does not fit is skipped and a cheaper one after it still bought.
 
-**Vouchers.** When no trader has anything buyable and the gemstones are at the threshold, the trip is for vouchers: Turali vouchers from a city trader once all six zones are rank 4 (the one in the current zone, else Kajeel Ja), Endwalker vouchers from Gadfrid in Old Sharlayan before that. Before the Mount stage the exchange keeps 500 gemstones back for the unlocks still to come, and never less than the dearest collectible the traders would sell now, so a low threshold does not exchange away every step toward a 700-gemstone minion (the overlay says what it is saving for); from the Mount stage on it exchanges every full 100. A voucher stack holds 999; a full one is not exchanged into.
+**Vouchers.** When no trader has anything buyable and the gemstones are at the threshold, the trip is for vouchers: Turali vouchers from a city trader once all six zones are rank 4 (the one in the current zone, else Kajeel Ja), Endwalker vouchers from Gadfrid in Old Sharlayan before that. Gadfrid trades only with a character who has Shared FATE rank 3 in all six Endwalker zones (his shop's own talk says so; Achievement 3022–3027), which the snapshot cannot see: a locked shop fails the trip at the talk step, and he is skipped for the session.
+
+**Materials.** With no voucher shop open (Gadfrid locked while the Dawntrail zones still rank; a field report), the gemstones go on the zone traders' crafting materials, 3 each, which stack to 999 and sell on the market board: the zone trader in the current zone first, and at it the material held in the biggest stack the exchange fits in, else the one with the most room, so the bags fill a slot at a time. Vouchers and materials alike are bought at most 99 an exchange (a trip of several exchanges), and a material the character holds none of needs a free bag slot, or the trip fails ("the bags are full"). Before the Mount stage the exchange keeps 500 gemstones back for the unlocks still to come, and never less than the dearest collectible the traders would sell now, so a low threshold does not exchange away every step toward a 700-gemstone minion (the overlay says what it is saving for); from the Mount stage on it exchanges every full 100. A voucher stack holds 999; a full one is not exchanged into.
 
 **The mount.** In the Mount stage, at 500 Turali vouchers, the trip is to Edelina for the whistle, which is then learned. With the whistle switch off the Mount stage is skipped.
 
@@ -106,7 +108,7 @@ Each step is bounded at 20 s, a purchase at 20 s of its own, travel at 45 s; the
 New `StopReason` values:
 
 - `RanksUnreadable` — three rank reads in a row failed (§4).
-- `GemstonesCapped` — the gemstones are at the full 1,500, shopping is on, and nothing can be bought or exchanged for them (every relevant trader failed, or the voucher stacks are full).
+- `GemstonesCapped` — the gemstones are at the full 1,500, shopping is on, and nothing can be bought or exchanged for them: no collectible, no voucher, and no material (every relevant trader failed, or the stacks are full).
 
 With "Buy from the traders" off there are no trips; the cap is noted on the overlay and the run farms on. Everything else is the core's: death (D1, D9), duties (D11), pause (§11 of the core design), stuck (D10), and unreachable zones (G4, G5). A zone trader who is still closed for the character's story progress fails the trip at the talk step and is skipped for the session.
 
@@ -138,12 +140,12 @@ Planner tests in `tests/Moirai.Tests/GemstoneModuleTests.cs`, one or more per ca
 - S5. A failed read is asked again after 60 s; three in a row stop with `RanksUnreadable`.
 - S6. A trip is asked for only between FATEs and while shopping is on, when the gemstones reach the threshold, and never below it (the Mount-stage voucher trip excepted, S9).
 - S7. Buyable means not learned, not in the bags this session, gates met (zone rank, all six at rank 4 for the city traders, quest done), not unavailable, trader not failed, and affordable. The trader is the one with the largest affordable total; ties go to the current zone's trader, then catalog order. The list is every buyable item in catalog order (riding maps first) that the gemstones left still cover.
-- S8. With nothing buyable anywhere, the trip is for vouchers: Turali from a city trader once all six are rank 4 (the current zone's, else Kajeel Ja), any other voucher on offer (Endwalker, from Gadfrid) before that; the quantity keeps 500 gemstones back before the Mount stage (never less than the dearest collectible the traders would sell now) and exchanges every full 100 from it on, never past a full stack.
+- S8. With nothing buyable anywhere, the trip is for vouchers: Turali from a city trader once all six are rank 4 (the current zone's, else Kajeel Ja), any other voucher on offer (Endwalker, from Gadfrid) before that; with no voucher shop open, crafting materials from the zone trader here first, the biggest stack held that the exchange fits in, else the one with the most room. The quantity keeps 500 gemstones back before the Mount stage (never less than the dearest collectible the traders would sell now) and spends the rest from it on, never past a full stack, at most 99 an exchange.
 - S9. In the Mount stage, 500 Turali vouchers send the trip to Edelina for the whistle; with the whistle switch off the stage is skipped.
 - S10. A quest-gated item is noted and never holds a stage back; completing the quest makes it buyable.
 - S11. An item a trader's window did not list is unavailable for the session: excluded from buyable, noted, never holding a stage back, never planned again.
 - S12. A trader whose trip failed is never planned again this session, and its stock no longer holds a stage back; its items fall to the other rules (S8, S13).
-- S13. The gemstones at 1,500 with shopping on and nothing to buy or exchange them for stop with `GemstonesCapped`; with shopping off the cap is only noted.
+- S13. The gemstones at 1,500 with shopping on and nothing to buy or exchange them for (no collectible, voucher or material) stop with `GemstonesCapped`; with shopping off the cap is only noted.
 - S14. A collectible in the bags that is not learned is asked to be learned in settled moments, whatever the stage, and given up on after 10 s of asking; the trip plans around it rather than buy it again.
 - S15. The Director takes a buy directive only between FATEs; asked mid-FATE it carries on with the FATE and the module asks again later. This covers the Yo-kai `BuyMinion` as well.
 - S16. A trip is held while a payout is pending (D6).
@@ -181,6 +183,8 @@ Verified against the installed game's sheets on 2026-09-25.
 Totals: 8,990 at the zone traders (maps 540, rank-4 items 8,450), 4,250 at the city traders, 13,240 in all.
 
 **Vouchers and the mount:** 43961 Turali Bicolor Gemstone Voucher, 100 gemstones at Kajeel Ja and Beryl; 35833 Bicolor Gemstone Voucher, 100 gemstones at Gadfrid; 43590 Ty'aitya Whistle, 500 × 43961 at Edelina.
+
+**Crafting materials** (3 gemstones each, from rank 1): Tepli 44053 Silver Lobo Hide, 44063 Alpaca Fillet, 44067 Megamaguey Pineapple; Kunuhali 44054 Hammerhead Crocodile Skin, 44064 Swampmonk Thigh, 44068 Poison Frog Secretions, 44069 Lesser Apollyon Shell; Rral Wuruq 44055 Br'aax Hide, 44065 Branchbearer Fruit, 44070 Ty'aitya Wingblade; Mitepe 44027 Rroneek Fleece, 44106 Rroneek Chuck, 44066 Nopalitender Tuna, 44071 Tumbleclaw Weeds; Toashana 44072 Alexandrian Axe Beak Wing, 44056 Gomphotherium Skin; Clerk PX-0029 44057 Gargantua Hide.
 
 **Out of the catalog:** furnishings (rank 3 in every zone, the Kozama'uka rank-4 flag, the city furnishings), materials, Ut'ohmu Siderite, Gadfrid's Endwalker stock, and Edelina's Wivre Horn and Fallen Angel Wings are not part of this mode and are never bought.
 

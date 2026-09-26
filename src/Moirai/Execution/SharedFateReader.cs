@@ -15,6 +15,7 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
     private const long AttemptTimeoutMs = 10_000;
     private const long SettleMs = 1_500; // the agent fills a moment after the window opens
     private const long CloseForceMs = 2_000; // then the window is closed outright
+    private const long PartialAfterMs = 5_000; // the zones fill one by one; a zone still missing then is one the character lacks
 
     private enum Step { Idle, Opening, Reading, Closing }
 
@@ -76,7 +77,10 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
 
             case Step.Reading:
                 if (now - _openedMs < SettleMs) break;
+                // every listed zone, or what the agent has once it has had its time; a read taken
+                // halfway once showed a zone the character had ranked as rank 0
                 if (ReadAgent() is not { } read) break; // not filled yet; the attempt's timeout bounds the wait
+                if (read.Count < zones.Count && now - _openedMs < PartialAfterMs) break;
                 _captured = read;
                 _closingMs = now;
                 _step = Step.Closing;
@@ -112,7 +116,8 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
             Svc.Chat.Print("[Moirai] The Shared FATE window could not be read; trying again in a minute.");
     }
 
-    // The listed zones as the agent carries them, or null while it carries none of them
+    // The listed zones the agent carries, or null while it carries none of them. A zone it does not
+    // carry is left out; the planner reads a missing zone as rank 0 (S2) without predicting a rank-up.
     private List<ZoneRank>? ReadAgent()
     {
         var agent = AgentFateProgress.Instance();
@@ -126,7 +131,7 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
                 found[territory] = new ZoneRank(territory, z.CurrentRank, z.FateProgress, FatesForNextRank(territory, z.CurrentRank));
             }
         if (found.Count == 0) return null;
-        return zones.Select(t => found.TryGetValue(t, out var r) ? r : new ZoneRank(t, 0, 0, 0)).ToList();
+        return zones.Where(found.ContainsKey).Select(t => found[t]).ToList();
     }
 
     // FateProgressUI: the FATEs each rank-up takes in a zone, as increments (6, 20, 40 in Dawntrail);
