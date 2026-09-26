@@ -259,6 +259,18 @@ public sealed class ConfigWindow : Window
         if (ImGui.InputInt("Whistle row in her exchange", ref row)) { c.GemstoneEdelinaRow = Math.Max(0, row); dirty = true; }
         Hint("Leave these unless a trip to Edelina fails: /moirai debug with her menu or exchange open lists the entries.");
 
+        uint? retry = null;
+        foreach (var id in c.GemstoneLockedTraders)
+        {
+            if (ImGui.SmallButton($"Try again###gem-lock-{id}")) retry = id;
+            ImGui.SameLine();
+            var name = GemstoneCatalog.Traders.FirstOrDefault(t => t.NpcId == id)?.Name ?? id.ToString();
+            ImGui.TextColored(Warn, $"{name}'s shop is locked for this character and is skipped.");
+        }
+        if (retry is { } unlock) { c.GemstoneLockedTraders.Remove(unlock); dirty = true; }
+        if (c.GemstoneLockedTraders.Count > 0)
+            Hint("Gadfrid opens once you have Shared FATE rank 3 in every Endwalker zone; Kajeel Ja and Beryl once every Dawntrail zone is rank 4. Until then spare gemstones go on crafting materials. Applies on the next Start.");
+
         ImGui.Separator();
         ImGui.TextUnformatted($"Gemstones {GameEx.CurrencyCount(GemstoneCatalog.Gemstone)}/1500   Turali vouchers {GameEx.ItemCount(GemstoneCatalog.TuraliVoucher)}   Endwalker vouchers {GameEx.ItemCount(GemstoneCatalog.EndwalkerVoucher)}");
         if (_plugin.Reader.Result is { Reads: > 0 } ranks)

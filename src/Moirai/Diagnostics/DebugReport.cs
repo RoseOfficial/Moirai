@@ -41,7 +41,7 @@ public static class DebugReport
         sb.AppendLine($"shared fate: {plugin.Reader.DebugState} {(plugin.Reader.Result is { } ranks ? string.Join(" ", ranks.Zones.Select(z => $"{z.TerritoryId}:r{z.Rank} {z.Progress}/{z.Needed}")) : "no read")}");
         foreach (var line in Execution.SharedFateReader.AgentLines())
             sb.AppendLine($"  agent {line}");
-        sb.AppendLine($"shopper: {plugin.Shopper.DebugState} status='{plugin.Shopper.Status}'");
+        sb.AppendLine($"shopper: {plugin.Shopper.DebugState} status='{plugin.Shopper.Status}' locked=[{string.Join(",", plugin.Config.GemstoneLockedTraders)}]");
         sb.AppendLine($"learned: {string.Join(" ", GemstoneCatalog.Items.Where(i => i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount).Select(i => $"{i.ItemId}={(GameEx.IsItemLearned(i.ItemId) ? "y" : "n")}"))}");
 
         // every value of an open menu, exchange or Shared FATE window, so a report pins entries and rows

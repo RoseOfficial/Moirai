@@ -303,7 +303,9 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         if (quests.Count > 0) notes.Add("needs a quest: " + string.Join(", ", quests));
         var unlisted = Names(cfg.Items.Where(i => Unavailable(w, i.ItemId)));
         if (unlisted.Count > 0) notes.Add("not listed by its trader: " + string.Join(", ", unlisted));
-        var failed = cfg.Traders.Where(t => TraderFailed(w, t.NpcId)).Select(t => t.Name).ToList();
+        var locked = cfg.Traders.Where(t => cfg.LockedTraders.Contains(t.NpcId)).Select(t => t.Name).ToList();
+        if (locked.Count > 0) notes.Add("locked for this character: " + string.Join(", ", locked));
+        var failed = cfg.Traders.Where(t => !cfg.LockedTraders.Contains(t.NpcId) && TraderFailed(w, t.NpcId)).Select(t => t.Name).ToList();
         if (failed.Count > 0) notes.Add("trip failed, skipped this session: " + string.Join(", ", failed));
         var unlearnable = Names(cfg.Items.Where(i => _learnGivenUp.Contains(i.ItemId)));
         if (unlearnable.Count > 0) notes.Add("could not learn: " + string.Join(", ", unlearnable));
@@ -333,5 +335,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
 
     private static bool Unavailable(WorldSnapshot w, uint itemId) => w.UnavailableItems?.Contains(itemId) ?? false;
 
-    private static bool TraderFailed(WorldSnapshot w, uint traderId) => w.FailedTraders?.Contains(traderId) ?? false;
+    // S12: a trip that failed this session, or a shop found locked in an earlier one
+    private bool TraderFailed(WorldSnapshot w, uint traderId)
+        => (w.FailedTraders?.Contains(traderId) ?? false) || cfg.LockedTraders.Contains(traderId);
 }

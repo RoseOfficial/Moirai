@@ -438,6 +438,21 @@ public class GemstoneModuleTests
         Assert.All(nearlyFull.Purchases, p => Assert.Equal(MatU1, p.ItemId)); // 199 of room does not take 300
     }
 
+    [Fact] // S12, field report: a trader found locked in an earlier session is never planned again, so the run goes straight to materials
+    public void S12_a_trader_remembered_as_locked_is_not_visited()
+    {
+        var m = new GemstoneModule(new GemstoneConfig
+        {
+            Enabled = true, Zones = Cfg().Zones, Traders = Cfg().Traders, Items = Cfg().Items,
+            GemstoneItemId = Gems, MountItemId = Whistle, TuraliVoucherItemId = TuraliVoucher,
+            LockedTraders = new HashSet<uint> { Gadfrid },
+        });
+        var trip = Assert.IsType<GoShopping>(m.Next(
+            W(territory: U, ranks: Ranks(u: 3, k: 3), learned: [MapU, MapK], gems: 1400), Between())).Trip;
+        Assert.Equal(Tepli, trip.TraderId);
+        Assert.Contains("locked for this character: Gadfrid", m.Status!.Note);
+    }
+
     [Fact] // S8: materials come from the trader in the character's zone
     public void S8_materials_from_the_trader_here()
     {

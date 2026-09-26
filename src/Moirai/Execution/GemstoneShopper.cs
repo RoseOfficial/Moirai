@@ -49,6 +49,7 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
     private float _closest;
     private long _closerAtMs;
     private bool _menuPicked;
+    private bool _talked; // the trader was spoken to this trip: a shop that then never opens is locked
 
     public IReadOnlySet<uint> FailedTraders => _failedTraders;
     public IReadOnlySet<uint> UnavailableItems => _unavailable;
@@ -76,6 +77,7 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
         _next = 0;
         _countBefore = -1;
         _menuPicked = false;
+        _talked = false;
         Enter(Step.Travel);
     }
 
@@ -101,14 +103,19 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
         var limit = _step == Step.Travel ? TravelTimeoutMs : StepTimeoutMs;
         if (_step != Step.Walk && Environment.TickCount64 - _stepStartedMs > limit)
         {
-            Fail(_step switch
+            // S12: Gadfrid needs Shared FATE rank 3 in every Endwalker zone, Kajeel Ja and Beryl rank 4
+            // in every Dawntrail one; their talk says so and no shop follows. A shop that talked and
+            // never opened is remembered as locked, so later sessions do not travel to it again.
+            if (_step == Step.Interact && _talked)
             {
-                Step.Shop => "the exchange did not go through; its values may have moved in a patch",
-                // Gadfrid needs Shared FATE rank 3 in every Endwalker zone, Kajeel Ja and Beryl rank 4
-                // in every Dawntrail one; their talk says so and no shop follows
-                Step.Interact => "the shop did not open; it may still be locked for this character",
-                _ => $"{_step} timed out",
-            });
+                cfg.GemstoneLockedTraders.Add(trip.TraderId);
+                cfg.Save();
+                Fail("the shop did not open: it is locked for this character, and will not be tried again until you press Try again on the Gemstones tab");
+                return;
+            }
+            Fail(_step == Step.Shop
+                ? "the exchange did not go through; its values may have moved in a patch"
+                : $"{_step} timed out");
             return;
         }
 
@@ -209,7 +216,11 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
             Enter(Step.Menu);
             return;
         }
-        if (Svc.Condition[ConditionFlag.OccupiedInEvent]) return; // the talk before the window is TextAdvance's
+        if (Svc.Condition[ConditionFlag.OccupiedInEvent])
+        {
+            _talked = true;
+            return; // the talk before the window is TextAdvance's
+        }
         if (GameEx.FindNpc(_npcIds) is { } npc && Throttle.Try("moirai.gem.interact", 2000))
         {
             Svc.Targets.Target = npc;

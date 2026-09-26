@@ -201,6 +201,7 @@ public sealed class Plugin : IDalamudPlugin
             BuyMount = Config.GemstoneBuyWhistle,
             MountItemId = GemstoneCatalog.TyaityaWhistle,
             TuraliVoucherItemId = GemstoneCatalog.TuraliVoucher,
+            LockedTraders = Config.GemstoneLockedTraders.ToHashSet(),
             QuietSeconds = Config.RotateWhenQuietSeconds,
         });
 

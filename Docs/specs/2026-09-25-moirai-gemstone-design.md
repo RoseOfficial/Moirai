@@ -144,7 +144,7 @@ Planner tests in `tests/Moirai.Tests/GemstoneModuleTests.cs`, one or more per ca
 - S9. In the Mount stage, 500 Turali vouchers send the trip to Edelina for the whistle; with the whistle switch off the stage is skipped.
 - S10. A quest-gated item is noted and never holds a stage back; completing the quest makes it buyable.
 - S11. An item a trader's window did not list is unavailable for the session: excluded from buyable, noted, never holding a stage back, never planned again.
-- S12. A trader whose trip failed is never planned again this session, and its stock no longer holds a stage back; its items fall to the other rules (S8, S13).
+- S12. A trader whose trip failed is never planned again this session, and its stock no longer holds a stage back; its items fall to the other rules (S8, S13). A shop that was talked to and never opened is locked for the character (Gadfrid, until Shared FATE rank 3 in every Endwalker zone): the shell saves it in the settings, and the module skips it in every later session too, until the Gemstones tab's Try again clears it. Until then every new session travelled to the locked shop once before it fell back (a field report).
 - S13. The gemstones at 1,500 with shopping on and nothing to buy or exchange them for (no collectible, voucher or material) stop with `GemstonesCapped`; with shopping off the cap is only noted.
 - S14. A collectible in the bags that is not learned is asked to be learned in settled moments, whatever the stage, and given up on after 10 s of asking; the trip plans around it rather than buy it again.
 - S15. The Director takes a buy directive only between FATEs; asked mid-FATE it carries on with the FATE and the module asks again later. This covers the Yo-kai `BuyMinion` as well.

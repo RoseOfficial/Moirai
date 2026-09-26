@@ -43,6 +43,7 @@ public sealed class Configuration : IPluginConfiguration
     public bool GemstoneBuyWhistle { get; set; } = true;    // S9
     public int GemstoneEdelinaMenuIndex { get; set; } = 1;  // "Bicolor Gemstone Vouchers", after "Purchase Luxuries"
     public int GemstoneEdelinaRow { get; set; } = 1;        // the whistle's row in her exchange, until a report pins it
+    public HashSet<uint> GemstoneLockedTraders { get; set; } = []; // S12: shops that talked but never opened; cleared by hand
 
     // Selection gates and ranking (spec §4)
     public int MinTimeLeftSeconds { get; set; } = 180;

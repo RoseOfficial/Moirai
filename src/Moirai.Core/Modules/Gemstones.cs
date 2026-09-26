@@ -40,6 +40,7 @@ public sealed class GemstoneConfig
     public int ReadRetrySeconds { get; init; } = 60;                  // S5
     public int ReadFailuresToStop { get; init; } = 3;                 // S5
     public int LearnGraceSeconds { get; init; } = 10;                 // S14
+    public IReadOnlySet<uint> LockedTraders { get; init; } = new HashSet<uint>(); // S12: shops found locked in an earlier session
     public int QuietSeconds { get; init; } = 120;                     // G2
     public int MoveTimeoutSeconds { get; init; } = 60;                // G4
 }
