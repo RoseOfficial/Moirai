@@ -12,6 +12,7 @@ All notable changes to Moirai will be documented in this file.
 ### Fixed
 - Teleport shortcuts never happened. Aetheryte positions were read from a link in the game data that no longer points anywhere, so no aetheryte was ever seen: legs never started with a teleport, the teleport cost in FATE ranking never applied, and the recovery step that teleports to the nearest aetheryte was skipped. Positions now come from the map markers, so a long leg starts with a teleport when that is faster
 - A Yo-kai minion purchase could start in the middle of a FATE and abandon it. Purchases now wait until the FATE is over
+- BossMod Reborn chat spam. Every time combat started, Moirai set up Reborn's AI with five chat commands, and Reborn printed a "[BMRAI] ... is now ..." line for each, plus one more every time movement was handed over for a dodge: half a dozen lines a FATE. The settings now go through Reborn's own plugin interface, which prints nothing and leaves your saved BossMod settings alone; an older Reborn without it still gets the commands
 <!-- LATEST-END -->
 
 ## v0.4.9 — 2026-09-23

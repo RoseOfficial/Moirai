@@ -15,6 +15,8 @@ public sealed class DodgeIpc
     private readonly ICallGateSubscriber<bool> _navigating;
     private readonly ICallGateSubscriber<int> _zones;
     private readonly ICallGateSubscriber<float> _nextActivation;
+    private readonly ICallGateSubscriber<List<string>, bool, List<string>> _configure;
+    private readonly ICallGateSubscriber<bool, bool> _pauseMovement;
     private bool? _ai;
     private MovementOwner? _owner;
 
@@ -24,6 +26,8 @@ public sealed class DodgeIpc
         _navigating = pi.GetIpcSubscriber<bool>("BossMod.AI.IsNavigating");
         _zones = pi.GetIpcSubscriber<int>("BossMod.Hints.ForbiddenZonesCount");
         _nextActivation = pi.GetIpcSubscriber<float>("BossMod.Hints.ForbiddenZonesNextActivation");
+        _configure = pi.GetIpcSubscriber<List<string>, bool, List<string>>("BossMod.Configuration");
+        _pauseMovement = pi.GetIpcSubscriber<bool, bool>("BossMod.AI.PauseMovement");
     }
 
     public bool Installed => _loaded.Loaded;
@@ -42,7 +46,9 @@ public sealed class DodgeIpc
         }
     }
 
-    // H1: toggled with the combat backend; de-duplicated so the chat command is not spammed
+    // H1: toggled with the combat backend, de-duplicated. The AI's on and off commands print nothing;
+    // its settings go through Reborn's configuration gate, since each settings command echoes a line
+    // to chat, and the AI is switched on once a fate or more
     public void SetAi(bool on)
     {
         if (!Installed || _ai == on) return;
@@ -50,10 +56,11 @@ public sealed class DodgeIpc
         if (on)
         {
             Send("on");
-            Send("forbidactions on");
-            Send("followtarget off");
-            Send("followcombat off");
-            Send("followoutofcombat off");
+            Configure("ForbidActions", true, "forbidactions on");
+            Configure("FollowTarget", false, "followtarget off");
+            Configure("FollowDuringCombat", false, "followcombat off");
+            Configure("FollowDuringActiveBossModule", false, null); // the chat command above sets it too
+            Configure("FollowOutOfCombat", false, "followoutofcombat off");
             _owner = null;
             SetMovement(MovementOwner.Navigation);
         }
@@ -64,12 +71,31 @@ public sealed class DodgeIpc
         }
     }
 
-    // H2/H3: who moves the character while the AI is on
+    // H2/H3: who moves the character while the AI is on, through Reborn's own gate (no chat line);
+    // a build without it gets the chat command
     public void SetMovement(MovementOwner owner)
     {
         if (!Installed || _owner == owner) return;
         _owner = owner;
-        Send(owner == MovementOwner.Dodge ? "forbidmovement off" : "forbidmovement on");
+        var forbid = owner == MovementOwner.Navigation;
+        try { _pauseMovement.InvokeFunc(forbid); }
+        catch { Send(forbid ? "forbidmovement on" : "forbidmovement off"); }
+    }
+
+    // One AI setting through Reborn's configuration gate: changed in memory, not saved to the user's
+    // own config, and not echoed to chat. The gate answers nothing on success; a build without it, or
+    // one that does not know the field, gets the chat command instead.
+    private void Configure(string field, bool value, string? fallback)
+    {
+        try
+        {
+            if (_configure.InvokeFunc(["AIConfig", field, value ? "true" : "false"], false).Count == 0) return;
+        }
+        catch
+        {
+            // a build without the gate
+        }
+        if (fallback is not null) Send(fallback);
     }
 
     public void Reset()
