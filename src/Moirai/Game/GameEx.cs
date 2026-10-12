@@ -403,13 +403,19 @@ public static unsafe class GameEx
     }
 
     // S7/S14: whatever an item teaches (a minion, a mount, an orchestrion roll, a card, a riding map,
-    // a framer's kit, barding, a fashion accessory) is already learned
+    // a framer's kit, barding, a fashion accessory) is already learned. Asked of Dalamud's unlock
+    // state with the item's sheet row, which answers by id for each of those kinds. The game's own
+    // check takes the row from its sheet cache instead, and has no answer while that page is not
+    // loaded: in Old Sharlayan it read two learned riding maps as unlearned (a field report).
     public static bool IsItemLearned(uint itemId)
-    {
-        var ui = FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance();
-        var row = FFXIVClientStructs.FFXIV.Component.Exd.ExdModule.GetItemRowById(itemId);
-        return ui != null && row != null && ui->IsItemActionUnlocked(row) == 1;
-    }
+        => ItemRow(itemId) is { } row && Svc.UnlockState.IsItemUnlocked(row);
+
+    // Diagnostics: whether the unlock state answers for what this item teaches at all
+    public static bool IsItemLearnable(uint itemId)
+        => ItemRow(itemId) is { } row && Svc.UnlockState.IsItemUnlockable(row);
+
+    private static Lumina.Excel.Sheets.Item? ItemRow(uint itemId)
+        => Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Item>()?.GetRowOrDefault(itemId);
 
     public static bool IsQuestComplete(uint questId) => QuestManager.IsQuestComplete(questId);
 

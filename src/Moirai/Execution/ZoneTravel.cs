@@ -36,4 +36,10 @@ public static unsafe class ZoneTravel
         var telepo = Telepo.Instance();
         return telepo != null && telepo->Teleport(aetheryteId, 0);
     }
+
+    public static bool IsAttuned(uint aetheryteId)
+    {
+        var ui = UIState.Instance();
+        return ui != null && ui->IsAetheryteUnlocked(aetheryteId);
+    }
 }

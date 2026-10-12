@@ -25,6 +25,9 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private IReadOnlyList<ushort> _rotationZones = [];
     private readonly HashSet<uint> _learnGivenUp = [];
     private readonly HashSet<uint> _seenInBags = []; // S7/S14: never bought again this session
+    private readonly HashSet<uint> _learned = [];    // S7: learned once is learned for the session
+    private readonly Dictionary<uint, int> _tripFailuresSeen = [];
+    private readonly Dictionary<uint, long> _tripAgainAtEpoch = []; // S12: when a trader set aside is tried again
     private uint? _learning;
     private long? _learnAskEpoch;
 
@@ -37,7 +40,8 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         var landed = w.SharedFate is { Reads: > 0 } ranks ? ranks : null;
         var stage = landed is null ? GemstoneStage.Reading : StageOf(w, landed);
         var gems = w.CountOf(cfg.GemstoneItemId);
-        var trip = landed is null || !cfg.Shopping ? null
+        // S13/S17: no trips with shopping off, in the settings or because the exchange window stopped matching
+        var trip = landed is null || !cfg.Shopping || !w.ShoppingReady ? null
             : PlanMount(w, stage) ?? (gems >= cfg.SpendAt ? PlanSpend(w, landed, stage, gems) : null);
         Status = new GemstoneStatus(stage, w.TerritoryId, landed?.Of(w.TerritoryId), gems,
             w.CountOf(cfg.TuraliVoucherItemId), trip is null ? null : Describe(trip), Note(w, landed, gems, trip));
@@ -54,15 +58,15 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
             return new ReadRanks();
         if (landed is null) return new FarmHere();
 
-        // S6/S9/S13: a trip between fates; at the cap with nothing to spend on, the run stops
+        // S6/S9/S13: a trip between fates; at the cap with nothing to spend on, the run stops, unless
+        // a trader set aside for a while is still to be tried again (S12)
         if (trip is not null)
         {
             if (ctx.BetweenFates) return new GoShopping(trip);
         }
-        else if (cfg.Shopping && gems >= cfg.GemstoneCap)
+        else if (cfg.Shopping && gems >= cfg.GemstoneCap && !(w.ShoppingReady && cfg.Traders.Any(t => Waiting(w, t.NpcId))))
         {
-            return new StopSession(StopReason.GemstonesCapped,
-                $"gemstones at {gems}/{cfg.GemstoneCap} with nothing left to buy or exchange them for");
+            return new StopSession(StopReason.GemstonesCapped, CappedSummary(w, gems));
         }
 
         return Rotate(w, ctx, landed, stage); // S2/S3
@@ -82,6 +86,19 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
             if (i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount && w.CountOf(i.ItemId) > 0)
                 _seenInBags.Add(i.ItemId);
 
+        // S7, field report: nothing is ever unlearned, so a check that stops answering for an item (it
+        // read two learned riding maps as unlearned in Old Sharlayan) does not put it back on the list
+        if (w.LearnedItems is { } learned) _learned.UnionWith(learned);
+
+        // S12: each failed trip sets its trader aside for a while; a trip that works starts its count over
+        foreach (var trader in cfg.Traders)
+        {
+            var failures = Failures(w, trader.NpcId);
+            if (failures > _tripFailuresSeen.GetValueOrDefault(trader.NpcId))
+                _tripAgainAtEpoch[trader.NpcId] = w.NowEpoch + cfg.TripRetrySeconds;
+            _tripFailuresSeen[trader.NpcId] = failures;
+        }
+
         if (w.SharedFate is not { } ranks) return;
         if (ranks.Reads != _readsSeen)
         {
@@ -100,7 +117,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     {
         var item = w.LearnedItems is null ? null : cfg.Items.FirstOrDefault(i =>
             i.Kind is GemstoneItemKind.Collectible or GemstoneItemKind.Mount
-            && w.CountOf(i.ItemId) > 0 && !Learned(w, i.ItemId) && !_learnGivenUp.Contains(i.ItemId));
+            && w.CountOf(i.ItemId) > 0 && !Learned(i.ItemId) && !_learnGivenUp.Contains(i.ItemId));
         if (item is null || !ctx.Settled)
         {
             _learnAskEpoch = null;
@@ -147,9 +164,9 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     }
 
     // S10-S12, S14: an item counts toward its stage while this session can still get it: not learned,
-    // its quest done, listed by its trader, the trader's trip not failed, and not set aside unlearnable
+    // its quest done, sold by its trader, the trader not skipped, and not set aside unlearnable
     private bool StillWanted(WorldSnapshot w, GemstoneItem i)
-        => !Learned(w, i.ItemId) && QuestDone(w, i) && !Unavailable(w, i.ItemId)
+        => !Learned(i.ItemId) && QuestDone(w, i) && !Unavailable(w, i.ItemId)
            && !TraderFailed(w, i.TraderId) && !_learnGivenUp.Contains(i.ItemId);
 
     // S2/S3: while ranking, the zones below the top rank in turn; after that, all of them
@@ -186,21 +203,25 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
            && (!i.RequiresAllZonesMaxed || AllMaxed(ranks));
 
     // S7/S8: the trader with the most gemstones' worth of buyable collectibles the gemstones cover,
-    // every item in catalog order that still fits; with nothing to buy anywhere, vouchers
+    // every item in catalog order that still fits; with nothing to buy anywhere, vouchers. A trader
+    // set aside after a failed trip is passed over until its wait is up (S12).
     private GemstoneTrip? PlanSpend(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
     {
         GemstoneTrip? best = null;
         var bestTotal = 0;
         foreach (var trader in HereFirst(w))
         {
+            if (Waiting(w, trader.NpcId)) continue;
             var left = gems;
+            var slots = FreeSlots(w); // S18: each one bought sits in a bag slot until it is learned
             var buys = new List<GemstonePurchase>();
             foreach (var i in cfg.Items)
             {
                 if (i.TraderId != trader.NpcId || i.Kind != GemstoneItemKind.Collectible || i.CurrencyItemId != cfg.GemstoneItemId) continue;
-                if (i.Cost > left || !Buyable(w, ranks, i)) continue;
+                if (i.Cost > left || slots == 0 || !Buyable(w, ranks, i)) continue;
                 buys.Add(new GemstonePurchase(i.ItemId, 1));
                 left -= i.Cost;
+                slots--;
             }
             if (gems - left > bestTotal)
             {
@@ -218,9 +239,12 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     // S8: nothing to buy, so the gemstones are exchanged for something that keeps their worth. Before
     // the mount stage some gemstones are kept for the unlocks still to come, and never less than the
     // dearest one the trader would sell now, or a low threshold would exchange away every step toward
-    // it; from the mount stage on every full hundred goes.
+    // it; from the mount stage on every full hundred goes. While a trader set aside for a while has
+    // collectibles to sell, nothing is exchanged: its gemstones wait for it (S12).
     private GemstoneTrip? ExchangeTrip(WorldSnapshot w, SharedFateRanks ranks, GemstoneStage stage, int gems)
     {
+        if (cfg.Items.Any(i => i.Kind == GemstoneItemKind.Collectible && Waiting(w, i.TraderId) && Buyable(w, ranks, i)))
+            return null;
         var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0
             : Math.Max(cfg.VoucherKeepBeforeMount, SavingFor(w, ranks)?.Cost ?? 0);
         var spendable = gems - keep;
@@ -235,7 +259,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     {
         var offers = cfg.Items
             .Where(i => i.Kind == GemstoneItemKind.Voucher && i.CurrencyItemId == cfg.GemstoneItemId && GatesMet(ranks, i)
-                        && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId) && Room(w, i) > 0)
+                        && !Unavailable(w, i.ItemId) && Open(w, i.TraderId) && Room(w, i) > 0 && Fits(w, i))
             .ToList();
         return offers.Where(i => i.ItemId == cfg.TuraliVoucherItemId)
                    .OrderBy(i => TraderZone(i.TraderId) == w.TerritoryId ? 0 : 1)
@@ -253,7 +277,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         {
             var stock = cfg.Items
                 .Where(i => i.TraderId == trader.NpcId && i.Kind == GemstoneItemKind.Material && i.CurrencyItemId == cfg.GemstoneItemId
-                            && GatesMet(ranks, i) && !Unavailable(w, i.ItemId) && !TraderFailed(w, i.TraderId) && Room(w, i) > 0)
+                            && GatesMet(ranks, i) && !Unavailable(w, i.ItemId) && Open(w, i.TraderId) && Room(w, i) > 0 && Fits(w, i))
                 .ToList();
             if (stock.Count == 0) continue;
             return stock.Where(i => Room(w, i) >= spendable / i.Cost).OrderByDescending(i => w.CountOf(i.ItemId)).FirstOrDefault()
@@ -275,12 +299,19 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
 
     private int Room(WorldSnapshot w, GemstoneItem i) => cfg.HoldCap - w.CountOf(i.ItemId);
 
+    // S18: empty bag slots; unknown counts as room
+    private static int FreeSlots(WorldSnapshot w) => w.FreeBagSlots ?? int.MaxValue;
+
+    // S18: a stack already held takes more without a slot; a new one needs a slot
+    private static bool Fits(WorldSnapshot w, GemstoneItem i) => w.CountOf(i.ItemId) > 0 || FreeSlots(w) > 0;
+
     // S9: in the mount stage the vouchers buy the mount, whatever the gemstones; one already in the
     // bags is left to learning
     private GemstoneTrip? PlanMount(WorldSnapshot w, GemstoneStage stage)
     {
         if (stage != GemstoneStage.Mount || MountItem() is not { } mount) return null;
         if (w.CountOf(mount.CurrencyItemId) < mount.Cost || _seenInBags.Contains(mount.ItemId)) return null;
+        if (Waiting(w, mount.TraderId) || FreeSlots(w) == 0) return null; // S12, S18
         return new GemstoneTrip(mount.TraderId, [new GemstonePurchase(mount.ItemId, 1)]);
     }
 
@@ -299,21 +330,35 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private string? Note(WorldSnapshot w, SharedFateRanks? ranks, int gems, GemstoneTrip? trip)
     {
         var notes = new List<string>();
-        var quests = Names(cfg.Items.Where(i => i.RequiredQuestId != 0 && !QuestDone(w, i) && !Learned(w, i.ItemId)));
+        var quests = Names(cfg.Items.Where(i => i.RequiredQuestId != 0 && !QuestDone(w, i) && !Learned(i.ItemId)));
         if (quests.Count > 0) notes.Add("needs a quest: " + string.Join(", ", quests));
-        var unlisted = Names(cfg.Items.Where(i => Unavailable(w, i.ItemId)));
-        if (unlisted.Count > 0) notes.Add("not listed by its trader: " + string.Join(", ", unlisted));
+        var unsold = Names(cfg.Items.Where(i => Unavailable(w, i.ItemId) && !Learned(i.ItemId)));
+        if (unsold.Count > 0) notes.Add("its trader would not sell: " + string.Join(", ", unsold));
         var locked = cfg.Traders.Where(t => cfg.LockedTraders.Contains(t.NpcId)).Select(t => t.Name).ToList();
         if (locked.Count > 0) notes.Add("locked for this character: " + string.Join(", ", locked));
         var failed = cfg.Traders.Where(t => !cfg.LockedTraders.Contains(t.NpcId) && TraderFailed(w, t.NpcId)).Select(t => t.Name).ToList();
         if (failed.Count > 0) notes.Add("trip failed, skipped this session: " + string.Join(", ", failed));
+        var waiting = cfg.Traders.Where(t => Waiting(w, t.NpcId)).Select(t => t.Name).ToList();
+        if (waiting.Count > 0) notes.Add("trip failed, trying again later: " + string.Join(", ", waiting));
         var unlearnable = Names(cfg.Items.Where(i => _learnGivenUp.Contains(i.ItemId)));
         if (unlearnable.Count > 0) notes.Add("could not learn: " + string.Join(", ", unlearnable));
         if (!cfg.Shopping && gems >= cfg.SpendAt) notes.Add($"shopping is off; gemstones {gems}/{cfg.GemstoneCap}");
-        else if (cfg.Shopping && ranks is not null && gems >= cfg.SpendAt && trip is null)
-            notes.Add(SavingFor(w, ranks) is { } target ? $"saving for {target.Name} ({target.Cost})" : "nothing to spend the gemstones on");
+        else if (cfg.Shopping && !w.ShoppingReady)
+            notes.Add("the exchange window does not match what this version knows; shopping is off for this session");
+        else if (cfg.Shopping && ranks is not null && gems >= cfg.SpendAt && trip is null && waiting.Count == 0)
+            notes.Add(FreeSlots(w) == 0 ? "the bags are full, so nothing new can be bought"
+                : SavingFor(w, ranks) is { } target ? $"saving for {target.Name} ({target.Cost})"
+                : "nothing to spend the gemstones on");
         return notes.Count == 0 ? null : string.Join("; ", notes);
     }
+
+    // S13: why the cap ends the run
+    private string CappedSummary(WorldSnapshot w, int gems)
+        => !w.ShoppingReady
+            ? $"gemstones at {gems}/{cfg.GemstoneCap}, and the exchange window does not match what this version knows, so nothing can be bought"
+            : FreeSlots(w) == 0
+                ? $"gemstones at {gems}/{cfg.GemstoneCap} and the bags are full, so nothing new can be bought"
+                : $"gemstones at {gems}/{cfg.GemstoneCap} with nothing left to buy or exchange them for";
 
     private static List<string> Names(IEnumerable<GemstoneItem> items) => items.Select(i => i.Name).Distinct().ToList();
 
@@ -327,7 +372,7 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
     private GemstoneItem? MountItem()
         => cfg.Items.FirstOrDefault(i => i.Kind == GemstoneItemKind.Mount && i.ItemId == cfg.MountItemId);
 
-    private static bool Learned(WorldSnapshot w, uint itemId) => w.LearnedItems?.Contains(itemId) ?? false;
+    private bool Learned(uint itemId) => _learned.Contains(itemId);
 
     // Unknown quest state counts as done: the trader's window is the authority (S11)
     private static bool QuestDone(WorldSnapshot w, GemstoneItem i)
@@ -335,7 +380,20 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
 
     private static bool Unavailable(WorldSnapshot w, uint itemId) => w.UnavailableItems?.Contains(itemId) ?? false;
 
-    // S12: a trip that failed this session, or a shop found locked in an earlier one
+    private static int Failures(WorldSnapshot w, uint traderId)
+        => w.TripFailures is { } failures && failures.TryGetValue(traderId, out var n) ? n : 0;
+
+    // S12: out for the session: no trip can work there, its trips failed too many times in a row, or
+    // its shop was found locked in an earlier session
     private bool TraderFailed(WorldSnapshot w, uint traderId)
-        => (w.FailedTraders?.Contains(traderId) ?? false) || cfg.LockedTraders.Contains(traderId);
+        => (w.FailedTraders?.Contains(traderId) ?? false) || cfg.LockedTraders.Contains(traderId)
+           || Failures(w, traderId) >= cfg.TripFailuresToSkip;
+
+    // S12: set aside after a failed trip, until it is tried again
+    private bool Waiting(WorldSnapshot w, uint traderId)
+        => !TraderFailed(w, traderId) && Failures(w, traderId) > 0
+           && _tripAgainAtEpoch.TryGetValue(traderId, out var at) && w.NowEpoch < at;
+
+    // S8/S12: a trip there can be planned now
+    private bool Open(WorldSnapshot w, uint traderId) => !TraderFailed(w, traderId) && !Waiting(w, traderId);
 }

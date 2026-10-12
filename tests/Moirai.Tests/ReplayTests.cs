@@ -167,7 +167,8 @@ public class ReplayTests
         var settings = Defaults() with { Gemstones = GemstoneSettings() };
         var world = TestData.World(sharedFate: new SharedFateRanks([new ZoneRank(1187, 3, 12, 40)], 2, 1),
             learnedItems: new HashSet<uint> { 43607 }, questsDone: new HashSet<uint> { 70478 },
-            failedTraders: new HashSet<uint> { 1048628 }, unavailableItems: new HashSet<uint> { 44310 });
+            failedTraders: new HashSet<uint> { 1048628 }, unavailableItems: new HashSet<uint> { 44310 },
+            tripFailures: new Dictionary<uint, int> { [1048778] = 2 }, freeBagSlots: 3, shoppingReady: false);
         var recording = new Recording("0.5.0", settings, [new Frame(world, true, [], [], "idle", "NoAction")]);
 
         var back = RecordingFile.FromJson(RecordingFile.ToJson(recording));
@@ -176,6 +177,9 @@ public class ReplayTests
         Assert.Equal(GemstoneCatalog.Items.Count, back.Settings.Gemstones.Items.Count);
         Assert.Equal(new ZoneRank(1187, 3, 12, 40), back.Frames[0].World.SharedFate!.Zones[0]);
         Assert.Contains(44310u, back.Frames[0].World.UnavailableItems!);
+        Assert.Equal(2, back.Frames[0].World.TripFailures![1048778]);
+        Assert.Equal(3, back.Frames[0].World.FreeBagSlots);
+        Assert.False(back.Frames[0].World.ShoppingReady);
         Assert.IsType<GemstoneModule>(DirectorFactory.CreateModule(back.Settings));
     }
 

@@ -44,12 +44,13 @@ public static class TestData
         bool dodgeReady = false, bool danger = false, IReadOnlySet<uint>? ownedMinions = null,
         bool autoBuyReady = true, bool repairReady = true, bool dutyPopped = false,
         SharedFateRanks? sharedFate = null, IReadOnlySet<uint>? learnedItems = null, IReadOnlySet<uint>? questsDone = null,
-        IReadOnlySet<uint>? failedTraders = null, IReadOnlySet<uint>? unavailableItems = null)
+        IReadOnlySet<uint>? failedTraders = null, IReadOnlySet<uint>? unavailableItems = null,
+        IReadOnlyDictionary<uint, int>? tripFailures = null, int? freeBagSlots = null, bool shoppingReady = true)
         => new(now, nowMs, territory, player ?? Player(), fates ?? [], aetherytes ?? [],
                enemies ?? [], interactables ?? [],
                items ?? new Dictionary<uint, int>(), navmeshReady,
                dialog, combatReady, textAdvanceReady, dodgeReady, danger, ownedMinions, autoBuyReady, repairReady, dutyPopped,
-               sharedFate, learnedItems, questsDone, failedTraders, unavailableItems);
+               sharedFate, learnedItems, questsDone, failedTraders, unavailableItems, tripFailures, freeBagSlots, shoppingReady);
 
     public static EnemySnapshot Enemy(
         ulong id = 1000, float x = 100, float y = 0, float z = 100, float hitbox = 2f,

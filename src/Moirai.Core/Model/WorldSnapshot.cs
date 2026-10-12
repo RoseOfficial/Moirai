@@ -23,8 +23,11 @@ public sealed record WorldSnapshot(
     SharedFateRanks? SharedFate = null,      // S4: the Shared FATE reader's results; null until a read is tried
     IReadOnlySet<uint>? LearnedItems = null, // S7/S14: catalog items this character has learned; null when unknown
     IReadOnlySet<uint>? QuestsDone = null,   // S10: the catalog's gate quests that are complete; null when unknown
-    IReadOnlySet<uint>? FailedTraders = null,   // S12: traders whose trip failed this session
-    IReadOnlySet<uint>? UnavailableItems = null) // S11: items a trader's window did not list this session
+    IReadOnlySet<uint>? FailedTraders = null,   // S12: traders no trip can work at this session
+    IReadOnlySet<uint>? UnavailableItems = null, // S11: items a trader would not sell this session
+    IReadOnlyDictionary<uint, int>? TripFailures = null, // S12: failed trips in a row, by trader; a trip that works clears its trader
+    int? FreeBagSlots = null,                    // S18: empty slots in the bags; null when unknown
+    bool ShoppingReady = true)                   // S17: the exchange window has matched its layout this session
 {
     public int CountOf(uint itemId) => ItemCounts.TryGetValue(itemId, out var n) ? n : 0;
 

@@ -41,6 +41,8 @@ public sealed class GemstoneConfig
     public int ReadFailuresToStop { get; init; } = 3;                 // S5
     public int LearnGraceSeconds { get; init; } = 10;                 // S14
     public IReadOnlySet<uint> LockedTraders { get; init; } = new HashSet<uint>(); // S12: shops found locked in an earlier session
+    public int TripRetrySeconds { get; init; } = 600;                 // S12: a trader whose trip failed is tried again after this
+    public int TripFailuresToSkip { get; init; } = 3;                 // S12: in a row, they skip the trader for the session
     public int QuietSeconds { get; init; } = 120;                     // G2
     public int MoveTimeoutSeconds { get; init; } = 60;                // G4
 }

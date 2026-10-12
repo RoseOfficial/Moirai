@@ -122,7 +122,10 @@ public sealed class SnapshotBuilder(
             LearnedItems: Learned(),            // S7/S14
             QuestsDone: QuestsDone(),           // S10
             FailedTraders: shopper.FailedTraders.ToHashSet(),       // S12: copied, so a recorded frame keeps its value
-            UnavailableItems: shopper.UnavailableItems.ToHashSet()); // S11
+            UnavailableItems: shopper.UnavailableItems.ToHashSet(), // S11
+            TripFailures: new Dictionary<uint, int>(shopper.TripFailures), // S12
+            FreeBagSlots: GameEx.EmptyBagSlots(),                   // S18
+            ShoppingReady: shopper.ShoppingReady);                  // S17
     }
 
     // §7.5: the worn gear, rechecked once a second; it wears down over minutes, not ticks
