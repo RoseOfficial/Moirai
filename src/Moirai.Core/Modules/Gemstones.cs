@@ -26,6 +26,7 @@ public sealed class GemstoneConfig
     public IReadOnlyList<GemstoneTrader> Traders { get; init; } = []; // catalog order breaks ties (S7)
     public IReadOnlyList<GemstoneItem> Items { get; init; } = [];     // per trader, its riding map first (S7)
     public int MaxRank { get; init; } = 4;
+    public int RankingZonesAtOnce { get; init; } = 2;                 // S2: ranking keeps to the zones nearest the top rank
     public uint GemstoneItemId { get; init; }
     public int GemstoneCap { get; init; } = 1500;
     public int SpendAt { get; init; } = 1400;                         // S6
@@ -34,6 +35,7 @@ public sealed class GemstoneConfig
     public uint MountItemId { get; init; }
     public uint TuraliVoucherItemId { get; init; }                    // S8: preferred once the city traders sell it
     public int VoucherKeepBeforeMount { get; init; } = 500;           // S8
+    public int RankingExchangeStep { get; init; } = 300;              // S8: the most one exchange takes while a zone is below the top rank
     public int HoldCap { get; init; } = 999;                          // a voucher or material stack's limit
     public int MaxPerPurchase { get; init; } = 99;                    // S8: the most one exchange takes
     public int ReadEveryCompletions { get; init; } = 10;              // S4

@@ -169,13 +169,12 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         => !Learned(i.ItemId) && QuestDone(w, i) && !Unavailable(w, i.ItemId)
            && !TraderFailed(w, i.TraderId) && !_learnGivenUp.Contains(i.ItemId);
 
-    // S2/S3: while ranking, the zones below the top rank in turn; after that, all of them
+    // S2/S3: while ranking, the zones nearest the top rank in turn; after that, all of them. The
+    // same zones in another order are the same rotation: only a change of zones starts it over.
     private ModuleDirective Rotate(WorldSnapshot w, ModuleContext ctx, SharedFateRanks ranks, GemstoneStage stage)
     {
-        IReadOnlyList<ushort> zones = stage == GemstoneStage.Ranking
-            ? cfg.Zones.Where(z => RankOf(ranks, z) < cfg.MaxRank).ToList()
-            : cfg.Zones;
-        if (_rotation is null || !zones.SequenceEqual(_rotationZones))
+        IReadOnlyList<ushort> zones = stage == GemstoneStage.Ranking ? RankingZones(ranks) : cfg.Zones;
+        if (_rotation is null || zones.Count != _rotationZones.Count || zones.Except(_rotationZones).Any())
         {
             _rotation = new ZoneRotationModule(new RotationConfig
             {
@@ -187,6 +186,17 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         }
         return _rotation.Next(w, ctx);
     }
+
+    // S2, field report: with every zone below the top rank in the rotation, a night's FATEs spread
+    // over all six, none reached rank 4, and the gemstones capped with only riding maps to buy. So
+    // the rotation keeps to the few nearest the top rank (by rank, then by progress toward the next;
+    // a zone the read did not list last), and a trader's rank-4 stock opens early.
+    private List<ushort> RankingZones(SharedFateRanks ranks)
+        => cfg.Zones.Where(z => RankOf(ranks, z) < cfg.MaxRank)
+            .OrderByDescending(z => RankOf(ranks, z))
+            .ThenByDescending(z => ranks.Of(z)?.Progress ?? 0)
+            .Take(cfg.RankingZonesAtOnce)
+            .ToList();
 
     // S7: wanted, not in the bags this session, and the trader lists it at the ranks read
     private bool Buyable(WorldSnapshot w, SharedFateRanks ranks, GemstoneItem i)
@@ -248,6 +258,9 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
         var keep = stage is GemstoneStage.Mount or GemstoneStage.FarmingOn ? 0
             : Math.Max(cfg.VoucherKeepBeforeMount, SavingFor(w, ranks)?.Cost ?? 0);
         var spendable = gems - keep;
+        // S8: while ranking, the next rank 4 opens a trader's whole stock, so only the top of the pile
+        // goes, a step at a time; the rest is there for the stock when it opens
+        if (stage == GemstoneStage.Ranking) spendable = Math.Min(spendable, cfg.RankingExchangeStep);
         return VoucherOffer(w, ranks) is { } voucher ? Batch(w, voucher, spendable)
             : MaterialOffer(w, ranks, spendable) is { } material ? Batch(w, material, spendable)
             : null;

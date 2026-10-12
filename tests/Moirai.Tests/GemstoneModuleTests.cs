@@ -6,7 +6,7 @@ namespace Moirai.Tests;
 
 public class GemstoneModuleTests
 {
-    private const ushort U = 1187, K = 1188, City = 1185, OtherCity = 1186;
+    private const ushort U = 1187, K = 1188, Y = 1189, S = 1190, City = 1185, OtherCity = 1186;
     private const uint Gems = 26807, EwVoucher = 35833, TuraliVoucher = 43961, Whistle = 43590;
     private const uint Tepli = 1, Kunuhali = 2, KajeelJa = 3, Beryl = 4, Gadfrid = 5, Edelina = 6;
     private const uint MapU = 43607, RollU = 44312, MinionU = 43571, MapK = 43608, RollK = 44313, CardK = 43873, RollCity = 44310;
@@ -170,6 +170,90 @@ public class GemstoneModuleTests
         Assert.Equal(GemstoneStage.Ranking, m.Status!.Stage);
     }
 
+    // Four zones for the ranking rotation; the traders and their stock are the two-zone ones
+    private static GemstoneConfig RankingCfg() => new()
+    {
+        Enabled = true,
+        Zones = [U, K, Y, S],
+        Traders = Cfg().Traders,
+        Items = Cfg().Items,
+        GemstoneItemId = Gems,
+        MountItemId = Whistle,
+        TuraliVoucherItemId = TuraliVoucher,
+    };
+
+    private static SharedFateRanks RanksOf(int reads, params ZoneRank[] zones) => new(zones, reads, 0);
+
+    [Fact] // S2, field report: ranking keeps to the two zones nearest the top rank; quiet in one goes to the other and back, not on around the map
+    public void S2_ranking_keeps_to_the_two_zones_nearest_the_top_rank()
+    {
+        var m = new GemstoneModule(RankingCfg());
+        var ranks = RanksOf(1, new(U, 3, 21, 40), new(K, 2, 16, 20), new(Y, 2, 5, 20), new(S, 1, 0, 6));
+        Assert.IsType<FarmHere>(m.Next(W(territory: U, ranks: ranks), Between()));
+        Assert.Equal(K, Assert.IsType<MoveToTerritory>(m.Next(W(territory: U, ranks: ranks), Between(idle: 120))).TerritoryId);
+        Assert.IsType<FarmHere>(m.Next(W(territory: K, ranks: ranks), Between()));
+        Assert.Equal(U, Assert.IsType<MoveToTerritory>(m.Next(W(territory: K, ranks: ranks), Between(idle: 120))).TerritoryId);
+    }
+
+    [Fact] // S2: started in the second of the two, the run farms there rather than teleport to the first
+    public void S2_ranking_farms_the_second_of_the_two_zones_when_started_there()
+    {
+        var ranks = RanksOf(1, new(U, 3, 21, 40), new(K, 2, 16, 20), new(Y, 2, 5, 20), new(S, 1, 0, 6));
+        Assert.IsType<FarmHere>(new GemstoneModule(RankingCfg()).Next(W(territory: K, ranks: ranks), Between()));
+    }
+
+    [Fact] // S2: started in a zone that is not one of the two, the run goes to the one nearest the top rank, wherever it is on the map
+    public void S2_ranking_goes_to_the_zone_nearest_the_top_rank_from_elsewhere()
+    {
+        var ranks = RanksOf(1, new(U, 2, 3, 20), new(K, 3, 21, 40), new(Y, 2, 16, 20), new(S, 1, 0, 6));
+        var step = new GemstoneModule(RankingCfg()).Next(W(territory: S, ranks: ranks), Between());
+        Assert.Equal(K, Assert.IsType<MoveToTerritory>(step).TerritoryId);
+    }
+
+    [Fact] // S2: when one of the two reaches the top rank, the next nearest takes its place
+    public void S2_the_next_nearest_zone_takes_the_place_of_one_that_reached_the_top()
+    {
+        var m = new GemstoneModule(RankingCfg());
+        m.Next(W(territory: U, ranks: RanksOf(1, new(U, 3, 39, 40), new(K, 2, 16, 20), new(Y, 2, 5, 20), new(S, 1, 0, 6))), Between());
+        var topped = RanksOf(2, new(U, 4, 0, 0), new(K, 2, 16, 20), new(Y, 2, 5, 20), new(S, 1, 0, 6));
+        Assert.Equal(K, Assert.IsType<MoveToTerritory>(m.Next(W(territory: U, ranks: topped), Between())).TerritoryId);
+        Assert.Equal(Y, Assert.IsType<MoveToTerritory>(m.Next(W(territory: K, ranks: topped), Between(idle: 120))).TerritoryId);
+        Assert.Equal(K, Assert.IsType<MoveToTerritory>(m.Next(W(territory: Y, ranks: topped), Between(idle: 120))).TerritoryId);
+    }
+
+    [Fact] // S2: a zone the read did not list comes after the listed ones
+    public void S2_a_zone_the_read_did_not_list_ranks_last()
+    {
+        var ranks = RanksOf(1, new(U, 2, 3, 20), new(Y, 1, 2, 6)); // Kozama'uka and Shaaloani are not in the read
+        var step = new GemstoneModule(RankingCfg()).Next(W(territory: U, ranks: ranks), Between(idle: 120));
+        Assert.Equal(Y, Assert.IsType<MoveToTerritory>(step).TerritoryId);
+    }
+
+    [Fact] // S2/S8 on the real catalog, the field report's state: ranks 3/2/2/2/1/1, 1,410 gemstones, four riding maps learned, Gadfrid locked
+    public void S2_S8_the_field_reports_state_exchanges_one_step_and_ranks_two_zones()
+    {
+        var m = new GemstoneModule(new GemstoneConfig
+        {
+            Enabled = true, Zones = GemstoneCatalog.Zones, Traders = GemstoneCatalog.Traders, Items = GemstoneCatalog.Items,
+            GemstoneItemId = GemstoneCatalog.Gemstone, MountItemId = GemstoneCatalog.TyaityaWhistle,
+            TuraliVoucherItemId = GemstoneCatalog.TuraliVoucher, LockedTraders = new HashSet<uint> { GemstoneCatalog.Gadfrid },
+        });
+        var ranks = RanksOf(1, new(1187, 3, 21, 40), new(1188, 2, 16, 20), new(1189, 2, 5, 20),
+            new(1190, 2, 3, 20), new(1191, 1, 5, 6), new(1192, 1, 3, 6));
+        uint[] maps = [43607, 43608, 43609, 43610];
+
+        // nothing to buy at 1,410: one step of materials from the trader here, the rest kept for the stock rank 4 opens
+        var trip = Trip(m.Next(W(territory: 1190, ranks: ranks, learned: maps, gems: 1410), Between()));
+        Assert.Equal(GemstoneCatalog.Mitepe, trip.TraderId);
+        Assert.Equal(100, trip.Purchases.Sum(p => p.Quantity));
+
+        // then to Urqopacha, 19 FATEs from rank 4, with Kozama'uka as the other zone
+        var first = m.Next(W(territory: 1190, ranks: ranks, learned: maps, gems: 1110), Between());
+        Assert.Equal(1187, Assert.IsType<MoveToTerritory>(first).TerritoryId);
+        var second = m.Next(W(territory: 1187, ranks: ranks, learned: maps, gems: 1110), Between(idle: 120));
+        Assert.Equal(1188, Assert.IsType<MoveToTerritory>(second).TerritoryId);
+    }
+
     [Fact] // S3: once every zone is at the top all of them are farmed in turn
     public void S3_after_ranking_all_zones_rotate()
     {
@@ -322,13 +406,16 @@ public class GemstoneModuleTests
         Assert.Equal(Kunuhali, Assert.IsType<GoShopping>(after).Trip.TraderId);
     }
 
-    [Fact] // S8: nothing to buy while ranking: Endwalker vouchers from Gadfrid, keeping 500 gemstones
-    public void S8_before_all_zones_vouchers_come_from_gadfrid_keeping_500()
+    [Fact] // S8: nothing to buy while ranking: Endwalker vouchers from Gadfrid, and only the top of the pile, since the next rank 4 opens a trader's whole stock
+    public void S8_while_ranking_an_exchange_takes_only_the_top_of_the_pile()
     {
-        var trip = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(
-            W(ranks: Ranks(u: 3, k: 3), learned: [MapU, MapK], gems: 1400), Between())).Trip;
+        var ranking = Ranks(u: 3, k: 3);
+        var trip = Trip(new GemstoneModule(Cfg()).Next(W(ranks: ranking, learned: [MapU, MapK], gems: 1400), Between()));
         Assert.Equal(Gadfrid, trip.TraderId);
-        Assert.Equal(new GemstonePurchase(EwVoucher, 9), trip.Purchases.Single());
+        Assert.Equal(new GemstonePurchase(EwVoucher, 3), trip.Purchases.Single());
+        // at the cap it is still one step of 300, not everything above the 500 kept back
+        var capped = Trip(new GemstoneModule(Cfg()).Next(W(ranks: ranking, learned: [MapU, MapK], gems: 1500), Between()));
+        Assert.Equal(new GemstonePurchase(EwVoucher, 3), capped.Purchases.Single());
     }
 
     [Fact] // S8: from the mount stage on every full hundred becomes Turali vouchers
@@ -433,7 +520,7 @@ public class GemstoneModuleTests
         Assert.Equal(Tepli, trip.TraderId);
         Assert.All(trip.Purchases, p => Assert.Equal(MatU1, p.ItemId));
         Assert.All(trip.Purchases, p => Assert.InRange(p.Quantity, 1, 99));
-        Assert.Equal(300, trip.Purchases.Sum(p => p.Quantity)); // keeps 500 back, 3 gemstones each
+        Assert.Equal(100, trip.Purchases.Sum(p => p.Quantity)); // one step of 300 gemstones while ranking, 3 each
     }
 
     [Fact] // S8: materials fill the biggest stack held that the quantity fits in, else the one with the most room
@@ -445,8 +532,8 @@ public class GemstoneModuleTests
         Assert.All(fits.Purchases, p => Assert.Equal(MatU2, p.ItemId));
 
         var nearlyFull = Assert.IsType<GoShopping>(new GemstoneModule(Cfg()).Next(W(territory: U, ranks: ranking, learned: [MapU, MapK],
-            failed: [Gadfrid], items: new() { [MatU2] = 800 }, gems: 1400), Between())).Trip;
-        Assert.All(nearlyFull.Purchases, p => Assert.Equal(MatU1, p.ItemId)); // 199 of room does not take 300
+            failed: [Gadfrid], items: new() { [MatU2] = 950 }, gems: 1400), Between())).Trip;
+        Assert.All(nearlyFull.Purchases, p => Assert.Equal(MatU1, p.ItemId)); // 49 of room does not take 100
     }
 
     [Fact] // S12, field report: a trader found locked in an earlier session is never planned again, so the run goes straight to materials
@@ -670,9 +757,9 @@ public class GemstoneModuleTests
         Assert.Equal(new GemstonePurchase(EwVoucher, 14), vouchers.Purchases.Single());
 
         var materials = Trip(new GemstoneModule(Cfg()).Next(W(territory: U, ranks: Ranks(u: 3, k: 3), learned: [MapU, MapK],
-            failed: [Gadfrid], items: new() { [MatU2] = 800 }, freeBagSlots: 0, gems: 1400), Between()));
+            failed: [Gadfrid], items: new() { [MatU2] = 950 }, freeBagSlots: 0, gems: 1400), Between()));
         Assert.All(materials.Purchases, p => Assert.Equal(MatU2, p.ItemId));
-        Assert.Equal(199, materials.Purchases.Sum(p => p.Quantity)); // what the stack held still takes, not a new stack of 300
+        Assert.Equal(49, materials.Purchases.Sum(p => p.Quantity)); // what the stack held still takes, not a new stack of 100
     }
 
     [Fact] // S18: the whistle needs a slot too
