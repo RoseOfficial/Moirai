@@ -7,8 +7,8 @@ namespace Moirai.Execution;
 // S4/S5: reads the Dawntrail zones' Shared FATE ranks. The game keeps them only in the Shared FATE
 // window's agent and fills it when the window opens, so a read opens the window, gives the agent a
 // moment, copies the zones, and closes it again. One attempt either lands with the zones or counts
-// as a failure; the planner decides when to ask again. A zone the agent does not list (one the
-// character has not reached) reads as rank 0.
+// as a failure; the planner decides when to ask again. A zone whose rank never arrives (one the
+// character has not reached) is left out of the read, and the planner takes it as rank 0.
 public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShellTask
 {
     public const string Addon = "FateProgress";
@@ -116,22 +116,18 @@ public sealed unsafe class SharedFateReader(IReadOnlyList<ushort> zones) : IShel
             Svc.Chat.Print("[Moirai] The Shared FATE window could not be read; trying again in a minute.");
     }
 
-    // The listed zones the agent carries, or null while it carries none of them. A zone it does not
-    // carry is left out; the planner reads a missing zone as rank 0 (S2) without predicting a rank-up.
+    // The listed zones whose ranks have arrived (RankRead), or null while none has. A zone still to
+    // arrive is left out; the planner reads a missing zone as rank 0 (S2) without predicting a rank-up.
     private List<ZoneRank>? ReadAgent()
     {
         var agent = AgentFateProgress.Instance();
         if (agent == null) return null;
-        var found = new Dictionary<ushort, ZoneRank>();
+        var carried = new List<AgentZone>();
         foreach (ref var tab in agent->Tabs)
             foreach (ref var z in tab.Zones)
-            {
-                var territory = (ushort)z.TerritoryTypeId;
-                if (territory == 0 || !zones.Contains(territory)) continue;
-                found[territory] = new ZoneRank(territory, z.CurrentRank, z.FateProgress, FatesForNextRank(territory, z.CurrentRank));
-            }
-        if (found.Count == 0) return null;
-        return zones.Where(found.ContainsKey).Select(t => found[t]).ToList();
+                carried.Add(new AgentZone((ushort)z.TerritoryTypeId, z.CurrentRank, z.FateProgress));
+        var arrived = RankRead.Arrived(carried, zones, FatesForNextRank);
+        return arrived.Count == 0 ? null : arrived;
     }
 
     // FateProgressUI: the FATEs each rank-up takes in a zone, as increments (6, 20, 40 in Dawntrail);

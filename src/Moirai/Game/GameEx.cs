@@ -419,6 +419,23 @@ public static unsafe class GameEx
 
     public static bool IsQuestComplete(uint questId) => QuestManager.IsQuestComplete(questId);
 
+    // S9: where an item stands in a special shop's list, counting the entries that sell something, in
+    // the sheet's order; -1 when the shop does not sell it. Read from the game's data rather than
+    // written down, so a patch that puts an entry ahead of it moves the row with it.
+    public static int SpecialShopRow(uint shopId, uint itemId)
+    {
+        if (Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.SpecialShop>()?.GetRowOrDefault(shopId) is not { } shop) return -1;
+        var row = 0;
+        foreach (var entry in shop.Item)
+        {
+            var sold = entry.ReceiveItems[0].Item.RowId;
+            if (sold == 0) continue;
+            if (sold == itemId) return row;
+            row++;
+        }
+        return -1;
+    }
+
     // Free slots across the four bag pages, for a purchase that needs a new stack
     public static int EmptyBagSlots()
     {

@@ -72,8 +72,10 @@ public class GemstoneModuleTests
             tripFailures: tripFailures ?? [], freeBagSlots: freeBagSlots, shoppingReady: shoppingReady);
     }
 
-    private static ModuleContext Between(int completed = 0, long idle = 0) => new(idle, Settled: true, Completed: completed, BetweenFates: true);
+    private static ModuleContext Between(int completed = 0, long idle = 0) => new(idle, Settled: true, Completed: completed, BetweenFates: true, Selecting: true);
     private static ModuleContext InFate(int completed = 0) => new(0, Settled: false, Completed: completed, BetweenFates: false);
+    // no fate under way, but in the saddle: not a settled moment
+    private static ModuleContext Mounted(int completed = 0) => new(0, Settled: false, Completed: completed, BetweenFates: false, Selecting: true);
     private static GemstoneTrip Trip(ModuleDirective step) => Assert.IsType<GoShopping>(step).Trip;
 
     [Fact] // S1: nothing but the first read is asked for before one lands, gemstones over the threshold or not
@@ -318,6 +320,21 @@ public class GemstoneModuleTests
         Assert.IsNotType<ReadRanks>(m.Next(W(ranks: ranks), InFate(completed: 1)));
         Assert.IsType<ReadRanks>(m.Next(W(ranks: ranks), Between(completed: 1)));
     }
+
+    [Fact] // S4: a read is a window and no more, so it is asked for from the saddle too; started mounted where no FATE was up, the run used to wait for a dismount nothing asked for
+    public void S4_a_read_is_asked_for_from_the_saddle()
+    {
+        Assert.IsType<ReadRanks>(new GemstoneModule(Cfg()).Next(W(unread: true), Mounted()));
+
+        var m = new GemstoneModule(Cfg());
+        var ranks = Ranks(u: 3, k: 2, progressU: 39);
+        m.Next(W(ranks: ranks), Mounted(completed: 0));
+        Assert.IsType<ReadRanks>(m.Next(W(ranks: ranks), Mounted(completed: 1))); // the rank-up read as well
+    }
+
+    [Fact] // S6: a trip is a walk and a talk, and still waits for the dismount
+    public void S6_a_trip_is_not_asked_for_from_the_saddle()
+        => Assert.IsNotType<GoShopping>(new GemstoneModule(Cfg()).Next(W(gems: 1450), Mounted()));
 
     [Fact] // S5: a read that failed is asked for again only after the wait
     public void S5_a_failed_read_is_retried_after_a_minute()

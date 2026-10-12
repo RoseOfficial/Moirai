@@ -9,7 +9,7 @@ public enum MountChoice { FlyingRoulette, Roulette, Specific }
 
 public sealed class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 3;
+    public int Version { get; set; } = 4;
 
     // Session
     public int DeathCap { get; set; } = 3;
@@ -42,7 +42,7 @@ public sealed class Configuration : IPluginConfiguration
     public bool GemstoneShopping { get; set; } = true;      // S13: off means ranks only
     public bool GemstoneBuyWhistle { get; set; } = true;    // S9
     public int GemstoneEdelinaMenuIndex { get; set; } = 1;  // "Bicolor Gemstone Vouchers", after "Purchase Luxuries"
-    public int GemstoneEdelinaRow { get; set; } = 1;        // the whistle's row in her exchange, until a report pins it
+    public int GemstoneEdelinaRow { get; set; } = -1;       // the whistle's row in her exchange; -1 takes it from the game's shop data
     public HashSet<uint> GemstoneLockedTraders { get; set; } = []; // S12: shops that talked but never opened; cleared by hand
 
     // Selection gates and ranking (spec §4)
@@ -92,12 +92,19 @@ public sealed class Configuration : IPluginConfiguration
     // it, so every session grew them by a copy of the default. The ladder keeps its order without
     // the copies; the Nohi path goes back to its default, since the grown copy cannot be told from
     // a path that starts at entry 0, and no path had been pinned from a debug report yet.
+    // Until version 4 the whistle's row in Edelina's exchange was a written-down 1, which the game's
+    // own shop data puts on the Fallen Angel Wings; it now comes from that data, and no row had
+    // been pinned from a debug report yet, so the saved one is dropped.
     public bool Migrate()
     {
-        if (Version >= 3) return false;
-        Priority = NormalizedPriority();
-        YokaiNohiMenuPath = [0];
-        Version = 3;
+        if (Version >= 4) return false;
+        if (Version < 3)
+        {
+            Priority = NormalizedPriority();
+            YokaiNohiMenuPath = [0];
+        }
+        GemstoneEdelinaRow = -1;
+        Version = 4;
         return true;
     }
 

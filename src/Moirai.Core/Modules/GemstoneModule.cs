@@ -53,8 +53,10 @@ public sealed class GemstoneModule(GemstoneConfig cfg) : IFarmModule
 
         if (learn is not null) return learn; // S14
 
-        // S1/S4/S5: the first read before anything else, then the rank-ups the completions predict
-        if (ReadDue(landed) && ctx.BetweenFates && (_readAgainAtEpoch is not { } at || w.NowEpoch >= at))
+        // S1/S4/S5: the first read before anything else, then the rank-ups the completions predict.
+        // Asked for whenever no fate is under way, mounted or not: a run started from the saddle
+        // where no FATE was up waited here for a dismount that nothing asked for.
+        if (ReadDue(landed) && ctx.Selecting && (_readAgainAtEpoch is not { } at || w.NowEpoch >= at))
             return new ReadRanks();
         if (landed is null) return new FarmHere();
 

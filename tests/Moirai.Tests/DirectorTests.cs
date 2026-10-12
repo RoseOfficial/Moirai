@@ -1269,8 +1269,29 @@ public class DirectorTests
 
         Assert.True(spy.Seen[0].BetweenFates);
         Assert.False(spy.Seen[1].BetweenFates);
+        Assert.False(spy.Seen[1].Selecting);
         Assert.Equal(0, spy.Seen[3].Completed);
         Assert.Equal(1, spy.Seen[4].Completed);
         Assert.True(spy.Seen[4].BetweenFates);
+    }
+
+    [Fact] // S4: from the saddle with no fate under way the module hears that it is selecting, though not that it is settled
+    public void Module_hears_that_no_fate_is_under_way_from_the_saddle()
+    {
+        var spy = new RepeatModule(new FarmHere());
+        var d = Sut(module: spy);
+        d.Start();
+        d.Tick(TestData.World(player: TestData.Player(mounted: true)));
+        Assert.True(spy.Seen[0].Selecting);
+        Assert.False(spy.Seen[0].BetweenFates);
+    }
+
+    [Fact] // S4: a gemstone run started from the saddle where no FATE is up reads the ranks at once instead of idling
+    public void S4_the_first_rank_read_is_taken_from_the_saddle()
+    {
+        var d = Sut(module: new GemstoneModule(new GemstoneConfig { Enabled = true, Zones = [1187, 1188] }));
+        d.Start();
+        var step = d.Tick(TestData.World(territory: 132, player: TestData.Player(mounted: true)));
+        Assert.IsType<ReadSharedFate>(step.Intent);
     }
 }

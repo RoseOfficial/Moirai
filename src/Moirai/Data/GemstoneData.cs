@@ -12,6 +12,10 @@ public sealed record TraderPlace(uint AetheryteId, Vector3 Position, bool Height
 
 public static class GemstoneData
 {
+    // Edelina's "Bicolor Gemstone Vouchers" exchange (SpecialShop): the Wivre Horn, the Fallen Angel
+    // Wings and the Ty'aitya Whistle, in that order as of 7.x. The whistle's row is read from it.
+    public const uint EdelinaVoucherShop = 1770501;
+
     public static IReadOnlyDictionary<uint, TraderPlace> Places { get; } = new Dictionary<uint, TraderPlace>
     {
         [GemstoneCatalog.Tepli] = new(200, new(301.50f, -172.28f, -484.55f)),       // Wachunpelo, ~74 y

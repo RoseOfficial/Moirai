@@ -382,8 +382,8 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
     }
 
     // The row that buys the purchase, or null (waiting, skipped, or failed): by item id in the
-    // currency exchange; in Edelina's item exchange, whose layout is not pinned, the row from the
-    // settings, and only while a wrong row could not buy one of her other items instead
+    // currency exchange; in Edelina's item exchange, whose window layout is not pinned, the item's
+    // place in her shop's list, and only while a wrong row could not buy one of her other items instead
     private int? RowFor(string shop, GemstoneTrip trip, GemstonePurchase purchase)
     {
         if (shop == ItemShop)
@@ -398,7 +398,17 @@ public sealed class GemstoneShopper(NavmeshIpc navmesh, Configuration cfg) : ISh
                 FailForSession("500 or more Endwalker vouchers are held, so a wrong row could buy the Wivre Horn; buy the whistle by hand, or pin the row with /moirai debug");
                 return null;
             }
-            return cfg.GemstoneEdelinaRow;
+            // S9: the whistle's place in her list comes from the game's own shop data (the third
+            // entry as of 7.x); a row set in the settings stands in for it
+            var listed = cfg.GemstoneEdelinaRow >= 0
+                ? cfg.GemstoneEdelinaRow
+                : GameEx.SpecialShopRow(GemstoneData.EdelinaVoucherShop, purchase.ItemId);
+            if (listed < 0)
+            {
+                FailForSession("the game's data does not list the whistle in her exchange; set its row on the Gemstones tab");
+                return null;
+            }
+            return listed;
         }
 
         var cost = GemstoneCatalog.Items.FirstOrDefault(i => i.TraderId == trip.TraderId && i.ItemId == purchase.ItemId)?.Cost ?? -1;

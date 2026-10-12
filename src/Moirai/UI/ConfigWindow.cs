@@ -256,8 +256,8 @@ public sealed class ConfigWindow : Window
         if (ImGui.InputInt("Edelina menu entry", ref menu)) { c.GemstoneEdelinaMenuIndex = Math.Max(0, menu); dirty = true; }
         var row = c.GemstoneEdelinaRow;
         ImGui.SetNextItemWidth(160);
-        if (ImGui.InputInt("Whistle row in her exchange", ref row)) { c.GemstoneEdelinaRow = Math.Max(0, row); dirty = true; }
-        Hint("Leave these unless a trip to Edelina fails: /moirai debug with her menu or exchange open lists the entries.");
+        if (ImGui.InputInt("Whistle row in her exchange", ref row)) { c.GemstoneEdelinaRow = Math.Max(-1, row); dirty = true; }
+        Hint("Leave these unless a trip to Edelina fails: -1 takes the whistle's row from the game's own shop data, and /moirai debug with her menu or exchange open lists the entries.");
 
         uint? retry = null;
         foreach (var id in c.GemstoneLockedTraders)

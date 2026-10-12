@@ -232,9 +232,11 @@ public sealed class Director(
         var idleSeconds = _idleSinceEpoch is { } idleSince ? w.NowEpoch - idleSince : 0;
         // a settled moment for a summon or an equip: the same rule as the companion (F4/F9)
         var settled = Phase != RunPhase.Traveling && !w.Player.IsMounted && !w.Player.InCombat && !w.Player.IsCasting;
-        // S6/S15: no fate under way, for a trip or a read
+        // S6/S15: no fate under way, for a trip
         var betweenFates = Phase == RunPhase.SelectingFate && settled;
-        switch (module.Next(w, new ModuleContext(idleSeconds, settled, Ledger.Completed, betweenFates)))
+        // S4: no fate under way, in the saddle or out of it, for a rank read, which is a window and no more
+        var selecting = Phase == RunPhase.SelectingFate && !w.Player.InCombat && !w.Player.IsCasting;
+        switch (module.Next(w, new ModuleContext(idleSeconds, settled, Ledger.Completed, betweenFates, selecting)))
         {
             case EnsureWatch:
                 return new(new EquipWatch(), "equipping the Yo-kai Watch"); // E1

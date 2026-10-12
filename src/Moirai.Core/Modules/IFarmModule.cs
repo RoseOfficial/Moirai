@@ -17,9 +17,11 @@ public sealed record EnsureLearned(uint ItemId) : ModuleDirective;    // S14: le
 // What the Director tells the module each tick besides the snapshot: how long selection has
 // come up empty in this zone (G6), which is the module's cue to move on, whether this is a
 // settled moment (not mid-leg, mounted, in combat, or casting) for a summon or an equip, the
-// FATEs the session has completed (S4 puts each down to its zone), and whether no fate is under
-// way (S6/S15: a trip or a read is taken only then)
-public sealed record ModuleContext(long IdleSeconds, bool Settled = false, int Completed = 0, bool BetweenFates = false);
+// FATEs the session has completed (S4 puts each down to its zone), whether no fate is under
+// way in a settled moment (S6/S15: a trip is taken only then), and whether none is under way at
+// all, in the saddle or out of it (S4: a rank read is a window and needs no dismount)
+public sealed record ModuleContext(
+    long IdleSeconds, bool Settled = false, int Completed = 0, bool BetweenFates = false, bool Selecting = false);
 
 public interface IFarmModule
 {

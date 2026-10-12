@@ -42,6 +42,7 @@ public static class DebugReport
         foreach (var line in Execution.SharedFateReader.AgentLines())
             sb.AppendLine($"  agent {line}");
         sb.AppendLine($"shopper: {plugin.Shopper.DebugState} status='{plugin.Shopper.Status}' locked=[{string.Join(",", plugin.Config.GemstoneLockedTraders)}] freeBagSlots={GameEx.EmptyBagSlots()}");
+        sb.AppendLine($"edelina: menuEntry={plugin.Config.GemstoneEdelinaMenuIndex} whistleRow setting={plugin.Config.GemstoneEdelinaRow} shopData={GameEx.SpecialShopRow(GemstoneData.EdelinaVoucherShop, GemstoneCatalog.TyaityaWhistle)}");
         foreach (var line in plugin.Shopper.FailureValues.Take(2000))
             sb.AppendLine($"  exchange window at the last failed purchase {line}");
         // y learned, n not, ? when the unlock state has no answer for what the item teaches
@@ -60,7 +61,8 @@ public static class DebugReport
             var values = GameEx.AddonValues(name);
             if (values.Count == 0) continue;
             sb.AppendLine($"window {name} values:");
-            foreach (var line in values.Take(name == Execution.GemstoneShopper.CurrencyShop ? 2000 : 200))
+            // both exchange windows keep their rows far down the list, and a report is how a layout is pinned
+            foreach (var line in values.Take(Execution.GemstoneShopper.ShopAddons.Contains(name) ? 2000 : 200))
                 sb.AppendLine($"  {line}");
         }
 
